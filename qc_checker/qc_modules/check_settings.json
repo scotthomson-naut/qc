@@ -1,0 +1,19 @@
+{
+    "animation": [
+        "broken_texture_links",
+        "poly_count_budget"
+    ],
+    "modeling": [
+        "freeze_transforms",
+        "applied_rotation_scale",
+        "ngon_detection",
+        "non_manifold_geo",
+        "poly_count_budget"
+    ],
+    "rigging": [
+        "freeze_transforms",
+        "applied_rotation_scale",
+        "animated_objects",
+        "bone_naming"
+    ]
+}
