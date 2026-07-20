@@ -936,8 +936,8 @@ class SCRIPTRONAUT_UL_QC_Checks(UIList):
             icon_name = "CHECKMARK"
             status_text = "Pass"
         elif item.status == "FAIL":
-            icon_name = "ERROR"
-            #icon_name = "CANCEL"
+            icon_name = "CANCEL"
+            #icon_name = "ERROR"
             status_text = "Fail"
             row.alert = True
         elif item.status == "RUNNING":
