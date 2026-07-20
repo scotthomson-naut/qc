@@ -34,7 +34,7 @@ QC_MODULES_DIR = os.path.join(ADDON_DIR, "qc_modules")
 COMMON_CATEGORY = "common"
 CHECK_SETTINGS_FILE = "check_settings.json"
 
-# Tier Level
+# Tier Levels
 TIER = "Pro"
 
 # -------------------------------------------------------------------------
