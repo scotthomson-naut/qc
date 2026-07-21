@@ -859,13 +859,10 @@ class SCRIPTRONAUT_QC_Settings(PropertyGroup):
     Includes the QC modules folder, selected category,
     active check index, and displayed issue text.
     """
-    default_path = QC_MODULES_DIR
-
     folder_path: StringProperty(
         name="QC Folder",
         subtype="DIR_PATH",
-        default=default_path,
-        update=update_qc_folder_path,
+        default=QC_MODULES_DIR,
     )
 
     use_check_settings: BoolProperty(
@@ -1530,8 +1527,6 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
         scene = context.scene
         settings = scene.scriptronaut_qc_settings
         checks = scene.scriptronaut_qc_checks
-
-        layout.prop(settings, "folder_path")
 
         # Tier level items
         if TIER in ["Pro", "Studio"]:
