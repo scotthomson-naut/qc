@@ -12,8 +12,7 @@ import bpy
 
 def main():
     """
-    Checks that every animated channel has a key at the start
-    and end of the timeline.
+    Checks for issue
     """
     failed_objects = get_objects_with_trailing_spaces()
     issues = []
