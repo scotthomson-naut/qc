@@ -8,6 +8,9 @@ import bpy
 # Company imports
 
 
+# Constants
+TOLERANCE=1e-5
+
 # -------------------------------------------------------------------------
 # Templates
 # -------------------------------------------------------------------------
@@ -20,8 +23,7 @@ def main():
         dict: {issues (list(str)), failed_objects(dict)}
     """
     failed_objects = []
-
-    failed_objects = get_objects_rotation_and_scale()
+    failed_objects = get_objects_scale()
 
     return {
         "issues": [
@@ -36,7 +38,7 @@ def fix(result_data):
     """
     Fix for issue.
     """
-    fixed = fix_objects_rotation_and_scale(result_data)
+    fixed = fix_objects_scale(result_data)
 
     return fixed
 
@@ -49,17 +51,14 @@ def fix(result_data):
 # Find
 # -------------------------
 
-def get_objects_rotation_and_scale(
+def get_objects_scale(
         objects=None,
-        tolerance=1e-5,
         exclude_types=None
     ):
     """
     Returns a dictionary of objects whose transforms are not at defaults.
 
     Defaults:
-        Location = (0,0,0)
-        Rotation = (0,0,0)
         Scale    = (1,1,1)
 
     Args:
@@ -72,10 +71,8 @@ def get_objects_rotation_and_scale(
         dict:
         {
             "Cube": {
-                "rotation": (0.0, 0.5, 0.0),
                 "scale": (1.0, 2.0, 1.0),
                 "issues": [
-                    "Rotation",
                     "Scale"
                 ]
             },
@@ -98,37 +95,10 @@ def get_objects_rotation_and_scale(
         issues = []
 
         # -------------------------
-        # Rotation
-        # -------------------------
-        if obj.rotation_mode == 'QUATERNION':
-            rotation = tuple(obj.rotation_quaternion)
-            rotation_bad = (
-                not isclose(rotation[0], 1.0, abs_tol=tolerance)
-                or any(
-                    not isclose(v, 0.0, abs_tol=tolerance)
-                    for v in rotation[1:]
-                )
-            )
-
-        elif obj.rotation_mode == 'AXIS_ANGLE':
-            rotation = tuple(obj.rotation_axis_angle)
-            rotation_bad = not isclose(rotation[0], 0.0, abs_tol=tolerance)
-
-        else:
-            rotation = tuple(obj.rotation_euler)
-            rotation_bad = any(
-                not isclose(v, 0.0, abs_tol=tolerance)
-                for v in rotation
-            )
-
-        if rotation_bad:
-            issues.append("Rotation")
-
-        # -------------------------
         # Scale
         # -------------------------
         scale_bad = any(
-            not isclose(v, 1.0, abs_tol=tolerance)
+            not isclose(v, 1.0, abs_tol=TOLERANCE)
             for v in obj.scale
         )
 
@@ -138,8 +108,6 @@ def get_objects_rotation_and_scale(
         # -------------------------
         if issues:
             results[obj.name] = {
-                "location": tuple(obj.location),
-                "rotation": rotation,
                 "scale": tuple(obj.scale),
                 "issues": issues,
             }
@@ -151,39 +119,26 @@ def get_objects_rotation_and_scale(
 # Fix
 # -------------------------
 
-def fix_objects_rotation_and_scale(result_data=None):
+def fix_objects_scale(result_data=None):
     """
     Applies rotation and scale to mesh objects while preserving:
 
         - World-space appearance
         - Object location
         - Parenting
-        - Rotation mode
 
     After applying:
-        Rotation -> 0
         Scale    -> 1
 
     Args:
         result_data (dict):
-            Result returned by main(), containing:
-
-            {
-                "failed_objects": {
-                    "ObjectName": {
-                        "missing_start": ["location[0]", ...],
-                        "missing_end": ["location[1]", ...],
-                    }
-                }
-            }
-
+            Result returned by main()
 
     Returns:
         dict:
         {
             "fixed_objects": {
                 "Character_Body": {
-                    "rotation_applied": True,
                     "scale_applied": True,
                 }
             },
@@ -200,69 +155,41 @@ def fix_objects_rotation_and_scale(result_data=None):
         if obj.type != "MESH":
             continue
 
-        # Linked data cannot safely be modified.
-        if obj.library is not None:
-            issues.append(
-                "Skipped linked object: {}".format(obj.name)
-            )
-            continue
+        scale = obj.scale
 
-        mesh = obj.data
-
-        if mesh is None:
-            continue
-
-        # Shared mesh data would also affect other objects.
-        if mesh.users > 1:
-            mesh = mesh.copy()
-            obj.data = mesh
-
-        old_scale = obj.scale.copy()
-        old_rotation = obj.rotation_euler.copy()
-
-        rotation_applied = any(
-            abs(value) > 1e-6
-            for value in old_rotation
+        needs_fix = any(
+            abs(value - 1.0) > TOLERANCE
+            for value in scale
         )
 
-        scale_applied = any(
-            abs(value - 1.0) > 1e-6
-            for value in old_scale
-        )
-
-        if not rotation_applied and not scale_applied:
+        if not needs_fix:
             continue
 
         try:
-            # Build transform containing rotation and scale,
-            # but not translation.
-            transform_matrix = (
-                obj.rotation_euler.to_matrix().to_4x4()
-                @ Matrix.Diagonal((
-                    obj.scale.x,
-                    obj.scale.y,
-                    obj.scale.z,
-                    1.0,
-                ))
-            )
+            # Copy shared mesh data before modifying it.
+            if obj.data.users > 1:
+                obj.data = obj.data.copy()
 
-            # Bake rotation and scale into mesh vertices.
-            mesh.transform(transform_matrix)
+            scale_matrix = Matrix.Diagonal((
+                obj.scale.x,
+                obj.scale.y,
+                obj.scale.z,
+                1.0,
+            ))
 
-            # Reset object transforms.
-            obj.rotation_euler = (0.0, 0.0, 0.0)
+            obj.data.transform(scale_matrix)
+
             obj.scale = (1.0, 1.0, 1.0)
 
-            mesh.update()
+            obj.data.update()
 
             fixed_objects[obj.name] = {
-                "rotation_applied": rotation_applied,
-                "scale_applied": scale_applied,
+                "scale_applied": True,
             }
 
         except Exception as error:
             issues.append(
-                "Could not apply transforms to {}: {}".format(
+                "Could not apply scale to {}: {}".format(
                     obj.name,
                     error,
                 )
