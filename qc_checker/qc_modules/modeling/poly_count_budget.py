@@ -8,8 +8,8 @@ import bmesh
 
 
 # Constants
-SCENE_POLY_BUDGET = 500
-OBJECT_POLY_BUDGET = 50
+SCENE_POLY_BUDGET = 5000
+OBJECT_POLY_BUDGET = 500
 
 # -------------------------------------------------------------------------
 # Templates
