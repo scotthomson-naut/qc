@@ -150,7 +150,6 @@ def fix_meshes_with_material_nodes_disabled(result_data):
         )
 
         for material_name in material_names:
-
             material = bpy.data.materials.get(
                 material_name
             )

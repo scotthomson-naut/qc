@@ -1,5 +1,6 @@
 # Standard python imports
 from math import isclose
+from mathutils import Matrix
 
 # Blender imports
 import bpy
@@ -20,7 +21,7 @@ def main():
     """
     failed_objects = []
 
-    failed_objects = get_objects_with_non_default_transforms()
+    failed_objects = get_objects_rotation_and_scale()
 
     return {
         "issues": [
@@ -35,27 +36,20 @@ def fix(result_data):
     """
     Fix for issue.
     """
-    failed_objects = result_data.get("failed_objects", {})
+    fixed = fix_objects_rotation_and_scale(result_data)
 
-    object_names = list(failed_objects.keys())
+    return fixed
 
-    fixed = fix_objects_with_non_default_transforms(object_names)
-
-    return {
-        "issues": [],
-        "fixed_objects": fixed,
-    }
 
 # -------------------------------------------------------------------------
 # Functions
 # -------------------------------------------------------------------------
 
-
 # -------------------------
 # Find
 # -------------------------
 
-def get_objects_with_non_default_transforms(
+def get_objects_rotation_and_scale(
         objects=None,
         tolerance=1e-5,
         exclude_types=None
@@ -78,11 +72,9 @@ def get_objects_with_non_default_transforms(
         dict:
         {
             "Cube": {
-                "location": (1.0, 0.0, 0.0),
                 "rotation": (0.0, 0.5, 0.0),
                 "scale": (1.0, 2.0, 1.0),
                 "issues": [
-                    "Location",
                     "Rotation",
                     "Scale"
                 ]
@@ -104,17 +96,6 @@ def get_objects_with_non_default_transforms(
             continue
 
         issues = []
-
-        # -------------------------
-        # Location
-        # -------------------------
-        location_bad = any(
-            not isclose(v, 0.0, abs_tol=tolerance)
-            for v in obj.location
-        )
-
-        if location_bad:
-            issues.append("Location")
 
         # -------------------------
         # Rotation
@@ -170,53 +151,126 @@ def get_objects_with_non_default_transforms(
 # Fix
 # -------------------------
 
-def fix_objects_with_non_default_transforms(objects=None):
+def fix_objects_rotation_and_scale(result_data=None):
     """
-    Fixes objects whose transforms are not at defaults.
+    Applies rotation and scale to mesh objects while preserving:
+
+        - World-space appearance
+        - Object location
+        - Parenting
+        - Rotation mode
+
+    After applying:
+        Rotation -> 0
+        Scale    -> 1
 
     Args:
-        objects (list): List of Blender objects.
-                        Defaults to bpy.data.objects.
+        result_data (dict):
+            Result returned by main(), containing:
+
+            {
+                "failed_objects": {
+                    "ObjectName": {
+                        "missing_start": ["location[0]", ...],
+                        "missing_end": ["location[1]", ...],
+                    }
+                }
+            }
+
 
     Returns:
         dict:
         {
-            "Cube": ["Location", "Rotation", "Scale"]
-            ...
+            "fixed_objects": {
+                "Character_Body": {
+                    "rotation_applied": True,
+                    "scale_applied": True,
+                }
+            },
+            "issues": [...]
         }
     """
-    if objects is None:
-        objects = bpy.data.objects
+    failed_objects = result_data.get("failed_objects", {})
+    fixed_objects = {}
+    issues = []
 
-    # Convert object names to real Blender objects
-    if objects and isinstance(objects[0], str):
-        objects = [
-            bpy.data.objects[name]
-            for name in objects
-            if name in bpy.data.objects
-        ]
+    for object_name, object_data in failed_objects.items():
+        obj = bpy.data.objects.get(object_name)
 
-    fixed = {}
-    for obj in objects:
-        fixed_issues = []
+        if obj.type != "MESH":
+            continue
 
-        obj.location = (0.0, 0.0, 0.0)
-        fixed_issues.append("Location")
+        # Linked data cannot safely be modified.
+        if obj.library is not None:
+            issues.append(
+                "Skipped linked object: {}".format(obj.name)
+            )
+            continue
 
-        if obj.rotation_mode == 'QUATERNION':
-            obj.rotation_quaternion = (1.0, 0.0, 0.0, 0.0)
-        elif obj.rotation_mode == 'AXIS_ANGLE':
-            obj.rotation_axis_angle = (0.0, 0.0, 1.0, 0.0)
-        else:
+        mesh = obj.data
+
+        if mesh is None:
+            continue
+
+        # Shared mesh data would also affect other objects.
+        if mesh.users > 1:
+            mesh = mesh.copy()
+            obj.data = mesh
+
+        old_scale = obj.scale.copy()
+        old_rotation = obj.rotation_euler.copy()
+
+        rotation_applied = any(
+            abs(value) > 1e-6
+            for value in old_rotation
+        )
+
+        scale_applied = any(
+            abs(value - 1.0) > 1e-6
+            for value in old_scale
+        )
+
+        if not rotation_applied and not scale_applied:
+            continue
+
+        try:
+            # Build transform containing rotation and scale,
+            # but not translation.
+            transform_matrix = (
+                obj.rotation_euler.to_matrix().to_4x4()
+                @ Matrix.Diagonal((
+                    obj.scale.x,
+                    obj.scale.y,
+                    obj.scale.z,
+                    1.0,
+                ))
+            )
+
+            # Bake rotation and scale into mesh vertices.
+            mesh.transform(transform_matrix)
+
+            # Reset object transforms.
             obj.rotation_euler = (0.0, 0.0, 0.0)
+            obj.scale = (1.0, 1.0, 1.0)
 
-        fixed_issues.append("Rotation")
+            mesh.update()
 
-        obj.scale = (1.0, 1.0, 1.0)
-        fixed_issues.append("Scale")
+            fixed_objects[obj.name] = {
+                "rotation_applied": rotation_applied,
+                "scale_applied": scale_applied,
+            }
 
-        fixed[obj.name] = fixed_issues
+        except Exception as error:
+            issues.append(
+                "Could not apply transforms to {}: {}".format(
+                    obj.name,
+                    error,
+                )
+            )
 
     bpy.context.view_layer.update()
 
-    return fixed
+    return {
+        "fixed_objects": fixed_objects,
+        "issues": issues,
+    }
