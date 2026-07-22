@@ -934,7 +934,6 @@ class SCRIPTRONAUT_UL_QC_Checks(UIList):
             status_text = "Pass"
         elif item.status == "FAIL":
             icon_name = "CANCEL"
-            #icon_name = "ERROR"
             status_text = "Fail"
             row.alert = True
         elif item.status == "RUNNING":
@@ -1570,17 +1569,49 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
         if checks and 0 <= settings.check_index < len(checks):
             current_item = checks[settings.check_index]
 
-        fix_row = layout.row()
-        fix_row.enabled = (
-            current_item is not None
-            and current_item.has_fix
-            and current_item.status == "FAIL"
-        )
-        fix_row.operator(
-            "scriptronaut.qc_fix_current",
-            icon="TOOL_SETTINGS",
-            text="Fix Current Check",
-        )
+        # ---------------------------------------------------------
+        # Fix / Manual Fix UI
+        # ---------------------------------------------------------
+
+        if current_item is not None:
+
+            # Failed check with an automatic fix available.
+            if (
+                current_item.status == "FAIL"
+                and current_item.has_fix
+            ):
+                fix_row = layout.row()
+
+                fix_row.operator(
+                    "scriptronaut.qc_fix_current",
+                    icon="TOOL_SETTINGS",
+                    text="Fix Current Check",
+                )
+
+            # Failed check but no fix() function exists.
+            elif (
+                current_item.status == "FAIL"
+                and not current_item.has_fix
+            ):
+                fix_row = layout.row()
+                fix_row.enabled = False
+
+                fix_row.operator(
+                    "scriptronaut.qc_fix_current",
+                    icon="INFO",
+                    text="Fix Must Be Done Manually",
+                )
+
+            # Check has not failed, so disable fixing.
+            else:
+                fix_row = layout.row()
+                fix_row.enabled = False
+
+                fix_row.operator(
+                    "scriptronaut.qc_fix_current",
+                    icon="CHECKMARK",
+                    text="All Good",
+                )
 
         box = layout.box()
         box.label(text="Issues:")
