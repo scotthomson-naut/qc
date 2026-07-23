@@ -6,6 +6,11 @@ import bpy
 
 # Company imports
 
+# Meta data
+LABEL = "Texture File exists"
+DESCRIPTION = (
+    "Checks if Image texture references a file that doesn't exist on disk"
+)
 
 # -------------------------------------------------------------------------
 # Templates

@@ -5,6 +5,11 @@ import bpy
 
 # Company imports
 
+# Meta data
+LABEL = "Has 'Use Nodes' turned off"
+DESCRIPTION = (
+    "Checks if Material has 'Use Nodes' turned off"
+)
 
 # -------------------------------------------------------------------------
 # Templates

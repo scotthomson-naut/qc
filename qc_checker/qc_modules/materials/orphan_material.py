@@ -5,6 +5,11 @@ import bpy
 
 # Company imports
 
+# Meta data
+LABEL = "Material has zero users"
+DESCRIPTION = (
+    "Checks if object has Material with zero users"
+)
 
 # -------------------------------------------------------------------------
 # Templates
