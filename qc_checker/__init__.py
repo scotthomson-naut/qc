@@ -770,6 +770,325 @@ def discover_check_scripts(folder_path):
     return registry, duplicate_names
 
 
+def rebuild_failed_objects(context):
+    """
+    Builds a unique list of objects that failed any QC check.
+
+    Each object stores how many checks it failed.
+    """
+    scene = context.scene
+    checks = scene.scriptronaut_qc_checks
+    failed_items = scene.scriptronaut_qc_failed_objects
+    settings = scene.scriptronaut_qc_settings
+
+    previous_name = None
+
+    if (
+        failed_items
+        and 0 <= settings.failed_object_index < len(failed_items)
+    ):
+        previous_name = (
+            failed_items[
+                settings.failed_object_index
+            ].name
+        )
+
+    failed_items.clear()
+
+    object_failures = {}
+
+    for check_index, check_item in enumerate(checks):
+
+        if check_item.status != "FAIL":
+            continue
+
+        result_data = result_data_from_json(
+            check_item.result_data
+        )
+
+        failed_objects = result_data.get(
+            "failed_objects",
+            {},
+        )
+
+        if not isinstance(
+            failed_objects,
+            dict,
+        ):
+            continue
+
+        for object_name in failed_objects:
+
+            object_failures.setdefault(
+                object_name,
+                [],
+            ).append(
+                check_index
+            )
+
+    for object_name in sorted(
+        object_failures
+    ):
+        item = failed_items.add()
+
+        item.name = object_name
+
+        item.failed_check_count = len(
+            object_failures[
+                object_name
+            ]
+        )
+
+    # Restore selection when possible.
+    settings.failed_object_index = 0
+
+    if previous_name:
+
+        for index, item in enumerate(
+            failed_items
+        ):
+            if item.name == previous_name:
+
+                settings.failed_object_index = (
+                    index
+                )
+
+                break
+
+    refresh_object_failed_checks(
+        context
+    )
+
+
+def refresh_object_failed_checks(context):
+    """
+    Populates the failed-check list for the currently
+    selected object in Object Mode.
+    """
+    if (
+        context is None
+        or context.scene is None
+    ):
+        return
+
+    scene = context.scene
+
+    settings = (
+        scene.scriptronaut_qc_settings
+    )
+
+    failed_objects = (
+        scene.scriptronaut_qc_failed_objects
+    )
+
+    object_checks = (
+        scene.scriptronaut_qc_object_checks
+    )
+
+    checks = (
+        scene.scriptronaut_qc_checks
+    )
+
+    object_checks.clear()
+
+    if (
+        settings.failed_object_index < 0
+        or
+        settings.failed_object_index
+        >= len(failed_objects)
+    ):
+        return
+
+    object_name = failed_objects[
+        settings.failed_object_index
+    ].name
+
+    for check_index, check_item in enumerate(
+        checks
+    ):
+
+        if check_item.status != "FAIL":
+            continue
+
+        result_data = result_data_from_json(
+            check_item.result_data
+        )
+
+        check_failed_objects = (
+            result_data.get(
+                "failed_objects",
+                {},
+            )
+        )
+
+        if not isinstance(
+            check_failed_objects,
+            dict,
+        ):
+            continue
+
+        if object_name not in check_failed_objects:
+            continue
+
+        item = object_checks.add()
+
+        item.name = check_item.name
+        item.script_path = (
+            check_item.script_path
+        )
+        item.has_fix = (
+            check_item.has_fix
+        )
+        item.check_index = (
+            check_index
+        )
+
+    settings.object_check_index = 0
+
+
+def get_filtered_result_for_object(
+        result_data,
+        object_name,
+    ):
+    """
+    Returns a copy of QC result data containing only
+    one failed object.
+
+    This lets existing fix(result_data) implementations
+    fix a single object without modification.
+    """
+    filtered_result = dict(
+        result_data
+    )
+
+    failed_objects = result_data.get(
+        "failed_objects",
+        {},
+    )
+
+    if not isinstance(
+        failed_objects,
+        dict,
+    ):
+        return filtered_result
+
+    if object_name not in failed_objects:
+
+        filtered_result[
+            "failed_objects"
+        ] = {}
+
+        return filtered_result
+
+    filtered_result[
+        "failed_objects"
+    ] = {
+        object_name:
+            failed_objects[
+                object_name
+            ]
+    }
+
+    return filtered_result
+
+
+def rerun_qc_check_item(item):
+    """
+    Re-runs one QC check item and updates its stored result.
+    """
+    script_path = item.script_path
+
+    if not os.path.isfile(
+        script_path
+    ):
+        return False
+
+    try:
+
+        module = load_module_from_path(
+            "qc_rerun_{}".format(
+                item.name
+            ),
+            script_path,
+        )
+
+        main_function = getattr(
+            module,
+            "main",
+            None,
+        )
+
+        if not callable(
+            main_function
+        ):
+            return False
+
+        raw_result = (
+            main_function()
+        )
+
+        result_data = (
+            normalize_check_result(
+                raw_result
+            )
+        )
+
+        result_data[
+            "check_name"
+        ] = item.name
+
+        result_data[
+            "script_path"
+        ] = script_path
+
+        issues = (
+            get_issues_from_result(
+                result_data
+            )
+        )
+
+        item.result_data = (
+            result_data_to_json(
+                result_data
+            )
+        )
+
+        item.has_fix = callable(
+            getattr(
+                module,
+                "fix",
+                None,
+            )
+        )
+
+        if issues:
+
+            item.status = "FAIL"
+
+            item.issues = "\n".join(
+                str(issue)
+                for issue in issues
+            )
+
+        else:
+
+            item.status = "PASS"
+
+            item.issues = (
+                "No issues found."
+            )
+
+        return True
+
+    except Exception:
+
+        print(
+            traceback.format_exc()
+        )
+
+        return False
+
+
 @persistent
 def initialize_qc_checks_after_load(_dummy=None):
     """
@@ -873,6 +1192,39 @@ class SCRIPTRONAUT_QC_Settings(PropertyGroup):
         ),
         default=False,
         update=update_use_check_settings,
+    )
+
+    mode: EnumProperty(
+        name="Mode",
+        description="Choose how QC results are viewed and fixed",
+        items=[
+            (
+                "CHECKS",
+                "Checks",
+                "View checks and fix all failed objects for a check",
+                "CHECKMARK",
+                0,
+            ),
+            (
+                "OBJECTS",
+                "Objects",
+                "View failed objects and the checks each object failed",
+                "OBJECT_DATA",
+                1,
+            ),
+        ],
+        default="CHECKS",
+    )
+
+    failed_object_index: IntProperty(
+        name="Failed Object Index",
+        default=0,
+        update=lambda self, context: refresh_object_failed_checks(context),
+    )
+
+    object_check_index: IntProperty(
+        name="Object Check Index",
+        default=0,
     )
 
     editor_category: EnumProperty(
@@ -1375,7 +1727,13 @@ class SCRIPTRONAUT_OT_QC_RunSelected(Operator):
             self.report({"WARNING"}, "No checks selected.")
             return {"CANCELLED"}
 
-        refresh_issues_display(context)
+        refresh_issues_display(
+            context
+        )
+
+        rebuild_failed_objects(
+            context
+        )
 
         return {"FINISHED"}
 
@@ -1512,9 +1870,20 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
     """
     Main QC Checks panel displayed in the 3D Viewport sidebar.
 
-    Provides controls for selecting categories, running QC checks,
-    viewing issues, and executing fixes.
+    Provides two display modes:
+
+        CHECKS
+            View QC checks.
+            Run selected checks.
+            View all failed objects for the selected check.
+            Fix all failed objects for the selected check.
+
+        OBJECTS
+            View objects that failed one or more checks.
+            View all failed checks for the selected object.
+            Fix only the selected check on the selected object.
     """
+
     bl_label = "QC Checks"
     bl_idname = "SCRIPTRONAUT_PT_QC_Checks"
     bl_space_type = "VIEW_3D"
@@ -1522,13 +1891,27 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
     bl_category = "Scriptronaut"
 
     def draw(self, context):
+
         layout = self.layout
         scene = context.scene
-        settings = scene.scriptronaut_qc_settings
-        checks = scene.scriptronaut_qc_checks
 
-        # Tier level items
-        if TIER in ["Pro", "Studio"]:
+        settings = (
+            scene.scriptronaut_qc_settings
+        )
+
+        checks = (
+            scene.scriptronaut_qc_checks
+        )
+
+        # ---------------------------------------------------------
+        # Tier-level settings
+        # ---------------------------------------------------------
+
+        if TIER in [
+            "Pro",
+            "Studio",
+        ]:
+
             layout.prop(
                 settings,
                 "use_check_settings",
@@ -1536,18 +1919,110 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
             )
 
             editor_row = layout.row()
-            editor_row.enabled = settings.use_check_settings
+
+            editor_row.enabled = (
+                settings.use_check_settings
+            )
+
             editor_row.operator(
                 "scriptronaut.qc_open_json_editor",
                 text="Edit Check Settings",
                 icon="PREFERENCES",
             )
 
-        layout.prop(settings, "category", text="Category")
+        # ---------------------------------------------------------
+        # Mode
+        # ---------------------------------------------------------
 
-        row = layout.row(align=True)
-        row.operator("scriptronaut.qc_select_all", icon="CHECKBOX_HLT", text="Select All")
-        row.operator("scriptronaut.qc_select_none", icon="CHECKBOX_DEHLT", text="Select None")
+        mode_box = layout.box()
+
+        mode_box.label(
+            text="Mode",
+            icon="OPTIONS",
+        )
+
+        mode_box.prop(
+            settings,
+            "mode",
+            expand=True,
+        )
+
+        # ---------------------------------------------------------
+        # CHECK MODE
+        # ---------------------------------------------------------
+
+        if settings.mode == "CHECKS":
+
+            self.draw_checks_mode(
+                context,
+                layout,
+                settings,
+                checks,
+            )
+
+        # ---------------------------------------------------------
+        # OBJECT MODE
+        # ---------------------------------------------------------
+
+        elif settings.mode == "OBJECTS":
+
+            self.draw_objects_mode(
+                context,
+                layout,
+                settings,
+                checks,
+            )
+
+    # ---------------------------------------------------------------------
+    # CHECK MODE
+    # ---------------------------------------------------------------------
+
+    def draw_checks_mode(
+        self,
+        context,
+        layout,
+        settings,
+        checks,
+    ):
+        """
+        Draws the traditional check-oriented QC interface.
+        """
+
+        scene = context.scene
+
+        # ---------------------------------------------------------
+        # Category
+        # ---------------------------------------------------------
+
+        layout.prop(
+            settings,
+            "category",
+            text="Category",
+        )
+
+        # ---------------------------------------------------------
+        # Select All / None
+        # ---------------------------------------------------------
+
+        row = layout.row(
+            align=True
+        )
+
+        row.operator(
+            "scriptronaut.qc_select_all",
+            icon="CHECKBOX_HLT",
+            text="Select All",
+        )
+
+        row.operator(
+            "scriptronaut.qc_select_none",
+            icon="CHECKBOX_DEHLT",
+            text="Select None",
+        )
+
+        # ---------------------------------------------------------
+        # Check list
+        # ---------------------------------------------------------
 
         layout.template_list(
             "SCRIPTRONAUT_UL_QC_Checks",
@@ -1559,27 +2034,45 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
             rows=8,
         )
 
+        # ---------------------------------------------------------
+        # Run selected
+        # ---------------------------------------------------------
+
         layout.operator(
             "scriptronaut.qc_run_selected",
             icon="PLAY",
             text="Run Selected Checks",
         )
 
+        # ---------------------------------------------------------
+        # Current check
+        # ---------------------------------------------------------
+
         current_item = None
-        if checks and 0 <= settings.check_index < len(checks):
-            current_item = checks[settings.check_index]
+
+        if (
+            checks
+            and
+            0
+            <= settings.check_index
+            < len(checks)
+        ):
+            current_item = checks[
+                settings.check_index
+            ]
 
         # ---------------------------------------------------------
-        # Fix / Manual Fix UI
+        # Fix UI
         # ---------------------------------------------------------
 
         if current_item is not None:
-
-            # Failed check with an automatic fix available.
             if (
-                current_item.status == "FAIL"
-                and current_item.has_fix
+                current_item.status
+                == "FAIL"
+                and
+                current_item.has_fix
             ):
+
                 fix_row = layout.row()
 
                 fix_row.operator(
@@ -1588,12 +2081,14 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
                     text="Fix Current Check",
                 )
 
-            # Failed check but no fix() function exists.
             elif (
-                current_item.status == "FAIL"
-                and not current_item.has_fix
+                current_item.status
+                == "FAIL"
+                and
+                not current_item.has_fix
             ):
                 fix_row = layout.row()
+
                 fix_row.enabled = False
 
                 fix_row.operator(
@@ -1602,9 +2097,9 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
                     text="Fix Must Be Done Manually",
                 )
 
-            # Check has not failed, so disable fixing.
             else:
                 fix_row = layout.row()
+
                 fix_row.enabled = False
 
                 fix_row.operator(
@@ -1613,46 +2108,778 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
                     text="All Good",
                 )
 
+        # ---------------------------------------------------------
+        # Issues
+        # ---------------------------------------------------------
+
         box = layout.box()
-        box.label(text="Issues:")
+
+        box.label(
+            text="Issues:",
+            icon="INFO",
+        )
 
         if current_item:
-            result_data = result_data_from_json(current_item.result_data)
+            result_data = (
+                result_data_from_json(
+                    current_item.result_data
+                )
+            )
 
-            failed_objects = result_data.get("failed_objects", {})
-            if isinstance(failed_objects, dict) and failed_objects:
-                for object_name, object_data in failed_objects.items():
-                    row = box.row(align=True)
+            failed_objects = (
+                result_data.get(
+                    "failed_objects",
+                    {},
+                )
+            )
+
+            if (
+                isinstance(
+                    failed_objects,
+                    dict,
+                )
+                and
+                failed_objects
+            ):
+                for (
+                    object_name,
+                    object_data,
+                ) in failed_objects.items():
+                    row = box.row(
+                        align=True
+                    )
+
                     row.alert = True
-                    message = "Failed: {}".format(object_name)
+
+                    message = (
+                        "Failed: {}".format(
+                            object_name
+                        )
+                    )
+
                     message_detail = ""
 
-                    ##
-                    print(object_data)
-                    print("object_data")
-                    print("")
-                    ##
+                    # ---------------------------------------------
+                    # Optional details
+                    # ---------------------------------------------
 
-                    if "ngon_count" in object_data:
-                        message_detail = "- {} N Gons".format(object_data.get("ngon_count"))
+                    if (
+                        isinstance(
+                            object_data,
+                            dict,
+                        )
+                    ):
+                        if (
+                            "ngon_count"
+                            in object_data
+                        ):
+                            message_detail = (
+                                "- {} N Gons".format(
+                                    object_data.get(
+                                        "ngon_count"
+                                    )
+                                )
+                            )
 
-                    if "poly_count" in object_data:
-                        message_detail = "- {} Polys".format(object_data.get("poly_count"))
+                        elif (
+                            "poly_count"
+                            in object_data
+                        ):
+                            message_detail = (
+                                "- {} Polys".format(
+                                    object_data.get(
+                                        "poly_count"
+                                    )
+                                )
+                            )
 
+                        elif (
+                            "zero_area_face_count"
+                            in object_data
+                        ):
+                            message_detail = (
+                                "- {} Zero Area UV Faces".format(
+                                    object_data.get(
+                                        "zero_area_face_count"
+                                    )
+                                )
+                            )
+
+                        elif (
+                            "collapsed_edge_count"
+                            in object_data
+                        ):
+                            message_detail = (
+                                "- {} Collapsed UV Edges".format(
+                                    object_data.get(
+                                        "collapsed_edge_count"
+                                    )
+                                )
+                            )
+
+                        elif (
+                            "flipped_face_count"
+                            in object_data
+                        ):
+                            message_detail = (
+                                "- {} Flipped UV Faces".format(
+                                    object_data.get(
+                                        "flipped_face_count"
+                                    )
+                                )
+                            )
+
+                        elif (
+                            "overlapping_face_count"
+                            in object_data
+                        ):
+                            message_detail = (
+                                "- {} Overlapping UV Faces".format(
+                                    object_data.get(
+                                        "overlapping_face_count"
+                                    )
+                                )
+                            )
+
+                        elif (
+                            "small_island_count"
+                            in object_data
+                        ):
+                            message_detail = (
+                                "- {} Small UV Islands".format(
+                                    object_data.get(
+                                        "small_island_count"
+                                    )
+                                )
+                            )
+
+                        elif (
+                            "tiny_shell_count"
+                            in object_data
+                        ):
+                            message_detail = (
+                                "- {} Tiny UV Shells".format(
+                                    object_data.get(
+                                        "tiny_shell_count"
+                                    )
+                                )
+                            )
+
+                        elif (
+                            "oversized_shell_count"
+                            in object_data
+                        ):
+                            message_detail = (
+                                "- {} Oversized UV Shells".format(
+                                    object_data.get(
+                                        "oversized_shell_count"
+                                    )
+                                )
+                            )
 
                     operator = row.operator(
                         "scriptronaut.qc_select_object",
-                        text="{} {}".format(message, message_detail),
+                        text="{} {}".format(
+                            message,
+                            message_detail,
+                        ),
                         icon="ERROR",
                     )
-                    operator.object_name = object_name
+
+                    operator.object_name = (
+                        object_name
+                    )
+
             elif settings.issues_display:
-                for line in settings.issues_display.split("\n"):
-                    box.label(text=line)
+                for line in (
+                    settings.issues_display
+                    .split("\n")
+                ):
+                    box.label(
+                        text=line
+                    )
+
             else:
-                box.label(text="No issues found.")
+                box.label(
+                    text="No issues found.",
+                    icon="CHECKMARK",
+                )
+
         else:
-            box.label(text="No issues selected.")
+            box.label(
+                text="No issues selected."
+            )
+
+    # ---------------------------------------------------------------------
+    # OBJECT MODE
+    # ---------------------------------------------------------------------
+
+    def draw_objects_mode(
+        self,
+        context,
+        layout,
+        settings,
+        checks,
+    ):
+        """
+        Draws QC results organized by failed object.
+        """
+        scene = context.scene
+
+        failed_objects = (
+            scene.scriptronaut_qc_failed_objects
+        )
+
+        object_checks = (
+            scene.scriptronaut_qc_object_checks
+        )
+
+        # ---------------------------------------------------------
+        # No results yet
+        # ---------------------------------------------------------
+
+        if not checks:
+            box = layout.box()
+
+            box.label(
+                text="No QC results available.",
+                icon="INFO",
+            )
+
+            box.label(
+                text="Run checks in Checks mode first."
+            )
+
+            return
+
+        # ---------------------------------------------------------
+        # Failed objects
+        # ---------------------------------------------------------
+
+        object_box = layout.box()
+
+        object_box.label(
+            text="Failed Objects",
+            icon="OBJECT_DATA",
+        )
+
+        if not failed_objects:
+            object_box.label(
+                text="No failed objects.",
+                icon="CHECKMARK",
+            )
+
+            return
+
+        object_box.template_list(
+            "SCRIPTRONAUT_UL_QC_FailedObjects",
+            "",
+            scene,
+            "scriptronaut_qc_failed_objects",
+            settings,
+            "failed_object_index",
+            rows=6,
+        )
+
+        # ---------------------------------------------------------
+        # Selected object
+        # ---------------------------------------------------------
+
+        current_object_item = None
+
+        if (
+            0
+            <= settings.failed_object_index
+            < len(failed_objects)
+        ):
+            current_object_item = (
+                failed_objects[
+                    settings.failed_object_index
+                ]
+            )
+
+        if current_object_item:
+            info_row = object_box.row()
+
+            info_row.label(
+                text="Selected: {}".format(
+                    current_object_item.name
+                ),
+                icon="RESTRICT_SELECT_OFF",
+            )
+
+            object_box.operator(
+                "scriptronaut.qc_select_current_failed_object",
+                text="Select Object",
+                icon="RESTRICT_SELECT_OFF",
+            )
+
+        # ---------------------------------------------------------
+        # Failed checks for selected object
+        # ---------------------------------------------------------
+
+        check_box = layout.box()
+
+        check_box.label(
+            text="Failed Checks",
+            icon="ERROR",
+        )
+
+        if not object_checks:
+            check_box.label(
+                text="No failed checks for this object.",
+                icon="CHECKMARK",
+            )
+
+            return
+
+        check_box.template_list(
+            "SCRIPTRONAUT_UL_QC_ObjectChecks",
+            "",
+            scene,
+            "scriptronaut_qc_object_checks",
+            settings,
+            "object_check_index",
+            rows=6,
+        )
+
+        # ---------------------------------------------------------
+        # Current failed check
+        # ---------------------------------------------------------
+
+        current_object_check = None
+
+        if (
+            0
+            <= settings.object_check_index
+            < len(object_checks)
+        ):
+            current_object_check = (
+                object_checks[
+                    settings.object_check_index
+                ]
+            )
+
+        if current_object_check is None:
+            return
+
+        # ---------------------------------------------------------
+        # Fix selected check on selected object
+        # ---------------------------------------------------------
+
+        if current_object_check.has_fix:
+            check_box.operator(
+                "scriptronaut.qc_fix_object_check",
+                text="Fix This Check On This Object",
+                icon="TOOL_SETTINGS",
+            )
+
+        else:
+            manual_row = check_box.row()
+
+            manual_row.enabled = False
+
+            manual_row.label(
+                text="Fix Must Be Done Manually",
+                icon="INFO",
+            )
+
+        # ---------------------------------------------------------
+        # Optional check information
+        # ---------------------------------------------------------
+
+        details_box = layout.box()
+
+        details_box.label(
+            text="Selected Check:",
+            icon="INFO",
+        )
+
+        details_box.label(
+            text=current_object_check.name
+        )
+
+        if current_object_check.has_fix:
+
+            details_box.label(
+                text="Automatic fix available.",
+                icon="TOOL_SETTINGS",
+            )
+
+        else:
+
+            details_box.label(
+                text="Manual fix required.",
+                icon="INFO",
+            )
+
+
+class SCRIPTRONAUT_QC_FailedObjectItem(PropertyGroup):
+    """
+    Represents an object that failed one or more QC checks.
+    """
+    name: StringProperty(default="")
+    failed_check_count: IntProperty(default=0)
+
+
+class SCRIPTRONAUT_QC_ObjectCheckItem(PropertyGroup):
+    """
+    Represents a QC check failed by the currently selected object.
+    """
+    name: StringProperty(default="")
+    script_path: StringProperty(default="")
+    has_fix: BoolProperty(default=False)
+
+    check_index: IntProperty(
+        default=-1,
+    )
+
+
+class SCRIPTRONAUT_UL_QC_FailedObjects(UIList):
+    """
+    Displays objects that failed one or more QC checks.
+    """
+
+    def draw_item(
+        self,
+        context,
+        layout,
+        data,
+        item,
+        icon,
+        active_data,
+        active_propname,
+        index,
+    ):
+        row = layout.row(
+            align=True
+        )
+
+        split = row.split(
+            factor=0.75,
+            align=True,
+        )
+
+        split.label(
+            text=item.name,
+            icon="OBJECT_DATA",
+        )
+
+        split.label(
+            text="{} Fail{}".format(
+                item.failed_check_count,
+                ""
+                if item.failed_check_count == 1
+                else "s",
+            )
+        )
+
+
+class SCRIPTRONAUT_UL_QC_ObjectChecks(UIList):
+    """
+    Displays checks failed by the selected object.
+    """
+
+    def draw_item(
+        self,
+        context,
+        layout,
+        data,
+        item,
+        icon,
+        active_data,
+        active_propname,
+        index,
+    ):
+        row = layout.row(
+            align=True
+        )
+
+        row.label(
+            text=item.name,
+            icon=(
+                "TOOL_SETTINGS"
+                if item.has_fix
+                else "INFO"
+            ),
+        )
+
+        if item.has_fix:
+            row.label(
+                text="Auto Fix"
+            )
+        else:
+            row.label(
+                text="Manual"
+            )
+
+class SCRIPTRONAUT_OT_QC_FixObjectCheck(
+    Operator
+):
+    """
+    Fixes only the selected check for the selected object.
+    """
+
+    bl_idname = (
+        "scriptronaut.qc_fix_object_check"
+    )
+
+    bl_label = (
+        "Fix Check For Object"
+    )
+
+    def execute(
+        self,
+        context,
+    ):
+        scene = context.scene
+
+        settings = (
+            scene.scriptronaut_qc_settings
+        )
+
+        failed_objects = (
+            scene.scriptronaut_qc_failed_objects
+        )
+
+        object_checks = (
+            scene.scriptronaut_qc_object_checks
+        )
+
+        checks = (
+            scene.scriptronaut_qc_checks
+        )
+
+        # -----------------------------------------------------
+        # Validate object
+        # -----------------------------------------------------
+
+        if (
+            settings.failed_object_index < 0
+            or
+            settings.failed_object_index
+            >= len(failed_objects)
+        ):
+            return {"CANCELLED"}
+
+        object_name = failed_objects[
+            settings.failed_object_index
+        ].name
+
+        # -----------------------------------------------------
+        # Validate check
+        # -----------------------------------------------------
+
+        if (
+            settings.object_check_index < 0
+            or
+            settings.object_check_index
+            >= len(object_checks)
+        ):
+            return {"CANCELLED"}
+
+        object_check = object_checks[
+            settings.object_check_index
+        ]
+
+        if not object_check.has_fix:
+
+            self.report(
+                {"WARNING"},
+                "This check must be fixed manually.",
+            )
+
+            return {"CANCELLED"}
+
+        if (
+            object_check.check_index < 0
+            or
+            object_check.check_index
+            >= len(checks)
+        ):
+            return {"CANCELLED"}
+
+        check_item = checks[
+            object_check.check_index
+        ]
+
+        # -----------------------------------------------------
+        # Load QC module
+        # -----------------------------------------------------
+
+        try:
+
+            module = load_module_from_path(
+                "qc_object_fix_{}".format(
+                    check_item.name
+                ),
+                check_item.script_path,
+            )
+
+            fix_function = getattr(
+                module,
+                "fix",
+                None,
+            )
+
+            if not callable(
+                fix_function
+            ):
+
+                check_item.has_fix = False
+
+                self.report(
+                    {"ERROR"},
+                    "Missing fix() function.",
+                )
+
+                return {"CANCELLED"}
+
+            # -------------------------------------------------
+            # Filter result to one object
+            # -------------------------------------------------
+
+            result_data = (
+                result_data_from_json(
+                    check_item.result_data
+                )
+            )
+
+            filtered_result = (
+                get_filtered_result_for_object(
+                    result_data,
+                    object_name,
+                )
+            )
+
+            try:
+
+                fix_function(
+                    filtered_result
+                )
+
+            except TypeError:
+
+                # A fix() with no result_data argument cannot
+                # safely be restricted to a single object.
+                self.report(
+                    {"ERROR"},
+                    (
+                        "This fix() does not accept result_data "
+                        "and cannot safely fix one object only."
+                    ),
+                )
+
+                return {"CANCELLED"}
+
+            # -------------------------------------------------
+            # Re-run this QC check
+            # -------------------------------------------------
+
+            rerun_qc_check_item(
+                check_item
+            )
+
+            refresh_issues_display(
+                context
+            )
+
+            rebuild_failed_objects(
+                context
+            )
+
+        except Exception:
+
+            print(
+                traceback.format_exc()
+            )
+
+            self.report(
+                {"ERROR"},
+                "Could not fix object.",
+            )
+
+            return {"CANCELLED"}
+
+        self.report(
+            {"INFO"},
+            'Fixed "{}" for "{}".'.format(
+                check_item.name,
+                object_name,
+            ),
+        )
+
+        return {"FINISHED"}
+
+
+class SCRIPTRONAUT_OT_QC_SelectCurrentFailedObject(
+    Operator
+):
+    bl_idname = (
+        "scriptronaut.qc_select_current_failed_object"
+    )
+
+    bl_label = (
+        "Select Failed Object"
+    )
+
+    def execute(
+        self,
+        context,
+    ):
+        scene = context.scene
+
+        settings = (
+            scene.scriptronaut_qc_settings
+        )
+
+        failed_objects = (
+            scene.scriptronaut_qc_failed_objects
+        )
+
+        if (
+            settings.failed_object_index < 0
+            or
+            settings.failed_object_index
+            >= len(failed_objects)
+        ):
+            return {"CANCELLED"}
+
+        object_name = failed_objects[
+            settings.failed_object_index
+        ].name
+
+        obj = bpy.data.objects.get(
+            object_name
+        )
+
+        if obj is None:
+            return {"CANCELLED"}
+
+        for selected_obj in (
+            context.selected_objects
+        ):
+            selected_obj.select_set(
+                False
+            )
+
+        try:
+            obj.hide_set(False)
+        except RuntimeError:
+            pass
+
+        obj.hide_viewport = False
+        obj.hide_select = False
+
+        obj.select_set(
+            True
+        )
+
+        context.view_layer.objects.active = (
+            obj
+        )
+
+        return {"FINISHED"}
 
 
 # -------------------------------------------------------------------------
@@ -1677,6 +2904,12 @@ classes = (
     SCRIPTRONAUT_OT_QC_FixCurrent,
     SCRIPTRONAUT_OT_QC_SelectObject,
     SCRIPTRONAUT_PT_QC_Checks,
+    SCRIPTRONAUT_QC_FailedObjectItem,
+    SCRIPTRONAUT_QC_ObjectCheckItem,
+    SCRIPTRONAUT_UL_QC_FailedObjects,
+    SCRIPTRONAUT_UL_QC_ObjectChecks,
+    SCRIPTRONAUT_OT_QC_SelectCurrentFailedObject,
+    SCRIPTRONAUT_OT_QC_FixObjectCheck,
 )
 
 
@@ -1709,6 +2942,18 @@ def register():
         first_interval=0.1,
     )
 
+    bpy.types.Scene.scriptronaut_qc_failed_objects = (
+        CollectionProperty(
+            type=SCRIPTRONAUT_QC_FailedObjectItem
+        )
+    )
+
+    bpy.types.Scene.scriptronaut_qc_object_checks = (
+        CollectionProperty(
+            type=SCRIPTRONAUT_QC_ObjectCheckItem
+        )
+    )
+
 
 def unregister():
     """
@@ -1725,6 +2970,8 @@ def unregister():
     del bpy.types.Scene.scriptronaut_qc_editor_items
     del bpy.types.Scene.scriptronaut_qc_settings
     del bpy.types.Scene.scriptronaut_qc_checks
+    del bpy.types.Scene.scriptronaut_qc_failed_objects
+    del bpy.types.Scene.scriptronaut_qc_object_checks
 
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
