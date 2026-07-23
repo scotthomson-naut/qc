@@ -5,6 +5,11 @@ import bpy
 
 # Company imports
 
+# Meta data
+LABEL = "World Datablock Exists"
+DESCRIPTION = (
+    "Checks if a World datablock exists"
+)
 
 # -------------------------------------------------------------------------
 # Templates
