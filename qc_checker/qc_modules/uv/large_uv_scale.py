@@ -18,17 +18,18 @@ def main():
     Returns:
         dict: {issues (list(str)), failed_objects(dict)}
     """
-    failed_objects = get_objects_with_tiny_uv_shells(
-        min_width=0.01,
-        min_height=0.01
-    )
+    failed_objects = get_objects_with_oversized_uv_shells(
+            max_width=1.0,
+            max_height=1.0,
+        )
+
     issues = []
 
     for object_name, data in failed_objects.items():
         issues.append(
-            "Failed object: {} - {} tiny UV shell(s)".format(
+            "Failed object: {} - {} oversized UV shell(s)".format(
                 object_name,
-                data["tiny_shell_count"],
+                data["oversized_shell_count"],
             )
         )
 
@@ -45,31 +46,30 @@ def main():
 # Find
 # -------------------------
 
-def get_objects_with_tiny_uv_shells(
+def get_objects_with_oversized_uv_shells(
         objects=None,
-        min_width=0.01,
-        min_height=0.01,
+        max_width=1.0,
+        max_height=1.0,
         tolerance=1e-6,
     ):
     """
-    Finds mesh objects containing UV shells that are extremely small
-    in width or height.
+    Finds mesh objects containing oversized UV shells.
 
     A shell fails when:
-        shell_width < min_width
+        shell_width > max_width
         or
-        shell_height < min_height
+        shell_height > max_height
 
     Args:
         objects (iterable[bpy.types.Object] | None):
             Mesh objects to inspect.
             Defaults to all objects in the current scene.
 
-        min_width (float):
-            Minimum allowed UV shell width.
+        max_width (float):
+            Maximum allowed UV shell width.
 
-        min_height (float):
-            Minimum allowed UV shell height.
+        max_height (float):
+            Maximum allowed UV shell height.
 
         tolerance (float):
             Tolerance used when determining UV connectivity.
@@ -79,11 +79,11 @@ def get_objects_with_tiny_uv_shells(
         {
             "Character_Body": {
                 "uv_map": "UVMap",
-                "tiny_shell_count": 2,
-                "tiny_shells": [
+                "oversized_shell_count": 2,
+                "oversized_shells": [
                     {
-                        "width": 0.004,
-                        "height": 0.012,
+                        "width": 1.25,
+                        "height": 0.82,
                         "polygon_indices": [42, 43],
                     }
                 ],
@@ -118,7 +118,7 @@ def get_objects_with_tiny_uv_shells(
             tolerance=tolerance,
         )
 
-        tiny_shells = []
+        oversized_shells = []
 
         for polygon_indices in uv_islands:
             bounds = get_uv_shell_bounds(
@@ -134,12 +134,12 @@ def get_objects_with_tiny_uv_shells(
             height = bounds["height"]
 
             if (
-                width >= min_width
-                and height >= min_height
+                width <= max_width
+                and height <= max_height
             ):
                 continue
 
-            tiny_shells.append({
+            oversized_shells.append({
                 "width": width,
                 "height": height,
                 "min_u": bounds["min_u"],
@@ -151,19 +151,19 @@ def get_objects_with_tiny_uv_shells(
                 ),
             })
 
-        if tiny_shells:
-
+        if oversized_shells:
             failed_objects[obj.name] = {
                 "uv_map": uv_layer.name,
-                "tiny_shell_count": len(
-                    tiny_shells
+                "oversized_shell_count": len(
+                    oversized_shells
                 ),
-                "min_width": min_width,
-                "min_height": min_height,
-                "tiny_shells": tiny_shells,
+                "max_width": max_width,
+                "max_height": max_height,
+                "oversized_shells": oversized_shells,
             }
 
     return failed_objects
+
 
 # -------------------------
 # Support Functions (Find)
@@ -176,17 +176,6 @@ def get_uv_shell_bounds(
     ):
     """
     Calculates the UV bounding box of a UV shell.
-
-    Returns:
-        dict | None:
-        {
-            "min_u": float,
-            "max_u": float,
-            "min_v": float,
-            "max_v": float,
-            "width": float,
-            "height": float,
-        }
     """
     uv_data = uv_layer.data
 
@@ -194,7 +183,6 @@ def get_uv_shell_bounds(
     v_values = []
 
     for polygon_index in polygon_indices:
-
         polygon = mesh.polygons[
             polygon_index
         ]
@@ -245,9 +233,7 @@ def get_uv_islands(
     edge_faces = {}
 
     for polygon in mesh.polygons:
-
         for loop_index in polygon.loop_indices:
-
             edge_index = (
                 mesh.loops[
                     loop_index
@@ -267,7 +253,6 @@ def get_uv_islands(
     }
 
     for edge_index, face_indices in edge_faces.items():
-
         if len(face_indices) != 2:
             continue
 
@@ -320,7 +305,6 @@ def get_uv_islands(
     visited = set()
 
     for polygon in mesh.polygons:
-
         polygon_index = (
             polygon.index
         )
@@ -332,9 +316,7 @@ def get_uv_islands(
         stack = [polygon_index]
 
         while stack:
-
             current = stack.pop()
-
             if current in visited:
                 continue
 
@@ -369,7 +351,6 @@ def get_face_edge_uvs(
     result = {}
 
     for loop_index in polygon.loop_indices:
-
         vertex_index = (
             mesh.loops[
                 loop_index
@@ -406,7 +387,6 @@ def uv_edges_match(
         tolerance=1e-6,
     ):
     for vertex_index in edge_a:
-
         if vertex_index not in edge_b:
             return False
 
