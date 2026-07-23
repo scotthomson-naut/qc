@@ -1,5 +1,5 @@
 # Standard python imports
-import re
+
 
 # Blender imports
 import bpy
