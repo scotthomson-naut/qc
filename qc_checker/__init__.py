@@ -1952,7 +1952,6 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
         # ---------------------------------------------------------
 
         if settings.mode == "CHECKS":
-
             self.draw_checks_mode(
                 context,
                 layout,
@@ -1965,7 +1964,6 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
         # ---------------------------------------------------------
 
         elif settings.mode == "OBJECTS":
-
             self.draw_objects_mode(
                 context,
                 layout,
@@ -1987,7 +1985,6 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
         """
         Draws the traditional check-oriented QC interface.
         """
-
         scene = context.scene
 
         # ---------------------------------------------------------
@@ -2049,7 +2046,6 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
         # ---------------------------------------------------------
 
         current_item = None
-
         if (
             checks
             and
@@ -2065,55 +2061,94 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
         # Fix UI
         # ---------------------------------------------------------
 
+        failed_with_fix = any(
+            item.status == "FAIL"
+            and item.has_fix
+            for item in checks
+        )
+
         if current_item is not None:
-            if (
-                current_item.status
-                == "FAIL"
-                and
-                current_item.has_fix
-            ):
 
-                fix_row = layout.row()
+            fix_row = layout.row(
+                align=True
+            )
 
-                fix_row.operator(
-                    "scriptronaut.qc_fix_current",
-                    icon="TOOL_SETTINGS",
-                    text="Fix Current Check",
+            # -----------------------------------------------------
+            # Fix Current Check
+            # -----------------------------------------------------
+
+            current_fix_available = (
+                current_item.status == "FAIL"
+                and current_item.has_fix
+            )
+
+            current_column = (
+                fix_row.row(
+                    align=True
                 )
+            )
 
-            elif (
-                current_item.status
-                == "FAIL"
-                and
-                not current_item.has_fix
-            ):
-                fix_row = layout.row()
+            current_column.enabled = (
+                current_fix_available
+            )
 
-                fix_row.enabled = False
-
-                fix_row.operator(
-                    "scriptronaut.qc_fix_current",
-                    icon="INFO",
-                    text="Fix Must Be Done Manually",
-                )
+            if current_item.status == "FAIL":
+                if current_item.has_fix:
+                    current_column.operator(
+                        "scriptronaut.qc_fix_current",
+                        icon="TOOL_SETTINGS",
+                        text="Fix Current Check",
+                    )
+                else:
+                    current_column.operator(
+                        "scriptronaut.qc_fix_current",
+                        icon="INFO",
+                        text="Manual Fix",
+                    )
 
             else:
-                fix_row = layout.row()
-
-                fix_row.enabled = False
-
-                fix_row.operator(
+                current_column.operator(
                     "scriptronaut.qc_fix_current",
                     icon="CHECKMARK",
                     text="All Good",
                 )
+
+            # -----------------------------------------------------
+            # Fix All
+            # -----------------------------------------------------
+
+            fix_all_column = (
+                fix_row.row(
+                    align=True
+                )
+            )
+
+            fix_all_column.enabled = (
+                failed_with_fix
+            )
+
+            fixable_count = sum(
+                1
+                for item in checks
+                if (
+                    item.status == "FAIL"
+                    and item.has_fix
+                )
+            )
+
+            fix_all_column.operator(
+                "scriptronaut.qc_fix_all",
+                icon="TOOL_SETTINGS",
+                text="Fix All ({})".format(
+                    fixable_count
+                )
+            )
 
         # ---------------------------------------------------------
         # Issues
         # ---------------------------------------------------------
 
         box = layout.box()
-
         box.label(
             text="Issues:",
             icon="INFO",
@@ -2160,7 +2195,7 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
                     message_detail = ""
 
                     # ---------------------------------------------
-                    # Optional details
+                    # Optional details !!
                     # ---------------------------------------------
 
                     if (
@@ -2882,6 +2917,155 @@ class SCRIPTRONAUT_OT_QC_SelectCurrentFailedObject(
         return {"FINISHED"}
 
 
+class SCRIPTRONAUT_OT_QC_FixAll(Operator):
+    """
+    Runs fix() for every failed QC check that provides an automatic fix.
+    """
+
+    bl_idname = "scriptronaut.qc_fix_all"
+    bl_label = "Fix All"
+    bl_description = "Fix all failed QC checks that have an automatic fix"
+
+    def execute(self, context):
+
+        scene = context.scene
+        checks = scene.scriptronaut_qc_checks
+
+        fixed_any = False
+        skipped_manual = []
+        failed_fixes = []
+
+        for item in checks:
+            # Only fix failed checks.
+            if item.status != "FAIL":
+                continue
+
+            # Skip checks without an automatic fix.
+            if not item.has_fix:
+                skipped_manual.append(
+                    item.name
+                )
+                continue
+
+            if not os.path.isfile(
+                item.script_path
+            ):
+                failed_fixes.append(
+                    "{}: script not found".format(
+                        item.name
+                    )
+                )
+                continue
+
+            try:
+                module = load_module_from_path(
+                    "qc_fix_all_{}".format(
+                        item.name
+                    ),
+                    item.script_path,
+                )
+
+                fix_function = getattr(
+                    module,
+                    "fix",
+                    None,
+                )
+
+                if not callable(
+                    fix_function
+                ):
+                    item.has_fix = False
+
+                    skipped_manual.append(
+                        item.name
+                    )
+
+                    continue
+
+                result_data = (
+                    result_data_from_json(
+                        item.result_data
+                    )
+                )
+
+                # Prefer fix(result_data).
+                try:
+                    module.fix(
+                        result_data
+                    )
+
+                # Support older no-argument fix().
+                except TypeError:
+                    module.fix()
+
+                fixed_any = True
+
+                # Re-run this check after fixing so its
+                # status/result data are accurate.
+                rerun_qc_check_item(
+                    item
+                )
+
+            except Exception:
+
+                failed_fixes.append(
+                    "{}:\n{}".format(
+                        item.name,
+                        traceback.format_exc(),
+                    )
+                )
+
+        # Refresh both QC views after all fixes.
+        refresh_issues_display(
+            context
+        )
+
+        rebuild_failed_objects(
+            context
+        )
+
+        if failed_fixes:
+
+            for error in failed_fixes:
+                print(
+                    "QC Fix All error:\n{}".format(
+                        error
+                    )
+                )
+
+            self.report(
+                {"WARNING"},
+                "Some automatic fixes failed. See system console.",
+            )
+
+        elif fixed_any:
+
+            if skipped_manual:
+
+                self.report(
+                    {"INFO"},
+                    "Automatic fixes completed. {} check(s) require manual fixing.".format(
+                        len(skipped_manual)
+                    ),
+                )
+
+            else:
+
+                self.report(
+                    {"INFO"},
+                    "All available fixes completed.",
+                )
+
+        else:
+
+            self.report(
+                {"INFO"},
+                "No automatic fixes are currently available.",
+            )
+
+        return {"FINISHED"}
+
+
 # -------------------------------------------------------------------------
 # Register
 # -------------------------------------------------------------------------
@@ -2910,6 +3094,7 @@ classes = (
     SCRIPTRONAUT_UL_QC_ObjectChecks,
     SCRIPTRONAUT_OT_QC_SelectCurrentFailedObject,
     SCRIPTRONAUT_OT_QC_FixObjectCheck,
+    SCRIPTRONAUT_OT_QC_FixAll,
 )
 
 
