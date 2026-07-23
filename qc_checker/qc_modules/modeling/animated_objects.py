@@ -5,6 +5,11 @@ import bpy
 
 # Company imports
 
+# Meta data
+LABEL = "Objects have Keyframes"
+DESCRIPTION = (
+    "Checks if objects have keyframes"
+)
 
 # -------------------------------------------------------------------------
 # Templates

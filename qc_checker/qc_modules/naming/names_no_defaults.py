@@ -32,6 +32,12 @@ DEFAULT_OBJECT_NAMES = {
 # "Camera",
 # "Light",
 
+# Meta data
+LABEL = "Default Names"
+DESCRIPTION = (
+    "Checks if objects have default names like Cube, Sphere .."
+)
+
 # -------------------------------------------------------------------------
 # Templates
 # -------------------------------------------------------------------------
