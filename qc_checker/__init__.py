@@ -1388,8 +1388,9 @@ class SCRIPTRONAUT_QC_Settings(PropertyGroup):
 class SCRIPTRONAUT_UL_QC_Checks(UIList):
     """
     Custom UIList used to display QC checks, their selection state,
-    execution status, and pass/fail icons.
+    execution status, pass/fail icons, and description tooltip.
     """
+
     def draw_item(
         self,
         context,
@@ -1401,32 +1402,66 @@ class SCRIPTRONAUT_UL_QC_Checks(UIList):
         active_propname,
         index,
     ):
-        row = layout.row(align=True)
+        row = layout.row(
+            align=True
+        )
+
+        # ---------------------------------------------------------
+        # Status
+        # ---------------------------------------------------------
 
         if item.status == "PASS":
+
             icon_name = "CHECKMARK"
             status_text = "Pass"
+
         elif item.status == "FAIL":
+
             icon_name = "CANCEL"
             status_text = "Fail"
+
             row.alert = True
+
         elif item.status == "RUNNING":
+
             icon_name = "TIME"
             status_text = "Running"
+
         else:
+
             icon_name = "VIEWZOOM"
-            #icon_name = "QUESTION"
             status_text = "Not Run"
 
+        # ---------------------------------------------------------
         # Selection checkbox
-        row.prop(item, "selected", text="")
+        # ---------------------------------------------------------
 
-        # Split remaining row:
-        # 80% for check name, 20% for status
-        split = row.split(factor=0.8, align=True)
+        row.prop(
+            item,
+            "selected",
+            text="",
+        )
 
-        name_column = split.row(align=True)
-        status_column = split.row(align=True)
+        # ---------------------------------------------------------
+        # Name / status columns
+        # ---------------------------------------------------------
+
+        split = row.split(
+            factor=0.80,
+            align=True,
+        )
+
+        name_column = split.row(
+            align=True
+        )
+
+        status_column = split.row(
+            align=True
+        )
+
+        # ---------------------------------------------------------
+        # Display name
+        # ---------------------------------------------------------
 
         display_name = (
             item.display_name
@@ -1434,21 +1469,53 @@ class SCRIPTRONAUT_UL_QC_Checks(UIList):
             else item.name
         )
 
-        if item.source_category == COMMON_CATEGORY:
-            display_name = "[Common] {}".format(
-                display_name
+        if (
+            item.source_category
+            == COMMON_CATEGORY
+        ):
+
+            display_name = (
+                "[Common] {}".format(
+                    display_name
+                )
             )
 
-        operator = name_column.operator(
-            "scriptronaut.qc_check_info",
+        # ---------------------------------------------------------
+        # IMPORTANT:
+        #
+        # Keep the check name as a LABEL.
+        #
+        # This allows Blender's UIList to correctly update
+        # settings.check_index when the row is clicked.
+        # ---------------------------------------------------------
+
+        name_column.label(
             text=display_name,
             icon=icon_name,
-            emboss=False,
         )
 
-        operator.tooltip_text = (
-            item.description
-        )
+        # ---------------------------------------------------------
+        # Description tooltip
+        # ---------------------------------------------------------
+
+        if item.description:
+
+            info_operator = (
+                name_column.operator(
+                    "scriptronaut.qc_check_info",
+                    text="",
+                    icon="INFO",
+                    emboss=False,
+                )
+            )
+
+            info_operator.tooltip_text = (
+                item.description
+            )
+
+        # ---------------------------------------------------------
+        # Status
+        # ---------------------------------------------------------
 
         status_column.label(
             text=status_text,
@@ -2201,6 +2268,15 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
             for item in checks
         )
 
+        fixable_count = sum(
+            1
+            for item in checks
+            if (
+                item.status == "FAIL"
+                and item.has_fix
+            )
+        )
+
         if current_item is not None:
 
             fix_row = layout.row(
@@ -2208,66 +2284,65 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
             )
 
             # -----------------------------------------------------
-            # Fix Current Check
+            # Current Check
             # -----------------------------------------------------
 
-            current_fix_available = (
-                current_item.status == "FAIL"
-                and current_item.has_fix
-            )
-
-            current_column = (
-                fix_row.row(
-                    align=True
-                )
-            )
-
-            current_column.enabled = (
-                current_fix_available
+            current_column = fix_row.row(
+                align=True
             )
 
             if current_item.status == "FAIL":
+
                 if current_item.has_fix:
+
+                    current_column.enabled = True
+
                     current_column.operator(
                         "scriptronaut.qc_fix_current",
                         icon="TOOL_SETTINGS",
                         text="Fix Current Check",
                     )
+
                 else:
+
+                    current_column.enabled = False
+
                     current_column.operator(
                         "scriptronaut.qc_fix_current",
                         icon="INFO",
-                        text="Manual Fix",
+                        text="Manual Fix Required",
                     )
 
-            else:
+            elif current_item.status == "PASS":
+
+                current_column.enabled = False
+
                 current_column.operator(
                     "scriptronaut.qc_fix_current",
                     icon="CHECKMARK",
                     text="All Good",
                 )
 
+            else:
+
+                current_column.enabled = False
+
+                current_column.operator(
+                    "scriptronaut.qc_fix_current",
+                    icon="TOOL_SETTINGS",
+                    text="Run Check First",
+                )
+
             # -----------------------------------------------------
             # Fix All
             # -----------------------------------------------------
 
-            fix_all_column = (
-                fix_row.row(
-                    align=True
-                )
+            fix_all_column = fix_row.row(
+                align=True
             )
 
             fix_all_column.enabled = (
                 failed_with_fix
-            )
-
-            fixable_count = sum(
-                1
-                for item in checks
-                if (
-                    item.status == "FAIL"
-                    and item.has_fix
-                )
             )
 
             fix_all_column.operator(
@@ -2275,7 +2350,7 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
                 icon="TOOL_SETTINGS",
                 text="Fix All ({})".format(
                     fixable_count
-                )
+                ),
             )
 
         # ---------------------------------------------------------
