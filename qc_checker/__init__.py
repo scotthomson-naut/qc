@@ -401,13 +401,17 @@ def refresh_issues_display(context):
 
 def load_qc_category(context):
     """
-    Returns the EnumProperty items for the QC category dropdown.
+    Loads all QC scripts for the currently selected category.
 
-    Args:
-        context (bpy.types.Context): Blender context.
+    Also reads optional module metadata:
+
+        LABEL
+        DESCRIPTION
+        fix()
 
     Returns:
-        list[tuple]: EnumProperty item list.
+        tuple:
+            (success, message)
     """
     scene = context.scene
     settings = scene.scriptronaut_qc_settings
@@ -431,23 +435,103 @@ def load_qc_category(context):
     )
 
     for script_data in scripts:
+
         item = checks.add()
+
+        # -----------------------------------------------------
+        # Basic script data
+        # -----------------------------------------------------
+
         item.name = script_data["name"]
-        item.script_path = script_data["script_path"]
-        item.source_category = script_data["source_category"]
+
+        item.display_name = script_data["name"]
+
+        item.script_path = (
+            script_data["script_path"]
+        )
+
+        item.source_category = (
+            script_data["source_category"]
+        )
 
         item.selected = True
         item.status = "NOT_RUN"
         item.has_fix = False
+        item.description = ""
         item.issues = "Not run yet."
         item.result_data = "{}"
 
+        # -----------------------------------------------------
+        # Load optional module metadata
+        # -----------------------------------------------------
+
+        try:
+
+            module = load_module_from_path(
+                "qc_info_{}".format(
+                    item.name
+                ),
+                item.script_path,
+            )
+
+            # Optional friendly UI name.
+            item.display_name = getattr(
+                module,
+                "LABEL",
+                item.name,
+            )
+
+            # Optional tooltip.
+            item.description = getattr(
+                module,
+                "DESCRIPTION",
+                "",
+            )
+
+            # Determine whether automatic fix exists.
+            item.has_fix = callable(
+                getattr(
+                    module,
+                    "fix",
+                    None,
+                )
+            )
+
+        except Exception:
+
+            print(
+                "Could not load QC metadata for '{}':".format(
+                    item.name
+                )
+            )
+
+            print(
+                traceback.format_exc()
+            )
+
+            # Do NOT stop loading the remaining checks.
+            item.display_name = item.name
+            item.description = ""
+            item.has_fix = False
+
+    # ---------------------------------------------------------
+    # Restore selected index
+    # ---------------------------------------------------------
+
     if len(checks) > 0:
-        settings.check_index = min(old_index, len(checks) - 1)
+
+        settings.check_index = min(
+            old_index,
+            len(checks) - 1,
+        )
+
     else:
+
         settings.check_index = 0
 
-    refresh_issues_display(context)
+    refresh_issues_display(
+        context
+    )
 
     return True, ""
 
@@ -1131,22 +1215,52 @@ def initialize_qc_checks_after_load(_dummy=None):
 
 class SCRIPTRONAUT_QC_CheckItem(PropertyGroup):
     """
-    Stores information for a single QC check displayed in the UI.
-
-    Includes the script path, status, issues, fix availability,
-    and serialized result data.
     """
-    name: StringProperty(default="")
-    script_path: StringProperty(default="")
-    selected: BoolProperty(default=True)
+    name: StringProperty(
+        default=""
+    )
+
+    display_name: StringProperty(
+        name="Display Name",
+        default="",
+    )
+
+    description: StringProperty(
+        name="Description",
+        default="",
+    )
+
+    script_path: StringProperty(
+        default=""
+    )
+
+    selected: BoolProperty(
+        default=True
+    )
 
     status: EnumProperty(
         name="Status",
         items=[
-            ("NOT_RUN", "Not Run", ""),
-            ("PASS", "Pass", ""),
-            ("FAIL", "Fail", ""),
-            ("RUNNING", "Running", ""),
+            (
+                "NOT_RUN",
+                "Not Run",
+                "",
+            ),
+            (
+                "PASS",
+                "Pass",
+                "",
+            ),
+            (
+                "FAIL",
+                "Fail",
+                "",
+            ),
+            (
+                "RUNNING",
+                "Running",
+                "",
+            ),
         ],
         default="NOT_RUN",
     )
@@ -1156,9 +1270,17 @@ class SCRIPTRONAUT_QC_CheckItem(PropertyGroup):
         default="",
     )
 
-    has_fix: BoolProperty(default=False)
-    issues: StringProperty(default="")
-    result_data: StringProperty(default="{}")
+    has_fix: BoolProperty(
+        default=False
+    )
+
+    issues: StringProperty(
+        default=""
+    )
+
+    result_data: StringProperty(
+        default="{}"
+    )
 
 
 class SCRIPTRONAUT_QC_EditorItem(PropertyGroup):
@@ -1306,14 +1428,26 @@ class SCRIPTRONAUT_UL_QC_Checks(UIList):
         name_column = split.row(align=True)
         status_column = split.row(align=True)
 
-        display_name = item.name
+        display_name = (
+            item.display_name
+            if item.display_name
+            else item.name
+        )
 
         if item.source_category == COMMON_CATEGORY:
-            display_name = "[Common] {}".format(item.name)
+            display_name = "[Common] {}".format(
+                display_name
+            )
 
-        name_column.label(
+        operator = name_column.operator(
+            "scriptronaut.qc_check_info",
             text=display_name,
             icon=icon_name,
+            emboss=False,
+        )
+
+        operator.tooltip_text = (
+            item.description
         )
 
         status_column.label(
@@ -3066,6 +3200,36 @@ class SCRIPTRONAUT_OT_QC_FixAll(Operator):
         return {"FINISHED"}
 
 
+class SCRIPTRONAUT_OT_QC_CheckInfo(Operator):
+    """
+    UI-only operator used to provide a tooltip
+    for a QC check in the list.
+    """
+    bl_idname = "scriptronaut.qc_check_info"
+    bl_label = "QC Check"
+    tooltip_text: StringProperty(
+        default=""
+    )
+
+    @classmethod
+    def description(
+        cls,
+        context,
+        properties,
+    ):
+        return (
+            properties.tooltip_text
+            or
+            "No description available."
+        )
+
+    def execute(
+        self,
+        context,
+    ):
+        return {"FINISHED"}
+
+
 # -------------------------------------------------------------------------
 # Register
 # -------------------------------------------------------------------------
@@ -3087,6 +3251,7 @@ classes = (
     SCRIPTRONAUT_OT_QC_RunSelected,
     SCRIPTRONAUT_OT_QC_FixCurrent,
     SCRIPTRONAUT_OT_QC_SelectObject,
+    SCRIPTRONAUT_OT_QC_CheckInfo,
     SCRIPTRONAUT_PT_QC_Checks,
     SCRIPTRONAUT_QC_FailedObjectItem,
     SCRIPTRONAUT_QC_ObjectCheckItem,

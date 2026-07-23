@@ -7,6 +7,13 @@ import bpy
 # Company imports
 
 
+# Tooltip
+LABEL = "Overlapping UV Faces"
+DESCRIPTION = (
+    "Checks mesh objects for UV faces that overlap "
+    "with other UV faces."
+)
+
 # -------------------------------------------------------------------------
 # Templates
 # -------------------------------------------------------------------------
@@ -18,6 +25,7 @@ def main():
     Returns:
         dict: {issues (list(str)), failed_objects(dict)}
     """
+    description = "Checks for Uv faces that Overlap."
     failed_objects =  get_objects_with_overlapping_uv_faces(grid_size=0.05)
     issues = []
 
