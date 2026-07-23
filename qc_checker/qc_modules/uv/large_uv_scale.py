@@ -6,6 +6,11 @@ import bpy
 
 # Company imports
 
+# Meta data
+LABEL = "Oversized Shells"
+DESCRIPTION = (
+    "Checks Oversized Shells"
+)
 
 # -------------------------------------------------------------------------
 # Templates

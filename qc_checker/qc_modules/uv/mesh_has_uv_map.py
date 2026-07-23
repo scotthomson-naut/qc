@@ -6,6 +6,11 @@ import bpy
 
 # Company imports
 
+# Meta data
+LABEL = "Has a Valid UV map"
+DESCRIPTION = (
+    "Checks if Mesh contains at least one UV map"
+)
 
 # -------------------------------------------------------------------------
 # Templates

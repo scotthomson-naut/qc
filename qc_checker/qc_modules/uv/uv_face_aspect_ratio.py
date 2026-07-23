@@ -6,6 +6,11 @@ import bpy
 
 # Company imports
 
+# Meta data
+LABEL = "Stretched UV polygons"
+DESCRIPTION = (
+    "Checks Stretched UV polygons"
+)
 
 # -------------------------------------------------------------------------
 # Templates

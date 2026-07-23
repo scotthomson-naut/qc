@@ -6,6 +6,11 @@ import bpy
 
 # Company imports
 
+# Meta data
+LABEL = "Microscopic UV shells"
+DESCRIPTION = (
+    "Checks Microscopic UV shells"
+)
 
 # -------------------------------------------------------------------------
 # Templates

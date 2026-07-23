@@ -6,6 +6,11 @@ import bpy
 
 # Company imports
 
+# Meta data
+LABEL = "Flipped UV Faces"
+DESCRIPTION = (
+    "Checks for Flipped UV Faces"
+)
 
 # -------------------------------------------------------------------------
 # Templates

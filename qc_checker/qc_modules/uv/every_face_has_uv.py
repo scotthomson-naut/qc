@@ -7,6 +7,12 @@ import bpy
 # Company imports
 
 
+# Meta data
+LABEL = "All Polygons have UV coordinates"
+DESCRIPTION = (
+    "Checks Every polygon has UV coordinates"
+)
+
 # -------------------------------------------------------------------------
 # Templates
 # -------------------------------------------------------------------------
