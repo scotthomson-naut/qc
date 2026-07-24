@@ -2407,6 +2407,75 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
             )
 
         # ---------------------------------------------------------
+        # Failure Severity Summary
+        # ---------------------------------------------------------
+
+        critical_count = sum(
+            1
+            for item in checks
+            if (
+                item.status == "FAIL"
+                and item.severity == "critical"
+            )
+        )
+
+        warning_count = sum(
+            1
+            for item in checks
+            if (
+                item.status == "FAIL"
+                and item.severity == "warning"
+            )
+        )
+
+        info_count = sum(
+            1
+            for item in checks
+            if (
+                item.status == "FAIL"
+                and item.severity == "info"
+            )
+        )
+
+        severity_row = layout.row(
+            align=True
+        )
+
+        critical_col = severity_row.column(
+            align=True
+        )
+
+        warning_col = severity_row.column(
+            align=True
+        )
+
+        info_col = severity_row.column(
+            align=True
+        )
+
+        critical_col.label(
+            text="Critical: {}".format(
+                critical_count
+            ),
+            icon="KEYTYPE_EXTREME_VEC",
+        )
+
+        warning_col.label(
+            text="Warning: {}".format(
+                warning_count
+            ),
+            icon="KEYTYPE_KEYFRAME_VEC",
+        )
+
+        info_col.label(
+            text="Info: {}".format(
+                info_count
+            ),
+            icon="KEYTYPE_BREAKDOWN_VEC",
+        )
+
+
+        # ---------------------------------------------------------
         # CHECK MODE
         # ---------------------------------------------------------
 
