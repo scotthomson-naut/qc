@@ -155,7 +155,9 @@ def set_qc_run_timestamp(context):
 
 
 def get_qc_elapsed_text(settings):
-    """Returns human-readable time since the last full QC run."""
+    """
+    Returns human-readable time since the last full QC run.
+    """
     if not settings.last_run_time:
         return "Not Run Yet"
 
@@ -3355,9 +3357,7 @@ class SCRIPTRONAUT_OT_QC_FixCheckInline(Operator):
             )
 
             # Support both:
-            #     fix(result_data)
-            # and legacy:
-            #     fix()
+            #    fix(result_data) and legacy: fix()
             try:
                 fix_function(
                     result_data
