@@ -6,6 +6,11 @@ import bpy
 
 # Company imports
 
+# Meta data
+LABEL = "Mesh Datablock Exists"
+DESCRIPTION = (
+    "Checks if Object has a Datablock"
+)
 
 # -------------------------------------------------------------------------
 # Templates

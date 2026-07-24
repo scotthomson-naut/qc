@@ -6,6 +6,11 @@ import bmesh
 
 # Company imports
 
+# Meta data
+LABEL = "Has Manifold Edges"
+DESCRIPTION = (
+    "Checks if Object has Manifold Edges"
+)
 
 # -------------------------------------------------------------------------
 # Templates

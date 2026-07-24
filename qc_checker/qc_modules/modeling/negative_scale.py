@@ -6,9 +6,14 @@ import bpy
 
 # Company imports
 
-
 # Constants
 TOLERANCE=1e-6
+
+# Meta data
+LABEL = "Has Negative Scale"
+DESCRIPTION = (
+    "Checks if Object has a Negative Scale"
+)
 
 # -------------------------------------------------------------------------
 # Templates

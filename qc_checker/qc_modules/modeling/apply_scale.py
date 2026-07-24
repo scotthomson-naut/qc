@@ -7,9 +7,14 @@ import bpy
 
 # Company imports
 
-
 # Constants
 TOLERANCE=1e-5
+
+# Meta data
+LABEL = "Scale Applied"
+DESCRIPTION = (
+    "Checks if Object's Scale is Applied"
+)
 
 # -------------------------------------------------------------------------
 # Templates

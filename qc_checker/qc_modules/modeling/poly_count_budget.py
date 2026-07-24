@@ -6,10 +6,15 @@ import bmesh
 
 # Company imports
 
-
 # Constants
 SCENE_POLY_BUDGET = 5000
 OBJECT_POLY_BUDGET = 500
+
+# Meta data
+LABEL = "Poly Count Above Limit"
+DESCRIPTION = (
+    "Checks if Object is below a certain Poly count"
+)
 
 # -------------------------------------------------------------------------
 # Templates

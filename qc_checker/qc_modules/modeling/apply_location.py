@@ -6,9 +6,14 @@ import bpy
 
 # Company imports
 
-
 # Constants
 TOLERANCE=1e-6
+
+# Meta data
+LABEL = "Location Applied"
+DESCRIPTION = (
+    "Checks if Object's Location is Applied"
+)
 
 # -------------------------------------------------------------------------
 # Templates

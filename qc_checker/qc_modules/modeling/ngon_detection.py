@@ -6,6 +6,11 @@ import bmesh
 
 # Company imports
 
+# Meta data
+LABEL = "Has N-Gons"
+DESCRIPTION = (
+    "Checks if Object has N-Gons"
+)
 
 # -------------------------------------------------------------------------
 # Templates

@@ -7,9 +7,14 @@ import bpy
 
 # Company imports
 
-
 # Constants
 TOLERANCE=1e-5
+
+# Meta data
+LABEL = "Modifier 'Solidify' Thickness Valid"
+DESCRIPTION = (
+    "Checks if Object's modifier Solidify Thickness is Valid"
+)
 
 # -------------------------------------------------------------------------
 # Templates

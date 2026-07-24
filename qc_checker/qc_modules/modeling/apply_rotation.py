@@ -6,9 +6,14 @@ import bpy
 
 # Company imports
 
-
 # Constants
 TOLERANCE=1e-5
+
+# Meta data
+LABEL = "Rotation Applied"
+DESCRIPTION = (
+    "Checks if Object's Rotation is Applied"
+)
 
 # -------------------------------------------------------------------------
 # Templates

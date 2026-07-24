@@ -6,9 +6,9 @@ import bpy
 # Company imports
 
 # Meta data
-LABEL = "Objects have Keyframes"
+LABEL = "Has Keyframes"
 DESCRIPTION = (
-    "Checks if objects have keyframes"
+    "Checks if Object has Keyframes"
 )
 
 # -------------------------------------------------------------------------

@@ -6,6 +6,12 @@ import bpy
 # Company imports
 
 
+# Meta data
+LABEL = "Has Faces"
+DESCRIPTION = (
+    "Checks if Object has Polygons"
+)
+
 # -------------------------------------------------------------------------
 # Templates
 # -------------------------------------------------------------------------

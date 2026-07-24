@@ -5,6 +5,12 @@ import bpy
 
 # Company imports
 
+# Meta data
+LABEL = "Unused Vertex Groups"
+DESCRIPTION = (
+    "Checks if Object' has Unused Vertex Groups"
+)
+
 
 # -------------------------------------------------------------------------
 # Templates
