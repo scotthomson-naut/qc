@@ -644,6 +644,22 @@ def load_qc_category(context):
                 "",
             )
 
+            # Severity.
+            severity = getattr(
+                module,
+                "SEVERITY",
+                "warning",
+            ).lower()
+
+            if severity not in {
+                "critical",
+                "warning",
+                "info",
+            }:
+                severity = "warning"
+
+            item.severity = severity
+
             # Determine whether automatic fix exists.
             item.has_fix = callable(
                 getattr(
@@ -1363,6 +1379,23 @@ def initialize_qc_checks_after_load(_dummy=None):
                 load_qc_category(bpy.context)
 
 
+def get_severity_icon(severity):
+    """
+    Returns the Blender icon for a QC severity.
+    """
+
+    icons = {
+        "critical": "KEYTYPE_EXTREME_VEC",
+        "warning": "KEYTYPE_KEYFRAME_VEC",
+        "info": "KEYTYPE_BREAKDOWN_VEC",
+    }
+
+    return icons.get(
+        severity,
+        "KEYTYPE_KEYFRAME_VEC",
+    )
+
+
 # -------------------------------------------------------------------------
 # Properties
 # -------------------------------------------------------------------------
@@ -1382,6 +1415,28 @@ class SCRIPTRONAUT_QC_CheckItem(PropertyGroup):
     description: StringProperty(
         name="Description",
         default="",
+    )
+
+    severity: EnumProperty(
+        name="Severity",
+        items=[
+            (
+                "critical",
+                "Critical",
+                "Critical QC issue",
+            ),
+            (
+                "warning",
+                "Warning",
+                "QC warning",
+            ),
+            (
+                "info",
+                "Info",
+                "Informational QC check",
+            ),
+        ],
+        default="warning",
     )
 
     script_path: StringProperty(
@@ -1602,6 +1657,34 @@ class SCRIPTRONAUT_UL_QC_Checks(UIList):
         # ---------------------------------------------------------
 
         row.prop(item, "selected", text="")
+
+        # ---------------------------------------------------------
+        # Severity icon
+        # ---------------------------------------------------------
+
+        severity_names = {
+            "critical": "Critical",
+            "warning": "Warning",
+            "info": "Info",
+        }
+
+        severity_info = row.operator(
+            "scriptronaut.qc_check_info",
+            text="",
+            icon=get_severity_icon(
+                item.severity
+            ),
+            emboss=False,
+        )
+
+        severity_info.tooltip_text = (
+            "Severity: {}".format(
+                severity_names.get(
+                    item.severity,
+                    "Warning",
+                )
+            )
+        )
 
         # ---------------------------------------------------------
         # Main columns

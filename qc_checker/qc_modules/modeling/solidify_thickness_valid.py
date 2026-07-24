@@ -11,6 +11,7 @@ import bpy
 TOLERANCE=1e-5
 
 # Meta data
+SEVERITY = "info"
 LABEL = "Modifier 'Solidify' Thickness Valid"
 DESCRIPTION = (
     "Checks if Object's modifier Solidify Thickness is Valid"

@@ -7,6 +7,7 @@ import bpy
 # Company imports
 
 # Meta data
+SEVERITY = "critical"
 LABEL = "UV Island Exist"
 DESCRIPTION = (
     "Checks if Object has UV Islands"

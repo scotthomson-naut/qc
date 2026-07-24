@@ -7,6 +7,7 @@ import bpy
 # Company imports
 
 # Meta data
+SEVERITY = "critical"
 LABEL = "Has a Valid UV map"
 DESCRIPTION = (
     "Checks if Object has at least one UV map"

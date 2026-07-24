@@ -7,6 +7,7 @@ import bpy
 # Company imports
 
 # Meta data
+SEVERITY = "info"
 LABEL = "Microscopic UV shells"
 DESCRIPTION = (
     "Checks if Object has Microscopic UV shells"

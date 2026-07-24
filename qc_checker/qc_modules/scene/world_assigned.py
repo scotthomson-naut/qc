@@ -6,6 +6,7 @@ import bpy
 # Company imports
 
 # Meta data
+SEVERITY = "critical"
 LABEL = "World Datablock Exists"
 DESCRIPTION = (
     "Checks if a World datablock exists"

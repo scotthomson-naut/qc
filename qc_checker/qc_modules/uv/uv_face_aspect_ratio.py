@@ -7,6 +7,7 @@ import bpy
 # Company imports
 
 # Meta data
+SEVERITY = "info"
 LABEL = "Stretched UV polygons"
 DESCRIPTION = (
     "Checks if Object has Stretched UV polygons"

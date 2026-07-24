@@ -7,6 +7,7 @@ import bpy
 # Company imports
 
 # Meta data
+SEVERITY = "warning"
 LABEL = "No Special Charcaters in Object Name"
 DESCRIPTION = (
     "Checks if Object's Name has Special Charcaters"

@@ -7,6 +7,7 @@ import bpy
 # Company imports
 
 # Meta data
+SEVERITY = "critical"
 LABEL = "Flipped UV Faces"
 DESCRIPTION = (
     "Checks if Object has Flipped UV Faces"

@@ -6,6 +6,7 @@ import bpy
 # Company imports
 
 # Meta data
+SEVERITY = "info"
 LABEL = "System Unit is metric or imperial"
 DESCRIPTION = (
     "Checks if metric or imperial specified"

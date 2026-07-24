@@ -7,6 +7,7 @@ import bpy
 # Company imports
 
 # Meta data
+SEVERITY = "info"
 LABEL = "Zero Length UV Edges"
 DESCRIPTION = (
     "Checks if Object has Zero Length UV Edges"

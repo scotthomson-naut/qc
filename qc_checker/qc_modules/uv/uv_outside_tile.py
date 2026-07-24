@@ -6,6 +6,7 @@ import bpy
 # Company imports
 
 # Meta data
+SEVERITY = "info"
 LABEL = "UV Outside Tile Area"
 DESCRIPTION = (
     "Checks if Object has UVs Outside of the Tile Area"

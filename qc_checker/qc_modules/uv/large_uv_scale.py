@@ -7,6 +7,7 @@ import bpy
 # Company imports
 
 # Meta data
+SEVERITY = "warning"
 LABEL = "Oversized Shells"
 DESCRIPTION = (
     "Checks if Object has UVs with Oversized Shells"

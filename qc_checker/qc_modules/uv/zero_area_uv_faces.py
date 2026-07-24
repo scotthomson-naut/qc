@@ -7,6 +7,7 @@ import bpy
 # Company imports
 
 # Meta data
+SEVERITY = "info"
 LABEL = "Zero Area UV Faces"
 DESCRIPTION = (
     "Checks if Object has Zero Area UV Faces"

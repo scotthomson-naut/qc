@@ -33,6 +33,7 @@ DEFAULT_OBJECT_NAMES = {
 # "Light",
 
 # Meta data
+SEVERITY = "info"
 LABEL = "Default Names"
 DESCRIPTION = (
     "Checks if objects have default names like Cube, Sphere .."
