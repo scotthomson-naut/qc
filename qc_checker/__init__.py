@@ -2793,11 +2793,13 @@ class SCRIPTRONAUT_UL_QC_ObjectChecks(UIList):
         index,
     ):
 
-        row = layout.row(align=True)
+        row = layout.row(
+            align=True
+        )
 
-        # ---------------------------------------------------------
-        # Check name
-        # ---------------------------------------------------------
+        # Keep failed checks visually consistent
+        # with failed rows in Check Mode.
+        row.alert = True
 
         split = row.split(
             factor=0.72,
@@ -2820,10 +2822,6 @@ class SCRIPTRONAUT_UL_QC_ObjectChecks(UIList):
                 else "INFO"
             ),
         )
-
-        # ---------------------------------------------------------
-        # Inline Fix
-        # ---------------------------------------------------------
 
         if item.has_fix:
             operator = (
@@ -3228,7 +3226,6 @@ class SCRIPTRONAUT_OT_QC_FixObjectInline(Operator):
         context,
     ):
         scene = context.scene
-
         settings = (
             scene.scriptronaut_qc_settings
         )
