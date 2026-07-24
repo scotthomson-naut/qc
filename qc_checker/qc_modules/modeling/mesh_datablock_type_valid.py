@@ -6,6 +6,7 @@ import bpy
 # Company imports
 
 # Meta data
+SEVERITY = "critical"
 LABEL = "Mesh Datablock Type Valid"
 DESCRIPTION = (
     "Checks if Mesh objects' datablock is actually a valid Mesh type"

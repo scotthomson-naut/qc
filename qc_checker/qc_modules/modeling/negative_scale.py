@@ -10,6 +10,7 @@ import bpy
 TOLERANCE=1e-6
 
 # Meta data
+SEVERITY = "critical"
 LABEL = "Has Negative Scale"
 DESCRIPTION = (
     "Checks if Object has a Negative Scale"

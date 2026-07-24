@@ -7,7 +7,6 @@ import bpy
 # Company imports
 
 # Meta data
-SEVERITY = "warning"
 LABEL = "Negative UV Coordinates"
 DESCRIPTION = (
     "Checks if Object has Negative UV Coordinates"

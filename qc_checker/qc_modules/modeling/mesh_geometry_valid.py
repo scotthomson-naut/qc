@@ -6,6 +6,7 @@ import bpy
 # Company imports
 
 # Meta data
+SEVERITY = "critical"
 LABEL = "Mesh Geometry Valid"
 DESCRIPTION = (
     "Checks if Mesh datablocks contain invalid geometry, per "

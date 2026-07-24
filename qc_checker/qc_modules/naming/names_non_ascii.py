@@ -6,6 +6,7 @@ import bpy
 # Company imports
 
 # Meta data
+SEVERITY = "critical"
 LABEL = "Name is ASCII"
 DESCRIPTION = (
     "Checks if Object's Name is ASCII"

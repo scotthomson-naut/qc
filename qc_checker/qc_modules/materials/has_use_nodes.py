@@ -6,6 +6,7 @@ import bpy
 # Company imports
 
 # Meta data
+SEVERITY = "critical"
 LABEL = "Has 'Use Nodes' turned off"
 DESCRIPTION = (
     "Checks if Material has 'Use Nodes' turned off"

@@ -7,6 +7,7 @@ import bmesh
 # Company imports
 
 # Meta data
+SEVERITY = "critical"
 LABEL = "Has Manifold Edges"
 DESCRIPTION = (
     "Checks if Object has Manifold Edges"

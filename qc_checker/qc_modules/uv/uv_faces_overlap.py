@@ -7,7 +7,6 @@ import bpy
 # Company imports
 
 # Meta data
-SEVERITY = "warning"
 LABEL = "Overlapping UV Faces"
 DESCRIPTION = (
     "Checks if Object has UV faces that overlap "

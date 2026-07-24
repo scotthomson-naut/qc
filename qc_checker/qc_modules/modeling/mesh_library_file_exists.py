@@ -7,6 +7,7 @@ import bpy
 # Company imports
 
 # Meta data
+SEVERITY = "critical"
 LABEL = "Mesh Library File Exists"
 DESCRIPTION = (
     "Checks if linked Mesh datablocks can still reach their source "

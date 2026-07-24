@@ -8,6 +8,7 @@ import bmesh
 
 
 # Meta data
+SEVERITY = "critical"
 LABEL = "Has N-Gons"
 DESCRIPTION = (
     "Checks if Object has N-Gons"

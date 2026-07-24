@@ -6,6 +6,7 @@ import bpy
 # Company imports
 
 # Meta data
+SEVERITY = "critical"
 LABEL = "Mesh Datablock Exists"
 DESCRIPTION = (
     "Checks if Mesh objects have a mesh datablock assigned"

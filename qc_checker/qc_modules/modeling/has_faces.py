@@ -7,6 +7,7 @@ import bpy
 
 
 # Meta data
+SEVERITY = "critical"
 LABEL = "Has Faces"
 DESCRIPTION = (
     "Checks if Object has Polygons"

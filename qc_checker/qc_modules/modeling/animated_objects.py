@@ -6,6 +6,7 @@ import bpy
 # Company imports
 
 # Meta data
+SEVERITY = "critical"
 LABEL = "Has Keyframes"
 DESCRIPTION = (
     "Checks if Object has Keyframes"
