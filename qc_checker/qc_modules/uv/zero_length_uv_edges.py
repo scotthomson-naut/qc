@@ -6,6 +6,11 @@ import bpy
 
 # Company imports
 
+# Meta data
+LABEL = "Zero Length UV Edges"
+DESCRIPTION = (
+    "Checks if Object has Zero Length UV Edges"
+)
 
 # -------------------------------------------------------------------------
 # Templates

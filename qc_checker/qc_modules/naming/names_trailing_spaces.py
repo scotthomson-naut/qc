@@ -5,6 +5,11 @@ import bpy
 
 # Company imports
 
+# Meta data
+LABEL = "Name has no Trailing Spaces"
+DESCRIPTION = (
+    "Checks if Object's Name has Trailing Spaces"
+)
 
 # -------------------------------------------------------------------------
 # Templates

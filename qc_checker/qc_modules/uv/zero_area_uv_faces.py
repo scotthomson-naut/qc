@@ -6,6 +6,11 @@ import bpy
 
 # Company imports
 
+# Meta data
+LABEL = "Zero Area UV Faces"
+DESCRIPTION = (
+    "Checks if Object has Zero Area UV Faces"
+)
 
 # -------------------------------------------------------------------------
 # Templates

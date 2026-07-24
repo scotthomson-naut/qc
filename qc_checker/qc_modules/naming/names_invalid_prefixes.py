@@ -5,9 +5,14 @@ import bpy
 
 # Company imports
 
-
 # Constants
 CASE_SENSITIVE = False
+
+# Meta data
+LABEL = "Name Has Valid Prefix"
+DESCRIPTION = (
+    "Checks if Object's Name dhas a valid Prefix"
+)
 
 # -------------------------------------------------------------------------
 # Templates

@@ -6,6 +6,11 @@ import bpy
 
 # Company imports
 
+# Meta data
+LABEL = "Negative UV Coordinates"
+DESCRIPTION = (
+    "Checks if Object has Negative UV Coordinates"
+)
 
 # -------------------------------------------------------------------------
 # Templates

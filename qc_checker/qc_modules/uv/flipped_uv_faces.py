@@ -9,7 +9,7 @@ import bpy
 # Meta data
 LABEL = "Flipped UV Faces"
 DESCRIPTION = (
-    "Checks for Flipped UV Faces"
+    "Checks if Object has Flipped UV Faces"
 )
 
 # -------------------------------------------------------------------------

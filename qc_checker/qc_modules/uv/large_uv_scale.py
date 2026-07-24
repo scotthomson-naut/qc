@@ -9,7 +9,7 @@ import bpy
 # Meta data
 LABEL = "Oversized Shells"
 DESCRIPTION = (
-    "Checks Oversized Shells"
+    "Checks if Object has UVs with Oversized Shells"
 )
 
 # -------------------------------------------------------------------------

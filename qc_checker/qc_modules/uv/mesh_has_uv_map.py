@@ -9,7 +9,7 @@ import bpy
 # Meta data
 LABEL = "Has a Valid UV map"
 DESCRIPTION = (
-    "Checks if Mesh contains at least one UV map"
+    "Checks if Object has at least one UV map"
 )
 
 # -------------------------------------------------------------------------

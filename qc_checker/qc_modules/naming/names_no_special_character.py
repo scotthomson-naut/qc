@@ -6,6 +6,11 @@ import bpy
 
 # Company imports
 
+# Meta data
+LABEL = "No Special Charcaters in Object Name"
+DESCRIPTION = (
+    "Checks if Object's Name has Special Charcaters"
+)
 
 # -------------------------------------------------------------------------
 # Templates

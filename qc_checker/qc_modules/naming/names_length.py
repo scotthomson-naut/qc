@@ -9,6 +9,12 @@ import bpy
 # Constants
 MAX_LENGTH = 64
 
+# Meta data
+LABEL = "Name Length"
+DESCRIPTION = (
+    "Checks if Object's Name is not longer"
+    "than {} Characters".format(MAX_LENGTH)
+)
 
 # -------------------------------------------------------------------------
 # Templates

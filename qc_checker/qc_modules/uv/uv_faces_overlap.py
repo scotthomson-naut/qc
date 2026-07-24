@@ -6,11 +6,10 @@ import bpy
 
 # Company imports
 
-
 # Meta data
 LABEL = "Overlapping UV Faces"
 DESCRIPTION = (
-    "Checks mesh objects for UV faces that overlap "
+    "Checks if Object has UV faces that overlap "
     "with other UV faces."
 )
 

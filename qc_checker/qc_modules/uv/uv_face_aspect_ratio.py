@@ -9,7 +9,7 @@ import bpy
 # Meta data
 LABEL = "Stretched UV polygons"
 DESCRIPTION = (
-    "Checks Stretched UV polygons"
+    "Checks if Object has Stretched UV polygons"
 )
 
 # -------------------------------------------------------------------------

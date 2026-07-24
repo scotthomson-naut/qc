@@ -5,6 +5,11 @@ import bpy
 
 # Company imports
 
+# Meta data
+LABEL = "Object Name and Datablock Match"
+DESCRIPTION = (
+    "Checks if object's Name matches its Datablock"
+)
 
 # -------------------------------------------------------------------------
 # Templates

@@ -6,6 +6,11 @@ import bpy
 
 # Company imports
 
+# Meta data
+LABEL = "UV Island Exist"
+DESCRIPTION = (
+    "Checks if Object has UV Islands"
+)
 
 # -------------------------------------------------------------------------
 # Templates

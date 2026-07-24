@@ -9,6 +9,12 @@ import bpy
 # Constants
 AUTO_INCREMENT_PATTERN = re.compile(r"^(.*)\.(\d{3})$")
 
+# Meta data
+LABEL = "No Duplicate Object Names"
+DESCRIPTION = (
+    "Checks if Object's Name is a Duplicate"
+)
+
 # -------------------------------------------------------------------------
 # Templates
 # -------------------------------------------------------------------------

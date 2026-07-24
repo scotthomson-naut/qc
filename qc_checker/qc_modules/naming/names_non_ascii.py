@@ -5,6 +5,11 @@ import bpy
 
 # Company imports
 
+# Meta data
+LABEL = "Name is ASCII"
+DESCRIPTION = (
+    "Checks if Object's Name is ASCII"
+)
 
 # -------------------------------------------------------------------------
 # Templates

@@ -9,7 +9,7 @@ import bpy
 # Meta data
 LABEL = "Microscopic UV shells"
 DESCRIPTION = (
-    "Checks Microscopic UV shells"
+    "Checks if Object has Microscopic UV shells"
 )
 
 # -------------------------------------------------------------------------
