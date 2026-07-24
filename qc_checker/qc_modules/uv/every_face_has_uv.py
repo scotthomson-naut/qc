@@ -7,6 +7,7 @@ import bpy
 # Company imports
 
 # Meta data
+SEVERITY = "critical"
 LABEL = "All Polygons have UV coordinates"
 DESCRIPTION = (
     "Checks if Object's polygons have UV coordinates"
