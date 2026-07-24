@@ -2802,7 +2802,7 @@ class SCRIPTRONAUT_UL_QC_ObjectChecks(UIList):
         row.alert = True
 
         split = row.split(
-            factor=0.72,
+            factor=0.8,
             align=True,
         )
 
