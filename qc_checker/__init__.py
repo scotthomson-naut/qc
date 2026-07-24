@@ -1495,7 +1495,7 @@ class SCRIPTRONAUT_QC_Settings(PropertyGroup):
                 "OBJECTS",
                 "Objects",
                 "View failed objects and the checks each object failed",
-                "OBJECT_DATA",
+                "CUBE",
                 1,
             ),
         ],
@@ -2228,7 +2228,7 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
                 text="Settings",
                 icon="PREFERENCES",
             )
-        
+
             settings_row = settings_box.row(
                 align=True
             )
@@ -2284,12 +2284,12 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
         )
 
         # ---------------------------------------------------------
-        # QC Status
+        # Status
         # ---------------------------------------------------------
 
         status_box = layout.box()
         status_box.label(
-            text="QC Status",
+            text="Status",
             icon="INFO",
         )
 
