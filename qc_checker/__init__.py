@@ -2223,14 +2223,37 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
             "Pro",
             "Studio",
         ]:
+            settings_box = layout.box()
+            settings_box.label(
+                text="Settings",
+                icon="PREFERENCES",
+            )
+        
+            settings_row = settings_box.row(
+                align=True
+            )
 
-            layout.prop(
+            # ---------------------------------------------------------
+            # Left side - checkbox
+            # ---------------------------------------------------------
+
+            use_settings_row = settings_row.row(
+                align=True
+            )
+
+            use_settings_row.prop(
                 settings,
                 "use_check_settings",
                 text="Use Check Settings",
             )
 
-            editor_row = layout.row()
+            # ---------------------------------------------------------
+            # Right side - edit button
+            # ---------------------------------------------------------
+
+            editor_row = settings_row.row(
+                align=True
+            )
 
             editor_row.enabled = (
                 settings.use_check_settings
@@ -2253,7 +2276,8 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
             icon="OPTIONS",
         )
 
-        mode_box.prop(
+        mode_row =  mode_box.row()
+        mode_row.prop(
             settings,
             "mode",
             expand=True,
@@ -2270,30 +2294,31 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
         )
 
         elapsed_text = get_qc_elapsed_text(settings)
+        status_row = status_box.row()
 
         if not settings.last_run_time:
-            status_box.label(
+            status_row.label(
                 text="Last Run: Not Run Yet",
                 icon="QUESTION",
             )
 
         elif settings.scene_modified_since_qc:
-            status_box.alert = True
-            status_box.label(
+            status_row.alert = True
+            status_row.label(
                 text="Last Run: {}".format(elapsed_text),
                 icon="TIME",
             )
-            status_box.label(
+            status_row.label(
                 text="Scene Modified Since Last Run",
                 icon="ERROR",
             )
 
         else:
-            status_box.label(
+            status_row.label(
                 text="Last Run: {}".format(elapsed_text),
                 icon="TIME",
             )
-            status_box.label(
+            status_row.label(
                 text="Scene Has Not Changed",
                 icon="CHECKMARK",
             )
