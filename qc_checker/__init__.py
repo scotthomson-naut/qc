@@ -2547,12 +2547,37 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
         # Run selected
         # ---------------------------------------------------------
 
+        selected_check_count = sum(
+            1
+            for item in checks
+            if item.selected
+        )
+
         run_row = layout.row()
         run_row.scale_y = 1.5
+
+        run_row.enabled = (
+            selected_check_count > 0
+        )
+
+        if selected_check_count == 0:
+            run_button_text = (
+                "No Checks Selected"
+            )
+        else:
+            run_button_text = (
+                "Run ({}) Selected Check{}".format(
+                    selected_check_count,
+                    ""
+                    if selected_check_count == 1
+                    else "s",
+                )
+            )
+
         run_row.operator(
             "scriptronaut.qc_run_selected",
             icon="PLAY",
-            text="Run Selected Checks",
+            text=run_button_text,
         )
 
         # ---------------------------------------------------------
