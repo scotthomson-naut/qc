@@ -136,38 +136,253 @@ def fix_objects_with_unapplied_location(result_data=None):
         {},
     )
 
+    if not isinstance(failed_objects, dict):
+        failed_objects = {}
+
     fixed_objects = {}
     issues = []
 
-    for object_name in failed_objects:
-        obj = bpy.data.objects.get(object_name)
+    context = bpy.context
+    view_layer = context.view_layer
 
-        if obj is None:
-            issues.append(
-                'Object "{}" no longer exists.'.format(
-                    object_name
-                )
+    # ---------------------------------------------------------
+    # Save current Blender state
+    # ---------------------------------------------------------
+
+    original_active = (
+        view_layer.objects.active
+    )
+
+    original_selected = list(
+        context.selected_objects
+    )
+
+    original_mode = (
+        context.mode
+    )
+
+    # Blender's transform_apply operator requires Object Mode.
+    if context.object is not None and context.mode != "OBJECT":
+        try:
+            bpy.ops.object.mode_set(
+                mode="OBJECT"
             )
-            continue
 
-        if obj.type != "MESH":
-            continue
+        except RuntimeError as error:
+            return {
+                "fixed_objects": {},
+                "issues": [
+                    "Could not enter Object Mode: {}".format(
+                        error
+                    )
+                ],
+            }
 
-        if obj.library is not None:
-            issues.append(
-                "Skipped linked object: {}".format(
-                    obj.name
-                )
+    try:
+        for object_name in failed_objects:
+            obj = bpy.data.objects.get(
+                object_name
             )
-            continue
 
-        # Use blender's function
-        bpy.ops.object.transforms_to_deltas(mode='LOC')
+            if obj is None:
+                issues.append(
+                    'Object "{}" no longer exists.'.format(
+                        object_name
+                    )
+                )
 
+                continue
 
-    bpy.context.view_layer.update()
+            if obj.type != "MESH":
+                continue
+
+            if obj.data is None:
+                continue
+
+            # ---------------------------------------------
+            # Make linked mesh data single-user
+            # ---------------------------------------------
+
+            # Blender applies the transform to the mesh datablock.
+            # Copy shared data so other objects using the same mesh
+            # are not unintentionally modified.
+            if obj.data.users > 1:
+                obj.data = obj.data.copy()
+
+            # ---------------------------------------------
+            # Make object available to the operator
+            # ---------------------------------------------
+
+            original_hide_viewport = (
+                obj.hide_viewport
+            )
+
+            try:
+                original_hide_state = (
+                    obj.hide_get()
+                )
+            except RuntimeError:
+                original_hide_state = False
+
+            original_hide_select = (
+                obj.hide_select
+            )
+
+            try:
+                obj.hide_viewport = False
+                obj.hide_select = False
+                obj.hide_set(False)
+
+                # Deselect everything.
+                for selected_obj in list(
+                    context.selected_objects
+                ):
+                    selected_obj.select_set(
+                        False
+                    )
+
+                # Select and activate only this object.
+                obj.select_set(
+                    True
+                )
+
+                view_layer.objects.active = (
+                    obj
+                )
+
+                # -----------------------------------------
+                # Exact Blender Apply Transform Delta operation
+                # -----------------------------------------
+
+                # Use blender's function
+                result = bpy.ops.object.transforms_to_deltas(
+                    mode='LOC'
+                )
+
+                if "FINISHED" not in result:
+                    issues.append(
+                        "Could not apply location to {}.".format(
+                            obj.name
+                        )
+                    )
+
+                    continue
+
+                fixed_objects[obj.name] = {
+                    "delta_location_applied": True,
+                }
+
+            except Exception as error:
+                issues.append(
+                    "Could not apply location to {}: {}".format(
+                        obj.name,
+                        error,
+                    )
+                )
+
+            finally:
+                # Restore this object's visibility settings.
+                obj.hide_viewport = (
+                    original_hide_viewport
+                )
+
+                obj.hide_select = (
+                    original_hide_select
+                )
+
+                try:
+                    obj.hide_set(
+                        original_hide_state
+                    )
+                except RuntimeError:
+                    pass
+
+    finally:
+        # -----------------------------------------------------
+        # Restore original selection
+        # -----------------------------------------------------
+
+        for selected_obj in list(
+            context.selected_objects
+        ):
+            try:
+                selected_obj.select_set(
+                    False
+                )
+            except RuntimeError:
+                pass
+
+        for selected_obj in original_selected:
+            if selected_obj.name not in bpy.data.objects:
+                continue
+
+            try:
+                selected_obj.select_set(
+                    True
+                )
+            except RuntimeError:
+                pass
+
+        if (
+            original_active is not None
+            and original_active.name in bpy.data.objects
+        ):
+            view_layer.objects.active = (
+                original_active
+            )
+
+        # Restore the original mode when possible.
+        if (
+            original_mode != "OBJECT"
+            and view_layer.objects.active is not None
+        ):
+
+            mode_name = get_mode_set_name(
+                original_mode
+            )
+
+            if mode_name:
+
+                try:
+                    bpy.ops.object.mode_set(
+                        mode=mode_name
+                    )
+                except RuntimeError:
+                    pass
+
+        view_layer.update()
 
     return {
         "fixed_objects": fixed_objects,
         "issues": issues,
     }
+
+
+# -------------------------
+# Support Function (Fix)
+# -------------------------
+
+
+def get_mode_set_name(context_mode):
+    """
+    Converts bpy.context.mode values into names accepted by
+    bpy.ops.object.mode_set().
+    """
+    mode_map = {
+        "EDIT_MESH": "EDIT",
+        "EDIT_CURVE": "EDIT",
+        "EDIT_SURFACE": "EDIT",
+        "EDIT_TEXT": "EDIT",
+        "EDIT_ARMATURE": "EDIT",
+        "EDIT_METABALL": "EDIT",
+        "EDIT_LATTICE": "EDIT",
+        "POSE": "POSE",
+        "SCULPT": "SCULPT",
+        "PAINT_WEIGHT": "WEIGHT_PAINT",
+        "PAINT_VERTEX": "VERTEX_PAINT",
+        "PAINT_TEXTURE": "TEXTURE_PAINT",
+        "PARTICLE": "PARTICLE_EDIT",
+        "OBJECT": "OBJECT",
+    }
+
+    return mode_map.get(context_mode)
