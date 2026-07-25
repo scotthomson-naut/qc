@@ -2502,18 +2502,26 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
         )
 
         # ---------------------------------------------------------
-        # Select All / None
+        # Select All / Critical / None
         # ---------------------------------------------------------
 
-        row = layout.row(
-            align=True
-        )
+        row = layout.row(align=True)
 
         row.operator(
             "scriptronaut.qc_select_all",
             icon="CHECKBOX_HLT",
             text="Select All",
         )
+
+        row.separator()
+
+        row.operator(
+            "scriptronaut.qc_select_critical",
+            icon="KEYTYPE_EXTREME_VEC",
+            text="",
+        )
+
+        row.separator()
 
         row.operator(
             "scriptronaut.qc_select_none",
@@ -3808,6 +3816,25 @@ class SCRIPTRONAUT_OT_QC_FixObjectInline(Operator):
         return {"FINISHED"}
 
 
+class SCRIPTRONAUT_OT_QC_SelectCritical(Operator):
+    """
+    Select only Critical QC checks.
+    """
+    bl_idname = "scriptronaut.qc_select_critical"
+    bl_label = "Select Critical Checks"
+    bl_description = "Select only Critical QC checks"
+
+    def execute(self, context):
+
+        checks = context.scene.scriptronaut_qc_checks
+
+        for item in checks:
+            item.selected = (
+                item.severity == "critical"
+            )
+
+        return {"FINISHED"}
+
 # -------------------------------------------------------------------------
 # Register
 # -------------------------------------------------------------------------
@@ -3825,6 +3852,7 @@ classes = (
     SCRIPTRONAUT_OT_QC_EditorDeleteCategory,
     SCRIPTRONAUT_OT_QC_RefreshCategories,
     SCRIPTRONAUT_OT_QC_SelectAll,
+    SCRIPTRONAUT_OT_QC_SelectCritical,
     SCRIPTRONAUT_OT_QC_SelectNone,
     SCRIPTRONAUT_OT_QC_RunSelected,
     SCRIPTRONAUT_OT_QC_FixCheckInline,
