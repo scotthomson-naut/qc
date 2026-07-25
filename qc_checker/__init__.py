@@ -258,9 +258,7 @@ def mark_scene_modified_after_qc(
             updated_id,
             relevant_types,
         ):
-
             settings.scene_modified_since_qc = True
-
             break
 
 
@@ -298,7 +296,6 @@ def get_categories(folder_path, use_json=False):
 
     if use_json:
         check_list = load_check_list(folder_path)
-
         if not check_list:
             return []
 
@@ -358,7 +355,6 @@ def get_scripts(folder_path, category, use_json=False):
 
         for script_name, paths in duplicate_names.items():
             print("  Duplicate check: {}".format(script_name))
-
             for path in paths:
                 print("    {}".format(path))
 
@@ -400,7 +396,6 @@ def get_scripts(folder_path, category, use_json=False):
                 continue
 
             script_data = registry.get(script_name)
-
             if script_data is None:
                 print(
                     "QC script listed in JSON but not found: "
@@ -591,7 +586,6 @@ def load_qc_category(context):
     )
 
     for script_data in scripts:
-
         item = checks.add()
 
         # -----------------------------------------------------
@@ -622,7 +616,6 @@ def load_qc_category(context):
         # -----------------------------------------------------
 
         try:
-
             module = load_module_from_path(
                 "qc_info_{}".format(
                     item.name
@@ -670,7 +663,6 @@ def load_qc_category(context):
             )
 
         except Exception:
-
             print(
                 "Could not load QC metadata for '{}':".format(
                     item.name
@@ -691,14 +683,12 @@ def load_qc_category(context):
     # ---------------------------------------------------------
 
     if len(checks) > 0:
-
         settings.check_index = min(
             old_index,
             len(checks) - 1,
         )
 
     else:
-
         settings.check_index = 0
 
     refresh_issues_display(
@@ -1052,7 +1042,6 @@ def rebuild_failed_objects(context):
     object_failures = {}
 
     for check_index, check_item in enumerate(checks):
-
         if check_item.status != "FAIL":
             continue
 
@@ -1072,7 +1061,6 @@ def rebuild_failed_objects(context):
             continue
 
         for object_name in failed_objects:
-
             object_failures.setdefault(
                 object_name,
                 [],
@@ -1084,9 +1072,7 @@ def rebuild_failed_objects(context):
         object_failures
     ):
         item = failed_items.add()
-
         item.name = object_name
-
         item.failed_check_count = len(
             object_failures[
                 object_name
@@ -1097,16 +1083,13 @@ def rebuild_failed_objects(context):
     settings.failed_object_index = 0
 
     if previous_name:
-
         for index, item in enumerate(
             failed_items
         ):
             if item.name == previous_name:
-
                 settings.failed_object_index = (
                     index
                 )
-
                 break
 
     refresh_object_failed_checks(
@@ -1160,7 +1143,6 @@ def refresh_object_failed_checks(context):
     for check_index, check_item in enumerate(
         checks
     ):
-
         if check_item.status != "FAIL":
             continue
 
@@ -1185,17 +1167,17 @@ def refresh_object_failed_checks(context):
             continue
 
         item = object_checks.add()
-
         item.name = check_item.name
-        item.script_path = (
-            check_item.script_path
+        item.script_path = check_item.script_path
+        item.has_fix = check_item.has_fix
+        item.check_index = check_index
+        item.display_name = (
+            check_item.display_name
+            if check_item.display_name
+            else check_item.name
         )
-        item.has_fix = (
-            check_item.has_fix
-        )
-        item.check_index = (
-            check_index
-        )
+        item.severity = check_item.severity
+        item.description = check_item.description
 
     settings.object_check_index = 0
 
@@ -1227,7 +1209,6 @@ def get_filtered_result_for_object(
         return filtered_result
 
     if object_name not in failed_objects:
-
         filtered_result[
             "failed_objects"
         ] = {}
@@ -1258,7 +1239,6 @@ def rerun_qc_check_item(item):
         return False
 
     try:
-
         module = load_module_from_path(
             "qc_rerun_{}".format(
                 item.name
@@ -1316,18 +1296,14 @@ def rerun_qc_check_item(item):
         )
 
         if issues:
-
             item.status = "FAIL"
-
             item.issues = "\n".join(
                 str(issue)
                 for issue in issues
             )
 
         else:
-
             item.status = "PASS"
-
             item.issues = (
                 "No issues found."
             )
@@ -1335,11 +1311,9 @@ def rerun_qc_check_item(item):
         return True
 
     except Exception:
-
         print(
             traceback.format_exc()
         )
-
         return False
 
 
@@ -2119,7 +2093,9 @@ class SCRIPTRONAUT_OT_QC_SelectNone(Operator):
 
 
 class SCRIPTRONAUT_OT_QC_RunSelected(Operator):
-    """Executes all selected QC scripts and stores the results."""
+    """
+    Executes all selected QC scripts and stores the results.
+    """
     bl_idname = "scriptronaut.qc_run_selected"
     bl_label = "Run Selected Checks"
 
@@ -2563,7 +2539,9 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
         # Run selected
         # ---------------------------------------------------------
 
-        layout.operator(
+        run_row = layout.row()
+        run_row.scale_y = 1.5
+        run_row.operator(
             "scriptronaut.qc_run_selected",
             icon="PLAY",
             text="Run Selected Checks",
@@ -2605,7 +2583,6 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
         )
 
         if current_item is not None:
-
             fix_row = layout.row(
                 align=True
             )
@@ -2619,41 +2596,29 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
             )
 
             if current_item.status == "FAIL":
-
                 if current_item.has_fix:
-
                     current_column.enabled = True
-
                     current_column.operator(
                         "scriptronaut.qc_fix_current",
                         icon="TOOL_SETTINGS",
                         text="Fix Current Check",
                     )
-
                 else:
-
                     current_column.enabled = False
-
                     current_column.operator(
                         "scriptronaut.qc_fix_current",
                         icon="INFO",
                         text="Manual Fix Required",
                     )
-
             elif current_item.status == "PASS":
-
                 current_column.enabled = False
-
                 current_column.operator(
                     "scriptronaut.qc_fix_current",
                     icon="CHECKMARK",
                     text="All Good",
                 )
-
             else:
-
                 current_column.enabled = False
-
                 current_column.operator(
                     "scriptronaut.qc_fix_current",
                     icon="TOOL_SETTINGS",
@@ -2911,12 +2876,10 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
 
         if not checks:
             box = layout.box()
-
             box.label(
                 text="No QC results available.",
                 icon="INFO",
             )
-
             box.label(
                 text="Run checks in Checks mode first."
             )
@@ -2971,7 +2934,6 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
 
         if current_object_item:
             info_row = object_box.row()
-
             info_row.label(
                 text="Selected: {}".format(
                     current_object_item.name
@@ -3047,9 +3009,7 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
 
         else:
             manual_row = check_box.row()
-
             manual_row.enabled = False
-
             manual_row.label(
                 text="Fix Must Be Done Manually",
                 icon="INFO",
@@ -3071,14 +3031,12 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
         )
 
         if current_object_check.has_fix:
-
             details_box.label(
                 text="Automatic fix available.",
                 icon="TOOL_SETTINGS",
             )
 
         else:
-
             details_box.label(
                 text="Manual fix required.",
                 icon="INFO",
@@ -3104,6 +3062,10 @@ class SCRIPTRONAUT_QC_ObjectCheckItem(PropertyGroup):
     check_index: IntProperty(
         default=-1,
     )
+
+    display_name: StringProperty(default="")
+    severity: StringProperty(default="warning")
+    description: StringProperty(default="")
 
 
 class SCRIPTRONAUT_UL_QC_FailedObjects(UIList):
@@ -3150,7 +3112,11 @@ class SCRIPTRONAUT_UL_QC_ObjectChecks(UIList):
     """
     Displays checks failed by the selected object.
 
-    Each fixable failed check has its own inline Fix button.
+    Keeps the visual style consistent with Checks Mode:
+        - Severity icon
+        - Fail X icon
+        - Friendly display name
+        - Inline Fix button
     """
 
     def draw_item(
@@ -3169,11 +3135,54 @@ class SCRIPTRONAUT_UL_QC_ObjectChecks(UIList):
             align=True
         )
 
-        # Keep failed checks visually consistent with Check Mode.
+        # This list only contains failed checks.
         row.alert = True
 
+        scene = context.scene
+        checks = scene.scriptronaut_qc_checks
+
+        # ---------------------------------------------------------
+        # Resolve original check item
+        # ---------------------------------------------------------
+
+        source_check = None
+
+        if (
+            item.check_index >= 0
+            and item.check_index < len(checks)
+        ):
+            source_check = checks[
+                item.check_index
+            ]
+
+        # ---------------------------------------------------------
+        # Severity
+        # ---------------------------------------------------------
+
+        if source_check is not None:
+            severity_icon = get_severity_icon(
+                source_check.severity
+            )
+
+            display_name = (
+                source_check.display_name
+                if source_check.display_name
+                else source_check.name
+            )
+
+        else:
+            severity_icon = (
+                "KEYTYPE_KEYFRAME_VEC"
+            )
+
+            display_name = item.name
+
+        # ---------------------------------------------------------
+        # Layout
+        # ---------------------------------------------------------
+
         split = row.split(
-            factor=0.8,
+            factor=0.88,
             align=True,
         )
 
@@ -3185,14 +3194,35 @@ class SCRIPTRONAUT_UL_QC_ObjectChecks(UIList):
             align=True
         )
 
+        # ---------------------------------------------------------
+        # Severity icon
+        # ---------------------------------------------------------
+
         name_column.label(
-            text=item.name,
-            icon=(
-                "TOOL_SETTINGS"
-                if item.has_fix
-                else "INFO"
-            ),
+            text="",
+            icon=severity_icon,
         )
+
+        # ---------------------------------------------------------
+        # Fail icon
+        # ---------------------------------------------------------
+
+        name_column.label(
+            text="",
+            icon="CANCEL",
+        )
+
+        # ---------------------------------------------------------
+        # Friendly display name
+        # ---------------------------------------------------------
+
+        name_column.label(
+            text=display_name,
+        )
+
+        # ---------------------------------------------------------
+        # Fix
+        # ---------------------------------------------------------
 
         if item.has_fix:
             operator = (
@@ -3208,8 +3238,10 @@ class SCRIPTRONAUT_UL_QC_ObjectChecks(UIList):
             )
 
         else:
-            manual_row = action_column.row(
-                align=True
+            manual_row = (
+                action_column.row(
+                    align=True
+                )
             )
 
             manual_row.enabled = False
