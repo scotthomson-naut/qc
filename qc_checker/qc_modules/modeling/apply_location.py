@@ -91,7 +91,6 @@ def get_objects_with_unapplied_location(objects=None):
     failed_objects = {}
 
     for obj in objects:
-
         if obj.type != "MESH":
             continue
 

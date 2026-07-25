@@ -96,6 +96,9 @@ def get_objects_scale(
         if obj.type in exclude_types:
             continue
 
+        if obj.type != "MESH":
+            continue
+
         issues = []
 
         # -------------------------
