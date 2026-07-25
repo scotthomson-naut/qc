@@ -1,6 +1,5 @@
 # Standard python imports
 from math import isclose
-from mathutils import Matrix
 
 # Blender imports
 import bpy
@@ -126,83 +125,328 @@ def get_objects_scale(
 
 def fix_objects_scale(result_data=None):
     """
-    Applies rotation and scale to mesh objects while preserving:
+    Applies scale using Blender's built-in:
 
-        - World-space appearance
-        - Object location
-        - Parenting
+        Object > Apply > Scale
 
-    After applying:
-        Scale    -> 1
+    Location and rotation are preserved.
 
     Args:
-        result_data (dict):
-            Result returned by main()
+        result_data (dict | None):
+            Result returned by main().
 
     Returns:
         dict:
         {
             "fixed_objects": {
-                "Character_Body": {
-                    "scale_applied": True,
+                "Cube": {
+                    "previous_scale": (2.0, 1.0, 0.5),
+                    "scale": (1.0, 1.0, 1.0),
                 }
             },
-            "issues": [...]
+            "issues": list[str],
         }
     """
-    failed_objects = result_data.get("failed_objects", {})
+    if not isinstance(result_data, dict):
+        result_data = {}
+
+    failed_objects = result_data.get(
+        "failed_objects",
+        {},
+    )
+
+    if not isinstance(failed_objects, dict):
+        failed_objects = {}
+
     fixed_objects = {}
     issues = []
 
-    for object_name, object_data in failed_objects.items():
-        obj = bpy.data.objects.get(object_name)
+    context = bpy.context
+    view_layer = context.view_layer
 
-        if obj.type != "MESH":
-            continue
+    # ---------------------------------------------------------
+    # Save current Blender state
+    # ---------------------------------------------------------
 
-        scale = obj.scale
+    original_active = (
+        view_layer.objects.active
+    )
 
-        needs_fix = any(
-            abs(value - 1.0) > TOLERANCE
-            for value in scale
-        )
+    original_selected = list(
+        context.selected_objects
+    )
 
-        if not needs_fix:
-            continue
+    original_mode = (
+        context.mode
+    )
 
+    # transform_apply requires Object Mode.
+    if (
+        context.object is not None
+        and context.mode != "OBJECT"
+    ):
         try:
-            # Copy shared mesh data before modifying it.
+            bpy.ops.object.mode_set(
+                mode="OBJECT"
+            )
+
+        except RuntimeError as error:
+            return {
+                "fixed_objects": {},
+                "issues": [
+                    "Could not enter Object Mode: {}".format(
+                        error
+                    )
+                ],
+            }
+
+    try:
+        for object_name in failed_objects:
+            obj = bpy.data.objects.get(
+                object_name
+            )
+
+            if obj is None:
+                issues.append(
+                    'Object "{}" no longer exists.'.format(
+                        object_name
+                    )
+                )
+                continue
+
+            if obj.type != "MESH":
+                continue
+
+            if obj.data is None:
+                continue
+
+            if not object_has_unapplied_scale(
+                obj
+            ):
+                continue
+
+            # Linked library objects cannot be modified.
+            if obj.library is not None:
+                issues.append(
+                    "Skipped linked object: {}".format(
+                        obj.name
+                    )
+                )
+                continue
+
+            previous_scale = tuple(
+                obj.scale
+            )
+
+            # Blender applies the scale to the mesh datablock.
+            # Make the mesh single-user so other objects sharing
+            # the same data are not unintentionally changed.
             if obj.data.users > 1:
                 obj.data = obj.data.copy()
 
-            scale_matrix = Matrix.Diagonal((
-                obj.scale.x,
-                obj.scale.y,
-                obj.scale.z,
-                1.0,
-            ))
+            # -----------------------------------------------------
+            # Save visibility/selectability
+            # -----------------------------------------------------
 
-            obj.data.transform(scale_matrix)
-
-            obj.scale = (1.0, 1.0, 1.0)
-
-            obj.data.update()
-
-            fixed_objects[obj.name] = {
-                "scale_applied": True,
-            }
-
-        except Exception as error:
-            issues.append(
-                "Could not apply scale to {}: {}".format(
-                    obj.name,
-                    error,
-                )
+            original_hide_viewport = (
+                obj.hide_viewport
             )
 
-    bpy.context.view_layer.update()
+            original_hide_select = (
+                obj.hide_select
+            )
+
+            try:
+                original_hide_state = (
+                    obj.hide_get()
+                )
+            except RuntimeError:
+                original_hide_state = False
+
+            try:
+                obj.hide_viewport = False
+                obj.hide_select = False
+
+                try:
+                    obj.hide_set(False)
+                except RuntimeError:
+                    pass
+
+                # Deselect everything.
+                for selected_obj in list(
+                    context.selected_objects
+                ):
+                    selected_obj.select_set(
+                        False
+                    )
+
+                # Select and activate only this object.
+                obj.select_set(
+                    True
+                )
+
+                view_layer.objects.active = (
+                    obj
+                )
+
+                # -------------------------------------------------
+                # Exact Blender Apply Scale operation
+                # -------------------------------------------------
+
+                operator_result = (
+                    bpy.ops.object.transform_apply(
+                        location=False,
+                        rotation=False,
+                        scale=True,
+                        properties=False,
+                    )
+                )
+
+                if "FINISHED" not in operator_result:
+                    issues.append(
+                        "Could not apply scale to {}.".format(
+                            obj.name
+                        )
+                    )
+                    continue
+
+                fixed_objects[obj.name] = {
+                    "previous_scale":
+                        previous_scale,
+
+                    "scale":
+                        tuple(obj.scale),
+
+                    "scale_applied":
+                        True,
+                }
+
+            except Exception as error:
+                issues.append(
+                    "Could not apply scale to {}: {}".format(
+                        obj.name,
+                        error,
+                    )
+                )
+
+            finally:
+                obj.hide_viewport = (
+                    original_hide_viewport
+                )
+
+                obj.hide_select = (
+                    original_hide_select
+                )
+
+                try:
+                    obj.hide_set(
+                        original_hide_state
+                    )
+                except RuntimeError:
+                    pass
+
+    finally:
+        # -----------------------------------------------------
+        # Restore original selection
+        # -----------------------------------------------------
+
+        for selected_obj in list(
+            context.selected_objects
+        ):
+            try:
+                selected_obj.select_set(
+                    False
+                )
+            except RuntimeError:
+                pass
+
+        for selected_obj in original_selected:
+            if selected_obj.name not in bpy.data.objects:
+                continue
+
+            try:
+                selected_obj.select_set(
+                    True
+                )
+            except RuntimeError:
+                pass
+
+        if (
+            original_active is not None
+            and original_active.name in bpy.data.objects
+        ):
+            view_layer.objects.active = (
+                original_active
+            )
+
+        # Restore original mode when possible.
+        if (
+            original_mode != "OBJECT"
+            and view_layer.objects.active is not None
+        ):
+            mode_name = get_mode_set_name(
+                original_mode
+            )
+
+            if mode_name:
+                try:
+                    bpy.ops.object.mode_set(
+                        mode=mode_name
+                    )
+                except RuntimeError:
+                    pass
+
+        view_layer.update()
 
     return {
         "fixed_objects": fixed_objects,
         "issues": issues,
     }
+
+
+# -------------------------
+# Support Functions (Fix)
+# -------------------------
+
+def object_has_unapplied_scale(
+        obj,
+        tolerance=TOLERANCE,
+    ):
+    """
+    Returns True when the object's scale is not (1, 1, 1).
+    """
+    return any(
+        not isclose(
+            value,
+            1.0,
+            abs_tol=tolerance,
+        )
+        for value in obj.scale
+    )
+
+
+def get_mode_set_name(context_mode):
+    """
+    Converts bpy.context.mode values into names accepted by
+    bpy.ops.object.mode_set().
+    """
+    mode_map = {
+        "EDIT_MESH": "EDIT",
+        "EDIT_CURVE": "EDIT",
+        "EDIT_SURFACE": "EDIT",
+        "EDIT_TEXT": "EDIT",
+        "EDIT_ARMATURE": "EDIT",
+        "EDIT_METABALL": "EDIT",
+        "EDIT_LATTICE": "EDIT",
+        "POSE": "POSE",
+        "SCULPT": "SCULPT",
+        "PAINT_WEIGHT": "WEIGHT_PAINT",
+        "PAINT_VERTEX": "VERTEX_PAINT",
+        "PAINT_TEXTURE": "TEXTURE_PAINT",
+        "PARTICLE": "PARTICLE_EDIT",
+        "OBJECT": "OBJECT",
+    }
+
+    return mode_map.get(
+        context_mode
+    )

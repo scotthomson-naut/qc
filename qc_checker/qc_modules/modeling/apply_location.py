@@ -1,5 +1,4 @@
 # Standard python imports
-from mathutils import Matrix
 
 # Blender imports
 import bpy
@@ -119,52 +118,40 @@ def get_objects_with_unapplied_location(objects=None):
 
 def fix_objects_with_unapplied_location(result_data=None):
     """
-    Applies location to mesh objects.
+    Moves normal Location values into Delta Location.
 
-    The object's current location is baked into its mesh data,
-    then the object location is reset to (0, 0, 0).
+    This preserves:
+        - Geometry world position
+        - Origin/pivot world position
+        - Rotation
+        - Scale
 
-    Rotation and scale are preserved.
-
-    Args:
-        result_data (dict):
-            Result returned by main()
-
-    Returns:
-        dict:
-        {
-            "fixed_objects": {
-                "Cube": {
-                    "previous_location": (2.0, 0.0, 5.0),
-                    "location": (0.0, 0.0, 0.0),
-                }
-            },
-            "issues": [...]
-        }
+    This is not equivalent to Object > Apply > Location.
     """
-    failed_objects = result_data.get("failed_objects", {})
+    if not isinstance(result_data, dict):
+        result_data = {}
+
+    failed_objects = result_data.get(
+        "failed_objects",
+        {},
+    )
+
     fixed_objects = {}
     issues = []
 
-    for object_name, object_data in failed_objects.items():
+    for object_name in failed_objects:
         obj = bpy.data.objects.get(object_name)
+
+        if obj is None:
+            issues.append(
+                'Object "{}" no longer exists.'.format(
+                    object_name
+                )
+            )
+            continue
 
         if obj.type != "MESH":
             continue
-
-        # ---------------------------------------------------------
-        # Check whether location needs applying
-        # ---------------------------------------------------------
-
-        if not any(
-            abs(value) > TOLERANCE
-            for value in obj.location
-        ):
-            continue
-
-        # ---------------------------------------------------------
-        # Skip linked objects
-        # ---------------------------------------------------------
 
         if obj.library is not None:
             issues.append(
@@ -174,76 +161,9 @@ def fix_objects_with_unapplied_location(result_data=None):
             )
             continue
 
-        try:
+        # Use blender's function
+        bpy.ops.object.transforms_to_deltas(mode='LOC')
 
-            # -----------------------------------------------------
-            # Make shared mesh data unique
-            # -----------------------------------------------------
-
-            if obj.data.users > 1:
-                obj.data = obj.data.copy()
-
-            previous_location = tuple(obj.location)
-
-            # Save exact world-space transform before changing
-            # the object's location.
-            old_world_matrix = obj.matrix_world.copy()
-
-            # -----------------------------------------------------
-            # Zero object location
-            # -----------------------------------------------------
-
-            obj.location = (
-                0.0,
-                0.0,
-                0.0,
-            )
-
-            bpy.context.view_layer.update()
-
-            # World matrix after zeroing location.
-            new_world_matrix = obj.matrix_world.copy()
-
-            # -----------------------------------------------------
-            # Calculate geometry correction
-            # -----------------------------------------------------
-
-            # Find the local-space transform that makes:
-            #
-            # new_world_matrix @ corrected_geometry
-            #
-            # equal:
-            #
-            # old_world_matrix @ original_geometry
-            #
-            geometry_transform = (
-                new_world_matrix.inverted_safe()
-                @ old_world_matrix
-            )
-
-            # Bake that difference into the mesh.
-            obj.data.transform(
-                geometry_transform
-            )
-
-            obj.data.update()
-
-            fixed_objects[obj.name] = {
-                "previous_location":
-                    previous_location,
-
-                "location":
-                    tuple(obj.location),
-            }
-
-        except Exception as error:
-
-            issues.append(
-                "Could not apply location to {}: {}".format(
-                    obj.name,
-                    error,
-                )
-            )
 
     bpy.context.view_layer.update()
 
