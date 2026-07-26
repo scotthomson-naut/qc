@@ -2321,7 +2321,7 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
             editor_row.operator(
                 "scriptronaut.qc_open_json_editor",
                 text="Edit Check Settings",
-                icon="PREFERENCES",
+                icon="GREASEPENCIL",
             )
 
         # ---------------------------------------------------------
@@ -3030,23 +3030,39 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
             return
 
         # ---------------------------------------------------------
-        # Fix selected check on selected object
+        # Fix all failed checks for the selected object
         # ---------------------------------------------------------
 
-        if current_object_check.has_fix:
-            check_box.operator(
-                "scriptronaut.qc_fix_object_check",
-                text="Fix This Check On This Object",
-                icon="TOOL_SETTINGS",
+        fixable_object_check_count = sum(
+            1
+            for item in object_checks
+            if item.has_fix
+        )
+
+        fix_all_object_row = layout.row()
+        fix_all_object_row.scale_y = 1.4
+
+        fix_all_object_row.enabled = (
+            fixable_object_check_count > 0
+        )
+
+        if fixable_object_check_count > 0:
+            button_text = (
+                "Fix All Checks on This Object ({})".format(
+                    fixable_object_check_count
+                )
             )
 
         else:
-            manual_row = check_box.row()
-            manual_row.enabled = False
-            manual_row.label(
-                text="Fix Must Be Done Manually",
-                icon="INFO",
+            button_text = (
+                "No Automatic Fixes Available"
             )
+
+        fix_all_object_row.operator(
+            "scriptronaut.qc_fix_all_object_checks",
+            text=button_text,
+            icon="TOOL_SETTINGS",
+        )
 
         # ---------------------------------------------------------
         # Optional check information
@@ -3531,6 +3547,39 @@ class SCRIPTRONAUT_OT_QC_CheckInfo(Operator):
         return {"FINISHED"}
 
 
+
+class SCRIPTRONAUT_OT_QC_FixCurrent(Operator):
+    """Fixes the currently selected QC check."""
+
+    bl_idname = "scriptronaut.qc_fix_current"
+    bl_label = "Fix Current QC Check"
+    bl_description = "Fix the currently selected failed QC check"
+
+    @classmethod
+    def poll(cls, context):
+        scene = getattr(context, "scene", None)
+        if scene is None:
+            return False
+
+        checks = getattr(scene, "scriptronaut_qc_checks", None)
+        settings = getattr(scene, "scriptronaut_qc_settings", None)
+        if checks is None or settings is None:
+            return False
+
+        index = settings.check_index
+        if index < 0 or index >= len(checks):
+            return False
+
+        item = checks[index]
+        return item.status == "FAIL" and item.has_fix
+
+    def execute(self, context):
+        settings = context.scene.scriptronaut_qc_settings
+        return bpy.ops.scriptronaut.qc_fix_check_inline(
+            check_index=settings.check_index,
+        )
+
+
 class SCRIPTRONAUT_OT_QC_FixCheckInline(Operator):
     """
     Fixes one specific QC check directly from its UIList row.
@@ -3841,6 +3890,337 @@ class SCRIPTRONAUT_OT_QC_FixObjectInline(Operator):
         return {"FINISHED"}
 
 
+class SCRIPTRONAUT_OT_QC_FixAllObjectChecks(Operator):
+    """
+    Fixes every automatically fixable failed check for the
+    currently selected failed object.
+    """
+
+    bl_idname = (
+        "scriptronaut.qc_fix_all_object_checks"
+    )
+
+    bl_label = (
+        "Fix All Checks on This Object"
+    )
+
+    bl_description = (
+        "Run all available automatic fixes for the "
+        "currently selected failed object"
+    )
+
+    @classmethod
+    def poll(cls, context):
+        scene = getattr(
+            context,
+            "scene",
+            None,
+        )
+
+        if scene is None:
+            return False
+
+        settings = getattr(
+            scene,
+            "scriptronaut_qc_settings",
+            None,
+        )
+
+        failed_objects = getattr(
+            scene,
+            "scriptronaut_qc_failed_objects",
+            None,
+        )
+
+        object_checks = getattr(
+            scene,
+            "scriptronaut_qc_object_checks",
+            None,
+        )
+
+        if (
+            settings is None
+            or failed_objects is None
+            or object_checks is None
+        ):
+            return False
+
+        if (
+            settings.failed_object_index < 0
+            or settings.failed_object_index
+            >= len(failed_objects)
+        ):
+            return False
+
+        return any(
+            item.has_fix
+            for item in object_checks
+        )
+
+    def execute(self, context):
+        global QC_IS_RUNNING
+
+        scene = context.scene
+
+        settings = (
+            scene.scriptronaut_qc_settings
+        )
+
+        failed_objects = (
+            scene.scriptronaut_qc_failed_objects
+        )
+
+        object_checks = (
+            scene.scriptronaut_qc_object_checks
+        )
+
+        checks = (
+            scene.scriptronaut_qc_checks
+        )
+
+        # -----------------------------------------------------
+        # Validate selected failed object
+        # -----------------------------------------------------
+
+        if (
+            settings.failed_object_index < 0
+            or settings.failed_object_index
+            >= len(failed_objects)
+        ):
+            self.report(
+                {"WARNING"},
+                "No failed object selected.",
+            )
+
+            return {"CANCELLED"}
+
+        object_name = failed_objects[
+            settings.failed_object_index
+        ].name
+
+        # -----------------------------------------------------
+        # Snapshot check indices
+        #
+        # Do not iterate the collection while rebuilding it.
+        # -----------------------------------------------------
+
+        check_indices = [
+            item.check_index
+            for item in object_checks
+            if (
+                item.has_fix
+                and item.check_index >= 0
+                and item.check_index < len(checks)
+            )
+        ]
+
+        if not check_indices:
+            self.report(
+                {"INFO"},
+                "No automatic fixes are available for this object.",
+            )
+
+            return {"CANCELLED"}
+
+        fixed_checks = []
+        failed_fixes = []
+        skipped_checks = []
+
+        QC_IS_RUNNING = True
+
+        try:
+            for check_index in check_indices:
+
+                check_item = checks[
+                    check_index
+                ]
+
+                if check_item.status != "FAIL":
+                    continue
+
+                if not check_item.has_fix:
+                    skipped_checks.append(
+                        check_item.display_name
+                        or check_item.name
+                    )
+                    continue
+
+                if not os.path.isfile(
+                    check_item.script_path
+                ):
+                    failed_fixes.append(
+                        "{}: script does not exist".format(
+                            check_item.display_name
+                            or check_item.name
+                        )
+                    )
+                    continue
+
+                try:
+                    module = load_module_from_path(
+                        "qc_fix_all_object_{}_{}".format(
+                            check_item.name,
+                            check_index,
+                        ),
+                        check_item.script_path,
+                    )
+
+                    fix_function = getattr(
+                        module,
+                        "fix",
+                        None,
+                    )
+
+                    if not callable(
+                        fix_function
+                    ):
+                        check_item.has_fix = False
+
+                        skipped_checks.append(
+                            check_item.display_name
+                            or check_item.name
+                        )
+
+                        continue
+
+                    # -----------------------------------------
+                    # Filter this check's result so only the
+                    # selected object is passed to fix().
+                    # -----------------------------------------
+
+                    result_data = (
+                        result_data_from_json(
+                            check_item.result_data
+                        )
+                    )
+
+                    filtered_result = (
+                        get_filtered_result_for_object(
+                            result_data,
+                            object_name,
+                        )
+                    )
+
+                    filtered_objects = (
+                        filtered_result.get(
+                            "failed_objects",
+                            {},
+                        )
+                    )
+
+                    if not filtered_objects:
+                        continue
+
+                    # Object-specific fixing must accept
+                    # result_data. A no-argument fix could modify
+                    # every failed object in the scene.
+                    try:
+                        fix_function(
+                            filtered_result
+                        )
+
+                    except TypeError:
+                        failed_fixes.append(
+                            (
+                                "{}: fix() does not accept "
+                                "result_data"
+                            ).format(
+                                check_item.display_name
+                                or check_item.name
+                            )
+                        )
+
+                        continue
+
+                    fixed_checks.append(
+                        check_item.display_name
+                        or check_item.name
+                    )
+
+                except Exception:
+                    failed_fixes.append(
+                        "{}:\n{}".format(
+                            check_item.display_name
+                            or check_item.name,
+                            traceback.format_exc(),
+                        )
+                    )
+
+            # -------------------------------------------------
+            # Re-run affected checks after all fixes
+            # -------------------------------------------------
+
+            for check_index in check_indices:
+                if (
+                    check_index >= 0
+                    and check_index < len(checks)
+                ):
+                    rerun_qc_check_item(
+                        checks[check_index]
+                    )
+
+        finally:
+            QC_IS_RUNNING = False
+
+        # -----------------------------------------------------
+        # Refresh both UI modes once
+        # -----------------------------------------------------
+
+        refresh_issues_display(
+            context
+        )
+
+        rebuild_failed_objects(
+            context
+        )
+
+        if fixed_checks and settings.last_run_time:
+            settings.scene_modified_since_qc = True
+
+        # -----------------------------------------------------
+        # Report
+        # -----------------------------------------------------
+
+        if failed_fixes:
+            for error in failed_fixes:
+                print(
+                    "QC object fix error:\n{}".format(
+                        error
+                    )
+                )
+
+            self.report(
+                {"WARNING"},
+                (
+                    "Fixed {} check(s) on '{}'. "
+                    "{} fix(es) failed."
+                ).format(
+                    len(fixed_checks),
+                    object_name,
+                    len(failed_fixes),
+                ),
+            )
+
+        elif fixed_checks:
+            self.report(
+                {"INFO"},
+                "Fixed {} check(s) on '{}'.".format(
+                    len(fixed_checks),
+                    object_name,
+                ),
+            )
+
+        else:
+            self.report(
+                {"INFO"},
+                "No checks were fixed on '{}'.".format(
+                    object_name
+                ),
+            )
+
+        return {"FINISHED"}
+
+
 class SCRIPTRONAUT_OT_QC_SelectCritical(Operator):
     """
     Select only Critical QC checks.
@@ -3859,6 +4239,7 @@ class SCRIPTRONAUT_OT_QC_SelectCritical(Operator):
             )
 
         return {"FINISHED"}
+
 
 # -------------------------------------------------------------------------
 # Register
@@ -3880,6 +4261,7 @@ classes = (
     SCRIPTRONAUT_OT_QC_SelectCritical,
     SCRIPTRONAUT_OT_QC_SelectNone,
     SCRIPTRONAUT_OT_QC_RunSelected,
+    SCRIPTRONAUT_OT_QC_FixCurrent,
     SCRIPTRONAUT_OT_QC_FixCheckInline,
     SCRIPTRONAUT_OT_QC_SelectObject,
     SCRIPTRONAUT_OT_QC_CheckInfo,
@@ -3890,6 +4272,7 @@ classes = (
     SCRIPTRONAUT_UL_QC_ObjectChecks,
     SCRIPTRONAUT_OT_QC_SelectCurrentFailedObject,
     SCRIPTRONAUT_OT_QC_FixObjectInline,
+    SCRIPTRONAUT_OT_QC_FixAllObjectChecks,
     SCRIPTRONAUT_OT_QC_FixAll,
 )
 
