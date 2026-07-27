@@ -14,6 +14,7 @@ import glob
 import json
 import traceback
 import importlib.util
+import inspect
 import time
 
 # Blender imports
@@ -25,8 +26,14 @@ from bpy.props import (
     IntProperty,
     PointerProperty,
     EnumProperty,
+    FloatProperty,
 )
-from bpy.types import Operator, Panel, PropertyGroup, UIList
+from bpy.types import (
+    Operator, 
+    Panel,
+    PropertyGroup,
+    UIList
+)
 from bpy.app.handlers import persistent
 
 # Constants
@@ -34,6 +41,15 @@ ADDON_DIR = os.path.dirname(os.path.abspath(__file__))
 QC_MODULES_DIR = os.path.join(ADDON_DIR, "qc_modules")
 COMMON_CATEGORY = "common"
 CHECK_SETTINGS_FILE = "check_settings.json"
+CHECK_PREFERENCES_DIR = bpy.utils.user_resource(
+    "CONFIG",
+    path="scriptronaut_qc",
+    create=True,
+)
+CHECK_PREFERENCES_FILE = os.path.join(
+    CHECK_PREFERENCES_DIR,
+    "check_preferences.json",
+)
 QC_IS_RUNNING = False
 QC_IGNORE_CHANGES_UNTIL = 0.0
 
@@ -43,6 +59,242 @@ TIER = "Pro"
 # -------------------------------------------------------------------------
 # Helpers
 # -------------------------------------------------------------------------
+def load_all_check_preferences():
+    """
+    Loads the complete check-preferences JSON file.
+
+    Returns:
+        dict
+    """
+    if not os.path.isfile(
+        CHECK_PREFERENCES_FILE
+    ):
+        return {}
+
+    try:
+        with open(
+            CHECK_PREFERENCES_FILE,
+            "r",
+            encoding="utf-8",
+        ) as json_file:
+            data = json.load(
+                json_file
+            )
+
+    except (
+        OSError,
+        ValueError,
+        TypeError,
+    ):
+        return {}
+
+    if not isinstance(data, dict):
+        return {}
+
+    return data
+
+
+def save_all_check_preferences(preferences):
+    """
+    Saves the complete check-preferences dictionary.
+    """
+    folder = os.path.dirname(
+        CHECK_PREFERENCES_FILE
+    )
+
+    if folder:
+        os.makedirs(
+            folder,
+            exist_ok=True,
+        )
+
+    temporary_path = (
+        CHECK_PREFERENCES_FILE
+        + ".tmp"
+    )
+
+    with open(
+        temporary_path,
+        "w",
+        encoding="utf-8",
+    ) as json_file:
+        json.dump(
+            preferences,
+            json_file,
+            indent=4,
+            sort_keys=True,
+        )
+
+    os.replace(
+        temporary_path,
+        CHECK_PREFERENCES_FILE,
+    )
+
+
+def get_check_preference_id(category_name, module_name):
+    """
+    """
+    category_name = (
+        str(category_name)
+        .strip()
+        .lower()
+        .replace(" ", "_")
+    )
+
+    module_name = (
+        str(module_name)
+        .strip()
+        .lower()
+    )
+
+    if module_name.endswith(".py"):
+        module_name = module_name[:-3]
+
+    return "{}.{}".format(
+        category_name,
+        module_name,
+    )
+
+
+def get_check_preferences(
+        check_id,
+        module,
+    ):
+    """
+    Returns settings for one check with user values
+    merged over module defaults.
+    """
+    schema = getattr(
+        module,
+        "SETTINGS",
+        {},
+    )
+
+    if not isinstance(schema, dict):
+        return {}
+
+    resolved = {}
+
+    for setting_name, definition in schema.items():
+        if not isinstance(
+            definition,
+            dict,
+        ):
+            continue
+
+        resolved[setting_name] = (
+            definition.get("default")
+        )
+
+    all_preferences = (
+        load_all_check_preferences()
+    )
+
+    user_preferences = (
+        all_preferences.get(
+            check_id,
+            {},
+        )
+    )
+
+    if isinstance(
+        user_preferences,
+        dict,
+    ):
+        for setting_name, value in user_preferences.items():
+            if setting_name in resolved:
+                resolved[setting_name] = value
+
+    return resolved
+
+
+
+def get_check_id_for_item(item):
+    """Returns the stable preference identifier stored on a check item."""
+    if getattr(item, "check_id", ""):
+        return item.check_id
+
+    return get_check_preference_id(
+        getattr(item, "source_category", ""),
+        getattr(item, "name", ""),
+    )
+
+
+def call_check_main(module, check_id):
+    """Runs a check's main() and injects preferences when supported."""
+    main_function = getattr(module, "main", None)
+
+    if not callable(main_function):
+        raise AttributeError("QC module has no callable main() function.")
+
+    parameters = inspect.signature(main_function).parameters
+    preferences = get_check_preferences(check_id, module)
+
+    if "preferences" in parameters:
+        return main_function(preferences=preferences)
+
+    return main_function()
+
+
+def call_check_fix(
+        module,
+        check_id,
+        result_data=None,
+        require_result_data=False,
+    ):
+    """
+    Runs a check's fix() while supporting both current and legacy checks.
+
+    Preferences are passed only when fix() explicitly declares a
+    ``preferences`` argument. Result data is supplied by keyword when the
+    function declares ``result_data`` and otherwise positionally when the
+    function has a compatible positional argument.
+    """
+    fix_function = getattr(module, "fix", None)
+
+    if not callable(fix_function):
+        raise AttributeError("QC module has no callable fix() function.")
+
+    signature = inspect.signature(fix_function)
+    parameters = signature.parameters
+    preferences = get_check_preferences(check_id, module)
+
+    args = []
+    kwargs = {}
+
+    if "result_data" in parameters:
+        kwargs["result_data"] = result_data
+    else:
+        positional_parameters = [
+            parameter
+            for parameter in parameters.values()
+            if parameter.kind in {
+                inspect.Parameter.POSITIONAL_ONLY,
+                inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            }
+            and parameter.name != "preferences"
+        ]
+
+        if positional_parameters:
+            args.append(result_data)
+        elif require_result_data:
+            raise TypeError(
+                "This fix() does not accept result_data and cannot safely "
+                "operate on only one object."
+            )
+
+    if "preferences" in parameters:
+        kwargs["preferences"] = preferences
+
+    return fix_function(*args, **kwargs)
+
+
+def module_has_settings(module):
+    """Returns True when a check module declares a non-empty SETTINGS map."""
+    schema = getattr(module, "SETTINGS", {})
+    return isinstance(schema, dict) and bool(schema)
+
+
 def load_check_list(folder_path):
     """
     Loads the optional CHECK_SETTINGS_FILE configuration.
@@ -610,6 +862,11 @@ def load_qc_category(context):
         item.description = ""
         item.issues = "Not run yet."
         item.result_data = "{}"
+        item.check_id = get_check_preference_id(
+            category,
+            item.name,
+        )
+        item.has_settings = False
 
         # -----------------------------------------------------
         # Load optional module metadata
@@ -662,6 +919,10 @@ def load_qc_category(context):
                 )
             )
 
+            item.has_settings = module_has_settings(
+                module
+            )
+
         except Exception:
             print(
                 "Could not load QC metadata for '{}':".format(
@@ -677,6 +938,7 @@ def load_qc_category(context):
             item.display_name = item.name
             item.description = ""
             item.has_fix = False
+            item.has_settings = False
 
     # ---------------------------------------------------------
     # Restore selected index
@@ -1170,6 +1432,8 @@ def refresh_object_failed_checks(context):
         item.name = check_item.name
         item.script_path = check_item.script_path
         item.has_fix = check_item.has_fix
+        item.has_settings = check_item.has_settings
+        item.check_id = check_item.check_id
         item.check_index = check_index
         item.display_name = (
             check_item.display_name
@@ -1257,8 +1521,13 @@ def rerun_qc_check_item(item):
         ):
             return False
 
-        raw_result = (
-            main_function()
+        check_id = get_check_id_for_item(
+            item
+        )
+
+        raw_result = call_check_main(
+            module,
+            check_id,
         )
 
         result_data = (
@@ -1293,6 +1562,10 @@ def rerun_qc_check_item(item):
                 "fix",
                 None,
             )
+        )
+
+        item.has_settings = module_has_settings(
+            module
         )
 
         if issues:
@@ -1463,6 +1736,14 @@ class SCRIPTRONAUT_QC_CheckItem(PropertyGroup):
 
     result_data: StringProperty(
         default="{}"
+    )
+
+    check_id: StringProperty(
+        default=""
+    )
+
+    has_settings: BoolProperty(
+        default=False
     )
 
 
@@ -1682,7 +1963,7 @@ class SCRIPTRONAUT_UL_QC_Checks(UIList):
         )
 
         status_split = right_side.split(
-            factor=0.58,
+            factor=0.50,
             align=True,
         )
 
@@ -1690,7 +1971,7 @@ class SCRIPTRONAUT_UL_QC_Checks(UIList):
             align=True
         )
 
-        fix_column = status_split.row(
+        action_column = status_split.row(
             align=True
         )
 
@@ -1748,30 +2029,30 @@ class SCRIPTRONAUT_UL_QC_Checks(UIList):
         )
 
         # ---------------------------------------------------------
-        # Inline Fix
+        # Inline Settings / Fix
         # ---------------------------------------------------------
+
+        if item.has_settings:
+            settings_operator = action_column.operator(
+                "scriptronaut.qc_check_settings",
+                text="",
+                icon="PREFERENCES",
+            )
+            settings_operator.check_id = item.check_id
+            settings_operator.script_path = item.script_path
 
         if (
             item.status == "FAIL"
             and item.has_fix
         ):
-            fix_operator = (
-                fix_column.operator(
-                    "scriptronaut.qc_fix_check_inline",
-                    text="Fix",
-                    icon="TOOL_SETTINGS",
-                )
+            fix_operator = action_column.operator(
+                "scriptronaut.qc_fix_check_inline",
+                text="Fix",
+                icon="TOOL_SETTINGS",
             )
-
-            fix_operator.check_index = (
-                index
-            )
-
-        else:
-            # Leave a small consistent space so rows stay aligned.
-            fix_column.label(
-                text=""
-            )
+            fix_operator.check_index = index
+        elif not item.has_settings:
+            action_column.label(text="")
 
 
 class SCRIPTRONAUT_UL_QC_EditorScripts(UIList):
@@ -2146,7 +2427,10 @@ class SCRIPTRONAUT_OT_QC_RunSelected(Operator):
                         item.result_data = result_data_to_json(result_data)
                         continue
 
-                    raw_result = main_function()
+                    raw_result = call_check_main(
+                        module,
+                        get_check_id_for_item(item),
+                    )
                     result_data = normalize_check_result(raw_result)
                     result_data["check_name"] = item.name
                     result_data["script_path"] = script_path
@@ -2154,6 +2438,7 @@ class SCRIPTRONAUT_OT_QC_RunSelected(Operator):
 
                     item.result_data = result_data_to_json(result_data)
                     item.has_fix = callable(getattr(module, "fix", None))
+                    item.has_settings = module_has_settings(module)
 
                     if issues:
                         item.status = "FAIL"
@@ -3061,6 +3346,8 @@ class SCRIPTRONAUT_QC_ObjectCheckItem(PropertyGroup):
     name: StringProperty(default="")
     script_path: StringProperty(default="")
     has_fix: BoolProperty(default=False)
+    has_settings: BoolProperty(default=False)
+    check_id: StringProperty(default="")
 
     check_index: IntProperty(
         default=-1,
@@ -3224,8 +3511,17 @@ class SCRIPTRONAUT_UL_QC_ObjectChecks(UIList):
         )
 
         # ---------------------------------------------------------
-        # Fix
+        # Settings / Fix
         # ---------------------------------------------------------
+
+        if item.has_settings and source_check is not None:
+            settings_operator = action_column.operator(
+                "scriptronaut.qc_check_settings",
+                text="",
+                icon="PREFERENCES",
+            )
+            settings_operator.check_id = source_check.check_id
+            settings_operator.script_path = source_check.script_path
 
         if item.has_fix:
             operator = (
@@ -3395,15 +3691,11 @@ class SCRIPTRONAUT_OT_QC_FixAll(Operator):
                     )
                 )
 
-                # Prefer fix(result_data).
-                try:
-                    module.fix(
-                        result_data
-                    )
-
-                # Support older no-argument fix().
-                except TypeError:
-                    module.fix()
+                call_check_fix(
+                    module,
+                    get_check_id_for_item(item),
+                    result_data=result_data,
+                )
 
                 fixed_any = True
 
@@ -3568,15 +3860,11 @@ class SCRIPTRONAUT_OT_QC_FixCheckInline(Operator):
                 item.result_data
             )
 
-            # Support both:
-            #    fix(result_data) and legacy: fix()
-            try:
-                fix_function(
-                    result_data
-                )
-
-            except TypeError:
-                fix_function()
+            call_check_fix(
+                module,
+                get_check_id_for_item(item),
+                result_data=result_data,
+            )
 
             # Re-run this specific QC check after the fix.
             rerun_qc_check_item(
@@ -3748,21 +4036,17 @@ class SCRIPTRONAUT_OT_QC_FixObjectInline(Operator):
                 )
             )
 
-            # Object-specific fixes should require result_data,
-            # otherwise we cannot guarantee only one object changes.
+            # Object-specific fixes must accept result data so only
+            # the selected object can be changed safely.
             try:
-                fix_function(
-                    filtered_result
+                call_check_fix(
+                    module,
+                    get_check_id_for_item(check_item),
+                    result_data=filtered_result,
+                    require_result_data=True,
                 )
-            except TypeError:
-                self.report(
-                    {"ERROR"},
-                    (
-                        "This fix() does not accept result_data "
-                        "and cannot safely fix only one object."
-                    ),
-                )
-
+            except TypeError as error:
+                self.report({"ERROR"}, str(error))
                 return {"CANCELLED"}
 
             # -----------------------------------------------------
@@ -4032,25 +4316,21 @@ class SCRIPTRONAUT_OT_QC_FixAllObjectChecks(Operator):
                     if not filtered_objects:
                         continue
 
-                    # Object-specific fixing must accept
-                    # result_data. A no-argument fix could modify
-                    # every failed object in the scene.
+                    # Object-specific fixing must accept result data.
                     try:
-                        fix_function(
-                            filtered_result
+                        call_check_fix(
+                            module,
+                            get_check_id_for_item(check_item),
+                            result_data=filtered_result,
+                            require_result_data=True,
                         )
-
-                    except TypeError:
+                    except TypeError as error:
                         failed_fixes.append(
-                            (
-                                "{}: fix() does not accept "
-                                "result_data"
-                            ).format(
-                                check_item.display_name
-                                or check_item.name
+                            "{}: {}".format(
+                                check_item.display_name or check_item.name,
+                                error,
                             )
                         )
-
                         continue
 
                     fixed_checks.append(
@@ -4162,6 +4442,393 @@ class SCRIPTRONAUT_OT_QC_SelectCritical(Operator):
         return {"FINISHED"}
 
 
+class SCRIPTRONAUT_PG_CheckSetting(
+        PropertyGroup
+    ):
+
+    setting_name: StringProperty()
+    label: StringProperty()
+    description: StringProperty()
+    setting_type: EnumProperty(
+        items=(
+            ("bool", "Boolean", ""),
+            ("int", "Integer", ""),
+            ("float", "Float", ""),
+            ("string", "Text", ""),
+            ("enum", "List", ""),
+        ),
+        default="string",
+    )
+    bool_value: BoolProperty()
+    int_value: IntProperty()
+    float_value: FloatProperty()
+    string_value: StringProperty()
+    enum_value: StringProperty()
+    default_bool: BoolProperty()
+    default_int: IntProperty()
+    default_float: FloatProperty()
+    default_string: StringProperty()
+
+    minimum: FloatProperty(
+        default=-1000000000.0,
+    )
+
+    maximum: FloatProperty(
+        default=1000000000.0,
+    )
+
+
+class SCRIPTRONAUT_OT_QC_CheckSettings(Operator):
+    """
+    """
+    bl_idname = "scriptronaut.qc_check_settings"
+    bl_label = "Check Settings"
+    bl_description = "Edit configurable values for this QC check"
+
+    check_id: StringProperty()
+    category_name: StringProperty()
+    module_name: StringProperty()
+    script_path: StringProperty(subtype="FILE_PATH")
+    settings: CollectionProperty(type=SCRIPTRONAUT_PG_CheckSetting)
+
+    def invoke(
+            self,
+            context,
+            event,
+        ):
+        self.settings.clear()
+
+        if not self.script_path or not os.path.isfile(self.script_path):
+            self.report(
+                {"ERROR"},
+                "QC check script could not be found.",
+            )
+            return {"CANCELLED"}
+
+        try:
+            module = load_module_from_path(
+                "qc_settings_{}".format(
+                    abs(hash(self.script_path))
+                ),
+                self.script_path,
+            )
+        except Exception:
+            print(traceback.format_exc())
+            module = None
+
+        if module is None:
+            self.report(
+                {"ERROR"},
+                "Could not load the QC module.",
+            )
+            return {"CANCELLED"}
+
+        schema = getattr(
+            module,
+            "SETTINGS",
+            {},
+        )
+
+        if not isinstance(
+            schema,
+            dict,
+        ) or not schema:
+            self.report(
+                {"INFO"},
+                "This check has no configurable settings.",
+            )
+            return {"CANCELLED"}
+
+        preferences = get_check_preferences(
+            self.check_id,
+            module,
+        )
+
+        for setting_name, definition in schema.items():
+            if not isinstance(
+                definition,
+                dict,
+            ):
+                continue
+
+            item = self.settings.add()
+
+            item.setting_name = setting_name
+
+            item.label = definition.get(
+                "label",
+                setting_name.replace(
+                    "_",
+                    " ",
+                ).title(),
+            )
+
+            item.description = definition.get(
+                "description",
+                "",
+            )
+
+            item.setting_type = definition.get(
+                "type",
+                "string",
+            )
+
+            value = preferences.get(
+                setting_name,
+                definition.get("default"),
+            )
+
+            default = definition.get(
+                "default"
+            )
+
+            if item.setting_type == "bool":
+                item.bool_value = bool(
+                    value
+                )
+
+                item.default_bool = bool(
+                    default
+                )
+
+            elif item.setting_type == "int":
+                item.int_value = int(
+                    value
+                )
+
+                item.default_int = int(
+                    default
+                )
+
+                item.minimum = float(
+                    definition.get(
+                        "min",
+                        -1000000000,
+                    )
+                )
+
+                item.maximum = float(
+                    definition.get(
+                        "max",
+                        1000000000,
+                    )
+                )
+
+            elif item.setting_type == "float":
+                item.float_value = float(
+                    value
+                )
+
+                item.default_float = float(
+                    default
+                )
+
+                item.minimum = float(
+                    definition.get(
+                        "min",
+                        -1000000000.0,
+                    )
+                )
+
+                item.maximum = float(
+                    definition.get(
+                        "max",
+                        1000000000.0,
+                    )
+                )
+
+            else:
+                item.string_value = str(
+                    value
+                    if value is not None
+                    else ""
+                )
+
+                item.default_string = str(
+                    default
+                    if default is not None
+                    else ""
+                )
+
+        return context.window_manager.invoke_props_dialog(
+            self,
+            width=500,
+        )
+
+    def draw(
+            self,
+            context,
+        ):
+        layout = self.layout
+
+        layout.label(
+            text="Check Settings",
+            icon="PREFERENCES",
+        )
+
+        layout.label(
+            text=self.check_id,
+        )
+
+        layout.separator()
+
+        for item in self.settings:
+            box = layout.box()
+
+            row = box.row()
+
+            if item.setting_type == "bool":
+                row.prop(
+                    item,
+                    "bool_value",
+                    text=item.label,
+                )
+
+            elif item.setting_type == "int":
+                row.prop(
+                    item,
+                    "int_value",
+                    text=item.label,
+                )
+
+            elif item.setting_type == "float":
+                row.prop(
+                    item,
+                    "float_value",
+                    text=item.label,
+                )
+
+            else:
+                row.prop(
+                    item,
+                    "string_value",
+                    text=item.label,
+                )
+
+            if item.description:
+                description_column = (
+                    box.column()
+                )
+
+                description_column.scale_y = 0.8
+
+                description_column.label(
+                    text=item.description,
+                    icon="INFO",
+                )
+
+        layout.separator()
+        reset_operator = layout.operator(
+            "scriptronaut.qc_reset_check_settings",
+            text="Reset Saved Values to Defaults",
+            icon="LOOP_BACK",
+        )
+        reset_operator.check_id = self.check_id
+
+    def execute(
+            self,
+            context,
+        ):
+        all_preferences = (
+            load_all_check_preferences()
+        )
+
+        check_preferences = {}
+
+        for item in self.settings:
+
+            if item.setting_type == "bool":
+                value = item.bool_value
+
+            elif item.setting_type == "int":
+                value = int(
+                    max(
+                        item.minimum,
+                        min(
+                            item.maximum,
+                            item.int_value,
+                        ),
+                    )
+                )
+
+            elif item.setting_type == "float":
+                value = float(
+                    max(
+                        item.minimum,
+                        min(
+                            item.maximum,
+                            item.float_value,
+                        ),
+                    )
+                )
+
+            else:
+                value = item.string_value
+
+            check_preferences[
+                item.setting_name
+            ] = value
+
+        all_preferences[
+            self.check_id
+        ] = check_preferences
+
+        try:
+            save_all_check_preferences(
+                all_preferences
+            )
+
+        except OSError as error:
+            self.report(
+                {"ERROR"},
+                "Could not save settings: {}".format(
+                    error
+                ),
+            )
+
+            return {"CANCELLED"}
+
+        self.report(
+            {"INFO"},
+            "Check settings saved.",
+        )
+
+        return {"FINISHED"}
+
+
+class SCRIPTRONAUT_OT_QC_ResetCheckSettings(
+        Operator
+    ):
+
+    bl_idname = "scriptronaut.qc_reset_check_settings"
+    bl_label = "Reset Check Settings"
+    check_id: StringProperty()
+
+    def execute(
+            self,
+            context,
+        ):
+        preferences = (
+            load_all_check_preferences()
+        )
+
+        preferences.pop(
+            self.check_id,
+            None,
+        )
+
+        save_all_check_preferences(
+            preferences
+        )
+
+        self.report(
+            {"INFO"},
+            "Check settings reset to defaults.",
+        )
+
+        return {"FINISHED"}
+
+
 # -------------------------------------------------------------------------
 # Register
 # -------------------------------------------------------------------------
@@ -4169,6 +4836,7 @@ class SCRIPTRONAUT_OT_QC_SelectCritical(Operator):
 classes = (
     SCRIPTRONAUT_QC_CheckItem,
     SCRIPTRONAUT_QC_EditorItem,
+    SCRIPTRONAUT_PG_CheckSetting,
     SCRIPTRONAUT_QC_Settings,
     SCRIPTRONAUT_UL_QC_Checks,
     SCRIPTRONAUT_UL_QC_EditorScripts,
@@ -4185,6 +4853,8 @@ classes = (
     SCRIPTRONAUT_OT_QC_FixCheckInline,
     SCRIPTRONAUT_OT_QC_SelectObject,
     SCRIPTRONAUT_OT_QC_CheckInfo,
+    SCRIPTRONAUT_OT_QC_CheckSettings,
+    SCRIPTRONAUT_OT_QC_ResetCheckSettings,
     SCRIPTRONAUT_PT_QC_Checks,
     SCRIPTRONAUT_QC_FailedObjectItem,
     SCRIPTRONAUT_QC_ObjectCheckItem,
