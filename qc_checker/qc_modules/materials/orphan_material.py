@@ -1,15 +1,19 @@
-# Standard python imports
-
 # Blender imports
 import bpy
 
-# Company imports
 
 # Meta data
 LABEL = "Material has zero users"
 DESCRIPTION = (
-    "Checks if object has Material with zero users"
+    "Checks for unused material datablocks, excluding protected, "
+    "linked, asset, and Blender-managed materials."
 )
+
+# Materials that should remain available even with zero users.
+PROTECTED_MATERIAL_NAMES = {
+    "Dots Stroke",
+}
+
 
 # -------------------------------------------------------------------------
 # Templates
@@ -17,7 +21,7 @@ DESCRIPTION = (
 
 def main():
     """
-    Checks for issue.
+    Checks for unused material datablocks.
     """
     failed_materials = get_orphan_materials()
 
@@ -34,27 +38,53 @@ def main():
 
 def fix(result_data):
     """
-    Fix for issue.
+    Removes only the materials reported by main().
     """
-    fixed = fix_orphan_materials()
-
-    return {
-        "issues": [],
-        "fixed_objects": fixed,
-    }
+    return fix_orphan_materials(
+        result_data
+    )
 
 
 # -------------------------------------------------------------------------
-# Functions
-# -------------------------------------------------------------------------
-
-# -------------------------
 # Find
-# -------------------------
+# -------------------------------------------------------------------------
+
+def is_protected_material(material):
+    """
+    Returns True when a material should not be considered
+    an automatically removable orphan.
+    """
+    if material.name in PROTECTED_MATERIAL_NAMES:
+        return True
+
+    # Explicitly preserved by the artist or pipeline.
+    if material.use_fake_user:
+        return True
+
+    # Blender can internally retain an extra user.
+    if getattr(material, "use_extra_user", False):
+        return True
+
+    # Do not modify linked-library materials.
+    if material.library is not None:
+        return True
+
+    # Preserve materials marked as assets.
+    if material.asset_data is not None:
+        return True
+
+    # Preserve indirect linked datablocks.
+    if getattr(material, "is_library_indirect", False):
+        return True
+
+    return False
+
 
 def get_orphan_materials():
     """
-    Finds material datablocks with zero users.
+    Finds removable material datablocks with zero users.
+
+    Protected materials are ignored.
 
     Returns:
         dict:
@@ -72,40 +102,102 @@ def get_orphan_materials():
         if material.users != 0:
             continue
 
+        if is_protected_material(
+            material
+        ):
+            continue
+
         orphan_materials[material.name] = {
             "users": material.users,
             "use_fake_user": material.use_fake_user,
+            "is_asset": material.asset_data is not None,
+            "is_linked": material.library is not None,
         }
 
     return orphan_materials
 
 
-# -------------------------
+# -------------------------------------------------------------------------
 # Fix
-# -------------------------
+# -------------------------------------------------------------------------
 
-def fix_orphan_materials():
+def fix_orphan_materials(
+        result_data=None,
+    ):
     """
-    Removes all material datablocks that have zero users.
+    Removes only materials included in the check result.
+
+    This avoids deleting newly created or protected materials that
+    were not part of the original QC result.
 
     Returns:
-        list[str]:
-            Names of removed materials.
+        dict:
+        {
+            "fixed_materials": list[str],
+            "issues": list[str],
+        }
     """
+    if not isinstance(result_data, dict):
+        result_data = {}
+
+    failed_materials = result_data.get(
+        "failed_materials",
+        {},
+    )
+
+    if not isinstance(failed_materials, dict):
+        failed_materials = {}
+
     removed_materials = []
+    issues = []
 
-    # Convert to list because bpy.data.materials changes
-    # while materials are removed.
-    for material in list(bpy.data.materials):
+    for material_name in failed_materials:
 
-        if material.users != 0:
-            continue
-
-        removed_materials.append(material.name)
-
-        bpy.data.materials.remove(
-            material,
-            do_unlink=True,
+        material = bpy.data.materials.get(
+            material_name
         )
 
-    return removed_materials
+        if material is None:
+            continue
+
+        if material.users != 0:
+            issues.append(
+                'Skipped "{}": material now has {} user(s).'.format(
+                    material.name,
+                    material.users,
+                )
+            )
+            continue
+
+        if is_protected_material(
+            material
+        ):
+            issues.append(
+                'Skipped protected material: "{}".'.format(
+                    material.name
+                )
+            )
+            continue
+
+        try:
+            removed_materials.append(
+                material.name
+            )
+
+            bpy.data.materials.remove(
+                material,
+                do_unlink=True,
+            )
+
+        except Exception as error:
+            issues.append(
+                'Could not remove "{}": {}'.format(
+                    material_name,
+                    error,
+                )
+            )
+
+    return {
+        "fixed_materials": removed_materials,
+        "issues": issues,
+    }
