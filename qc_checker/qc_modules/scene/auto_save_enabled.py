@@ -6,7 +6,6 @@ import bpy
 # Company imports
 
 # Meta data
-SEVERITY = "warning"
 LABEL = "Auto Save Enabled"
 DESCRIPTION = (
     "Checks if Blender's 'Auto Save Temporary Files' preference is "
