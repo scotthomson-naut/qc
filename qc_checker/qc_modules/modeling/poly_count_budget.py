@@ -6,15 +6,37 @@ import bmesh
 
 # Company imports
 
-# Constants
-SCENE_POLY_BUDGET = 500000
-OBJECT_POLY_BUDGET = 5000
-
 # Meta data
 LABEL = "Poly Count Above Limit"
 DESCRIPTION = (
     "Checks if Object is below a certain Poly count"
 )
+
+# Constants
+SETTINGS = {
+    "budget_scene": {
+        "type": "int",
+        "label": "Maximum Polys per Scene",
+        "description": (
+            "Maximum recommended Polys per scene"
+        ),
+        "default": 400000,
+        "min": 1,
+        "max": 1000000,
+    },
+
+    "budget_object": {
+        "type": "int",
+        "label": "Maximum Polys per Object",
+        "description": (
+            "Maximum recommended Polys per object"
+        ),
+        "default": 4000,
+        "min": 1,
+        "max": 10000,
+    },
+}
+
 
 # -------------------------------------------------------------------------
 # Templates
@@ -24,9 +46,12 @@ def main():
     """
     Checks polygon budgets.
     """
+    settings = resolve_settings(
+        preferences
+    )
+
     result = get_objects_exceeding_poly_budget(
-        scene_poly_budget=SCENE_POLY_BUDGET,
-        object_poly_budget=OBJECT_POLY_BUDGET,
+        settings
     )
 
     issues = []
@@ -66,8 +91,7 @@ def main():
 
 def get_objects_exceeding_poly_budget(
         objects=None,
-        scene_poly_budget=500000,
-        object_poly_budget=50000,
+        settings=None
     ):
     """
     Checks mesh objects against polygon budgets.
@@ -78,12 +102,6 @@ def get_objects_exceeding_poly_budget(
         objects (iterable[bpy.types.Object] | None):
             Objects to inspect.
             Defaults to all scene objects.
-
-        scene_poly_budget (int):
-            Maximum allowed triangles in the scene.
-
-        object_poly_budget (int):
-            Maximum allowed triangles per object.
 
     Returns:
         dict:
@@ -101,7 +119,9 @@ def get_objects_exceeding_poly_budget(
             }
         }
     """
-
+    scene_poly_budget = settings["budget_scene"]
+    object_poly_budget = settings["budget_object"]
+    
     if objects is None:
         objects = bpy.context.scene.objects
 
