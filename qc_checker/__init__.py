@@ -2597,14 +2597,8 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
             ]
 
         # ---------------------------------------------------------
-        # Fix UI
+        # Fix All
         # ---------------------------------------------------------
-
-        failed_with_fix = any(
-            item.status == "FAIL"
-            and item.has_fix
-            for item in checks
-        )
 
         fixable_count = sum(
             1
@@ -2615,89 +2609,28 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
             )
         )
 
-        current_failed_object_count = 0
+        fix_all_row = layout.row()
+        fix_all_row.scale_y = 1.1
+        fix_all_row.enabled = (
+            fixable_count > 0
+        )
 
-        if current_item is not None:
-            fix_row = layout.row(
-                align=True
-            )
-
-            current_result = result_data_from_json(
-                current_item.result_data
-            )
-
-            current_failed_objects = current_result.get(
-                "failed_objects",
-                {},
-            )
-
-            if isinstance(current_failed_objects, dict):
-                current_failed_object_count = len(
-                    current_failed_objects
-                )
-
-            # -----------------------------------------------------
-            # Current Check
-            # -----------------------------------------------------
-
-            current_column = fix_row.row(
-                align=True
-            )
-
-            if current_item.status == "FAIL":
-                if current_item.has_fix:
-                    current_column.enabled = True
-                    current_column.operator(
-                        "scriptronaut.qc_fix_current",
-                        icon="TOOL_SETTINGS",
-                        text="Fix Current Check ({} Object{})".format(
-                            current_failed_object_count,
-                            ""
-                            if current_failed_object_count == 1
-                            else "s",
-                        ),
-                    )
-                else:
-                    current_column.enabled = False
-                    current_column.operator(
-                        "scriptronaut.qc_fix_current",
-                        icon="INFO",
-                        text="Manual Fix Required",
-                    )
-            elif current_item.status == "PASS":
-                current_column.enabled = False
-                current_column.operator(
-                    "scriptronaut.qc_fix_current",
-                    icon="CHECKMARK",
-                    text="All Good",
-                )
-            else:
-                current_column.enabled = False
-                current_column.operator(
-                    "scriptronaut.qc_fix_current",
-                    icon="TOOL_SETTINGS",
-                    text="Run Check First",
-                )
-
-            # -----------------------------------------------------
-            # Fix All
-            # -----------------------------------------------------
-
-            fix_all_column = fix_row.row(
-                align=True
-            )
-
-            fix_all_column.enabled = (
-                failed_with_fix
-            )
-
-            fix_all_column.operator(
-                "scriptronaut.qc_fix_all",
-                icon="TOOL_SETTINGS",
-                text="Fix All ({})".format(
+        if fixable_count > 0:
+            fix_all_text = (
+                "Fix All ({})".format(
                     fixable_count
-                ),
+                )
             )
+        else:
+            fix_all_text = (
+                "No Automatic Fixes Available"
+            )
+
+        fix_all_row.operator(
+            "scriptronaut.qc_fix_all",
+            icon="TOOL_SETTINGS",
+            text=fix_all_text,
+        )
 
         # ---------------------------------------------------------
         # Issues
@@ -3568,260 +3501,6 @@ class SCRIPTRONAUT_OT_QC_CheckInfo(Operator):
         return {"FINISHED"}
 
 
-
-class SCRIPTRONAUT_OT_QC_FixCurrent(Operator):
-    """
-    Fixes every failed object reported by the currently
-    selected QC check.
-    """
-
-    bl_idname = "scriptronaut.qc_fix_current"
-    bl_label = "Fix Current QC Check"
-    bl_description = (
-        "Fix every failed object reported by the currently selected check"
-    )
-
-    @classmethod
-    def poll(cls, context):
-        scene = getattr(context, "scene", None)
-
-        if scene is None:
-            return False
-
-        settings = getattr(
-            scene,
-            "scriptronaut_qc_settings",
-            None,
-        )
-
-        checks = getattr(
-            scene,
-            "scriptronaut_qc_checks",
-            None,
-        )
-
-        if settings is None or checks is None:
-            return False
-
-        index = settings.check_index
-
-        if index < 0 or index >= len(checks):
-            return False
-
-        item = checks[index]
-
-        return (
-            item.status == "FAIL"
-            and item.has_fix
-        )
-
-    def execute(self, context):
-        global QC_IS_RUNNING
-
-        scene = context.scene
-
-        settings = (
-            scene.scriptronaut_qc_settings
-        )
-
-        checks = (
-            scene.scriptronaut_qc_checks
-        )
-
-        check_index = settings.check_index
-
-        if (
-            check_index < 0
-            or check_index >= len(checks)
-        ):
-            self.report(
-                {"WARNING"},
-                "No QC check selected.",
-            )
-            return {"CANCELLED"}
-
-        item = checks[check_index]
-
-        if (
-            item.status != "FAIL"
-            or not item.has_fix
-        ):
-            self.report(
-                {"WARNING"},
-                "The selected check has no automatic fix.",
-            )
-            return {"CANCELLED"}
-
-        if not os.path.isfile(item.script_path):
-            self.report(
-                {"ERROR"},
-                "QC script does not exist.",
-            )
-            return {"CANCELLED"}
-
-        result_data = result_data_from_json(
-            item.result_data
-        )
-
-        failed_objects = result_data.get(
-            "failed_objects",
-            {},
-        )
-
-        if not isinstance(failed_objects, dict):
-            failed_objects = {}
-
-        failed_object_count = len(
-            failed_objects
-        )
-
-        try:
-            module = load_module_from_path(
-                "qc_fix_current_{}_{}".format(
-                    item.name,
-                    check_index,
-                ),
-                item.script_path,
-            )
-
-            fix_function = getattr(
-                module,
-                "fix",
-                None,
-            )
-
-            if not callable(fix_function):
-                item.has_fix = False
-
-                self.report(
-                    {"ERROR"},
-                    "The QC script has no callable fix() function.",
-                )
-
-                return {"CANCELLED"}
-
-            QC_IS_RUNNING = True
-
-            # Pass the entire result. This contains every failed
-            # object displayed in the Issues panel.
-            fix_result = fix_function(
-                result_data
-            )
-
-        except TypeError:
-            # Do not silently call fix() again without arguments.
-            # A TypeError may have occurred inside the check's fix code.
-            print(
-                "QC Fix Current TypeError:\n{}".format(
-                    traceback.format_exc()
-                )
-            )
-
-            self.report(
-                {"ERROR"},
-                (
-                    'The fix for "{}" must accept result_data. '
-                    "See the system console."
-                ).format(
-                    item.display_name or item.name
-                ),
-            )
-
-            return {"CANCELLED"}
-
-        except Exception:
-            print(
-                "QC Fix Current error:\n{}".format(
-                    traceback.format_exc()
-                )
-            )
-
-            self.report(
-                {"ERROR"},
-                'Could not fix "{}".'.format(
-                    item.display_name or item.name
-                ),
-            )
-
-            return {"CANCELLED"}
-
-        finally:
-            QC_IS_RUNNING = False
-
-        # Re-run this check after fixing every reported object.
-        rerun_qc_check_item(
-            item
-        )
-
-        settings.check_index = (
-            check_index
-        )
-
-        refresh_issues_display(
-            context
-        )
-
-        rebuild_failed_objects(
-            context
-        )
-
-        if settings.last_run_time:
-            settings.scene_modified_since_qc = True
-
-        remaining_result = result_data_from_json(
-            item.result_data
-        )
-
-        remaining_objects = remaining_result.get(
-            "failed_objects",
-            {},
-        )
-
-        remaining_count = (
-            len(remaining_objects)
-            if isinstance(remaining_objects, dict)
-            else 0
-        )
-
-        fixed_count = max(
-            0,
-            failed_object_count - remaining_count,
-        )
-
-        if remaining_count == 0:
-            self.report(
-                {"INFO"},
-                'Fixed "{}" on {} object{}.'.format(
-                    item.display_name or item.name,
-                    failed_object_count,
-                    ""
-                    if failed_object_count == 1
-                    else "s",
-                ),
-            )
-
-        else:
-            self.report(
-                {"WARNING"},
-                (
-                    'Fixed "{}" on {} object{}. '
-                    "{} object{} still fail."
-                ).format(
-                    item.display_name or item.name,
-                    fixed_count,
-                    ""
-                    if fixed_count == 1
-                    else "s",
-                    remaining_count,
-                    ""
-                    if remaining_count == 1
-                    else "s",
-                ),
-            )
-
-        return {"FINISHED"}
-
-
 class SCRIPTRONAUT_OT_QC_FixCheckInline(Operator):
     """
     Fixes one specific QC check directly from its UIList row.
@@ -4503,7 +4182,6 @@ classes = (
     SCRIPTRONAUT_OT_QC_SelectCritical,
     SCRIPTRONAUT_OT_QC_SelectNone,
     SCRIPTRONAUT_OT_QC_RunSelected,
-    SCRIPTRONAUT_OT_QC_FixCurrent,
     SCRIPTRONAUT_OT_QC_FixCheckInline,
     SCRIPTRONAUT_OT_QC_SelectObject,
     SCRIPTRONAUT_OT_QC_CheckInfo,
