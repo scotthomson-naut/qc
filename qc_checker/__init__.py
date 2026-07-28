@@ -59,6 +59,71 @@ TIER = "Pro"
 # -------------------------------------------------------------------------
 # Helpers
 # -------------------------------------------------------------------------
+
+def reset_check_settings_dialog(
+        self,
+        context,
+    ):
+    """
+    Restores every displayed setting to its module default.
+
+    This only changes the values currently displayed in the dialog.
+    The defaults are written to disk when the user clicks OK.
+    """
+    if not self.reset_to_defaults:
+        return
+
+    for item in self.settings:
+
+        if item.setting_type == "bool":
+            item.bool_value = (
+                item.default_bool
+            )
+
+        elif item.setting_type == "int":
+            item.int_value = (
+                item.default_int
+            )
+
+        elif item.setting_type == "float":
+            item.float_value = (
+                item.default_float
+            )
+
+        elif item.setting_type == "enum":
+            item.enum_value = str(
+                value
+                if value is not None
+                else ""
+            )
+
+            item.default_string = str(
+                default
+                if default is not None
+                else ""
+            )
+
+        else:
+            item.string_value = str(
+                value
+                if value is not None
+                else ""
+            )
+
+            item.default_string = str(
+                default
+                if default is not None
+                else ""
+            )
+
+    # Return the button to its unpressed state.
+    self.reset_to_defaults = False
+
+    # Force the dialog area to redraw.
+    if context.area is not None:
+        context.area.tag_redraw()
+
+
 def load_all_check_preferences():
     """
     Loads the complete check-preferences JSON file.
@@ -515,7 +580,9 @@ def mark_scene_modified_after_qc(
 
 
 def redraw_qc_status_timer():
-    """Redraws View3D areas so elapsed QC time updates while idle."""
+    """
+    Redraws View3D areas so elapsed QC time updates while idle.
+    """
     try:
         for window in bpy.context.window_manager.windows:
             screen = window.screen
@@ -4490,6 +4557,15 @@ class SCRIPTRONAUT_OT_QC_CheckSettings(Operator):
     module_name: StringProperty()
     script_path: StringProperty(subtype="FILE_PATH")
     settings: CollectionProperty(type=SCRIPTRONAUT_PG_CheckSetting)
+    reset_to_defaults: BoolProperty(
+        name="Reset Values to Defaults",
+        description=(
+            "Restore the displayed settings to the defaults "
+            "defined by this QC check"
+        ),
+        default=False,
+        update=reset_check_settings_dialog,
+    )
 
     def invoke(
             self,
@@ -4674,7 +4750,6 @@ class SCRIPTRONAUT_OT_QC_CheckSettings(Operator):
 
         for item in self.settings:
             box = layout.box()
-
             row = box.row()
 
             if item.setting_type == "bool":
@@ -4698,6 +4773,13 @@ class SCRIPTRONAUT_OT_QC_CheckSettings(Operator):
                     text=item.label,
                 )
 
+            elif item.setting_type == "enum":
+                row.prop(
+                    item,
+                    "enum_value",
+                    text=item.label,
+                )
+
             else:
                 row.prop(
                     item,
@@ -4718,12 +4800,18 @@ class SCRIPTRONAUT_OT_QC_CheckSettings(Operator):
                 )
 
         layout.separator()
-        reset_operator = layout.operator(
-            "scriptronaut.qc_reset_check_settings",
-            text="Reset Saved Values to Defaults",
-            icon="LOOP_BACK",
+
+        reset_row = layout.row(
+            align=True
         )
-        reset_operator.check_id = self.check_id
+
+        reset_row.prop(
+            self,
+            "reset_to_defaults",
+            text="Reset Values to Defaults",
+            icon="LOOP_BACK",
+            toggle=True,
+        )
 
     def execute(
             self,
@@ -4762,6 +4850,9 @@ class SCRIPTRONAUT_OT_QC_CheckSettings(Operator):
                     )
                 )
 
+            elif item.setting_type == "enum":
+                value = item.enum_value
+
             else:
                 value = item.string_value
 
@@ -4796,39 +4887,6 @@ class SCRIPTRONAUT_OT_QC_CheckSettings(Operator):
         return {"FINISHED"}
 
 
-class SCRIPTRONAUT_OT_QC_ResetCheckSettings(
-        Operator
-    ):
-
-    bl_idname = "scriptronaut.qc_reset_check_settings"
-    bl_label = "Reset Check Settings"
-    check_id: StringProperty()
-
-    def execute(
-            self,
-            context,
-        ):
-        preferences = (
-            load_all_check_preferences()
-        )
-
-        preferences.pop(
-            self.check_id,
-            None,
-        )
-
-        save_all_check_preferences(
-            preferences
-        )
-
-        self.report(
-            {"INFO"},
-            "Check settings reset to defaults.",
-        )
-
-        return {"FINISHED"}
-
-
 # -------------------------------------------------------------------------
 # Register
 # -------------------------------------------------------------------------
@@ -4854,7 +4912,6 @@ classes = (
     SCRIPTRONAUT_OT_QC_SelectObject,
     SCRIPTRONAUT_OT_QC_CheckInfo,
     SCRIPTRONAUT_OT_QC_CheckSettings,
-    SCRIPTRONAUT_OT_QC_ResetCheckSettings,
     SCRIPTRONAUT_PT_QC_Checks,
     SCRIPTRONAUT_QC_FailedObjectItem,
     SCRIPTRONAUT_QC_ObjectCheckItem,
