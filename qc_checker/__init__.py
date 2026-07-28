@@ -2103,7 +2103,7 @@ class SCRIPTRONAUT_UL_QC_Checks(UIList):
             settings_operator = action_column.operator(
                 "scriptronaut.qc_check_settings",
                 text="",
-                icon="PREFERENCES",
+                icon="GREASEPENCIL",
             )
             settings_operator.check_id = item.check_id
             settings_operator.script_path = item.script_path
@@ -3585,7 +3585,7 @@ class SCRIPTRONAUT_UL_QC_ObjectChecks(UIList):
             settings_operator = action_column.operator(
                 "scriptronaut.qc_check_settings",
                 text="",
-                icon="PREFERENCES",
+                icon="GREASEPENCIL",
             )
             settings_operator.check_id = source_check.check_id
             settings_operator.script_path = source_check.script_path
@@ -4739,7 +4739,7 @@ class SCRIPTRONAUT_OT_QC_CheckSettings(Operator):
 
         layout.label(
             text="Check Settings",
-            icon="PREFERENCES",
+            icon="GREASEPENCIL",
         )
 
         layout.label(
