@@ -1,14 +1,24 @@
 {
     "animation": [
-        "broken_texture_links",
-        "poly_count_budget"
+        "keyframes_outside_frame_range",
+        "start_end_keyframes"
     ],
     "modeling": [
-        "freeze_transforms",
-        "applied_rotation_scale",
+        "apply_rotation",
+        "apply_scale",
+        "flipped_normals",
+        "has_faces",
         "ngon_detection",
-        "non_manifold_geo",
-        "poly_count_budget"
+        "non_manifold_geo"
+    ],
+    "naming": [
+        "names_no_defaults",
+        "names_no_duplicate_suffixes",
+        "names_no_special_character",
+        "names_trailing_spaces"
+    ],
+    "rendering": [
+        "render_samples_for_resolution"
     ],
     "rigging": [
         "freeze_transforms",
