@@ -20,7 +20,7 @@ SETTINGS = {
         "description": (
             "Maximum recommended Polys per scene"
         ),
-        "default": 400000,
+        "default": 100000,
         "min": 1,
         "max": 1000000,
     },
@@ -31,9 +31,9 @@ SETTINGS = {
         "description": (
             "Maximum recommended Polys per object"
         ),
-        "default": 4000,
+        "default": 20000,
         "min": 1,
-        "max": 10000,
+        "max": 50000,
     },
 }
 
