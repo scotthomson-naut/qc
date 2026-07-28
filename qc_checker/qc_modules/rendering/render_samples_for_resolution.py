@@ -12,7 +12,10 @@ DESCRIPTION = (
     "recommended for the current output resolution."
 )
 
-# Constants
+# -------------------------
+# Settings
+# -------------------------
+
 SETTINGS = {
     "samples_720p": {
         "type": "int",
@@ -248,7 +251,6 @@ def fix_render_samples(result_data=None):
 # -------------------------
 # Helper
 # -------------------------
-
 
 def resolve_settings(preferences=None):
     """

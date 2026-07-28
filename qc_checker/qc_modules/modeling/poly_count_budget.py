@@ -2,23 +2,27 @@
 
 # Blender imports
 import bpy
-import bmesh
 
 # Company imports
 
 # Meta data
 LABEL = "Poly Count Above Limit"
 DESCRIPTION = (
-    "Checks if Object is below a certain Poly count"
+    "Checks whether the scene and individual mesh objects "
+    "are below configurable polygon limits."
 )
 
-# Constants
+
+# -------------------------
+# Settings
+# -------------------------
+
 SETTINGS = {
     "budget_scene": {
         "type": "int",
         "label": "Maximum Polys per Scene",
         "description": (
-            "Maximum recommended Polys per scene"
+            "Maximum recommended triangle count for the scene."
         ),
         "default": 100000,
         "min": 1,
@@ -29,7 +33,7 @@ SETTINGS = {
         "type": "int",
         "label": "Maximum Polys per Object",
         "description": (
-            "Maximum recommended Polys per object"
+            "Maximum recommended triangle count per object."
         ),
         "default": 20000,
         "min": 1,
@@ -42,16 +46,24 @@ SETTINGS = {
 # Templates
 # -------------------------------------------------------------------------
 
-def main():
+def main(preferences=None):
     """
-    Checks polygon budgets.
+    Checks scene and object polygon budgets.
+
+    Args:
+        preferences (dict | None):
+            User-configured check settings.
+
+    Returns:
+        dict:
+            Normalized QC result.
     """
     settings = resolve_settings(
         preferences
     )
 
     result = get_objects_exceeding_poly_budget(
-        settings
+        settings=settings,
     )
 
     issues = []
@@ -64,10 +76,10 @@ def main():
             )
         )
 
-    for name, data in result["failed_objects"].items():
+    for object_name, data in result["failed_objects"].items():
         issues.append(
             "Failed object: {} ({} / {})".format(
-                name,
+                object_name,
                 data["poly_count"],
                 data["budget"],
             )
@@ -77,6 +89,7 @@ def main():
         "issues": issues,
         "scene_poly_count": result["scene_poly_count"],
         "scene_budget": result["scene_budget"],
+        "scene_over_budget": result["scene_over_budget"],
         "failed_objects": result["failed_objects"],
     }
 
@@ -84,69 +97,83 @@ def main():
 # Functions
 # -------------------------------------------------------------------------
 
-
 # -------------------------
 # Find
 # -------------------------
 
 def get_objects_exceeding_poly_budget(
         objects=None,
-        settings=None
+        settings=None,
     ):
     """
-    Checks mesh objects against polygon budgets.
+    Checks evaluated mesh objects against polygon budgets.
 
-    Counts triangles after Blender evaluates modifiers.
+    Polygon count is measured as triangles after modifiers are evaluated.
 
     Args:
         objects (iterable[bpy.types.Object] | None):
-            Objects to inspect.
-            Defaults to all scene objects.
+            Objects to inspect. Defaults to current scene objects.
+
+        settings (dict | None):
+            Resolved check settings.
 
     Returns:
         dict:
         {
-            "scene_poly_count": 125432,
-            "scene_over_budget": False,
-            "scene_budget": 500000,
-            "failed_objects":
-            {
-                "Robot":
-                {
-                    "poly_count": 65432,
-                    "budget": 50000,
-                }
-            }
+            "scene_poly_count": int,
+            "scene_over_budget": bool,
+            "scene_budget": int,
+            "failed_objects": dict,
         }
     """
-    scene_poly_budget = settings["budget_scene"]
-    object_poly_budget = settings["budget_object"]
-    
+    if settings is None:
+        settings = resolve_settings()
+
+    scene_poly_budget = int(
+        settings["budget_scene"]
+    )
+
+    object_poly_budget = int(
+        settings["budget_object"]
+    )
+
     if objects is None:
         objects = bpy.context.scene.objects
 
-    depsgraph = bpy.context.evaluated_depsgraph_get()
+    depsgraph = (
+        bpy.context.evaluated_depsgraph_get()
+    )
 
     failed_objects = {}
     total_triangles = 0
 
     for obj in objects:
-
-        if obj.type != 'MESH':
+        if obj.type != "MESH":
             continue
 
-        obj_eval = obj.evaluated_get(depsgraph)
+        obj_eval = obj.evaluated_get(
+            depsgraph
+        )
+
         mesh = obj_eval.to_mesh()
+
+        if mesh is None:
+            continue
 
         try:
             mesh.calc_loop_triangles()
 
-            tri_count = len(mesh.loop_triangles)
-            total_triangles += tri_count
+            triangle_count = len(
+                mesh.loop_triangles
+            )
 
-            if tri_count > object_poly_budget:
+            total_triangles += (
+                triangle_count
+            )
+
+            if triangle_count > object_poly_budget:
                 failed_objects[obj.name] = {
-                    "poly_count": tri_count,
+                    "poly_count": triangle_count,
                     "budget": object_poly_budget,
                 }
 
@@ -156,6 +183,41 @@ def get_objects_exceeding_poly_budget(
     return {
         "scene_poly_count": total_triangles,
         "scene_budget": scene_poly_budget,
-        "scene_over_budget": total_triangles > scene_poly_budget,
+        "scene_over_budget": (
+            total_triangles
+            > scene_poly_budget
+        ),
         "failed_objects": failed_objects,
     }
+
+
+# -------------------------
+# Settings helper
+# -------------------------
+
+def resolve_settings(preferences=None):
+    """
+    Merges user preferences over the check defaults.
+
+    Args:
+        preferences (dict | None):
+            User-configured preference values.
+
+    Returns:
+        dict:
+            Fully resolved settings.
+    """
+    resolved = {
+        setting_name: definition.get(
+            "default"
+        )
+        for setting_name, definition
+        in SETTINGS.items()
+    }
+
+    if isinstance(preferences, dict):
+        for setting_name, value in preferences.items():
+            if setting_name in resolved:
+                resolved[setting_name] = value
+
+    return resolved
