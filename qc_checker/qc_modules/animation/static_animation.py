@@ -1,12 +1,11 @@
-# Standard python imports
-
 # Blender imports
 import bpy
 
-# Company imports
 
+# -------------------------------------------------------------------------
+# Metadata
+# -------------------------------------------------------------------------
 
-# Meta data
 LABEL = "F-Curves Have Constant Key Values"
 DESCRIPTION = (
     "Checks for object F-Curves that contain multiple keyframes "
