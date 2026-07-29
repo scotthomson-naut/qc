@@ -14,60 +14,135 @@ DESCRIPTION = (
 
 
 # -------------------------------------------------------------------------
+# Settings
+# -------------------------------------------------------------------------
+
+SETTINGS = {
+    "ignore_last_empty_slot": {
+        "type": "bool",
+        "label": "Ignore Last Empty Slot",
+        "description": (
+            "Ignore the final material slot when it contains no material "
+            "and is not assigned to any face."
+        ),
+        "default": False,
+    },
+}
+
+
+# -------------------------------------------------------------------------
 # Templates
 # -------------------------------------------------------------------------
 
-def main():
+def main(preferences=None):
     """
     Finds mesh objects with unused material slots.
+
+    Args:
+        preferences (dict | None):
+            User-configured check preferences.
 
     Returns:
         dict:
         {
             "issues": list[str],
             "failed_objects": dict,
+            "settings": dict,
         }
     """
-    failed_objects = get_objects_with_unused_material_slots()
+    settings = resolve_settings(
+        preferences
+    )
+
+    failed_objects = get_objects_with_unused_material_slots(
+        settings=settings,
+    )
 
     issues = []
 
     for object_name, object_data in sorted(
         failed_objects.items()
     ):
-        unused_slots = object_data["unused_slots"]
+        unused_slots = object_data.get(
+            "unused_slots",
+            [],
+        )
+
+        slot_labels = []
+
+        for slot_data in unused_slots:
+            slot_index = slot_data.get(
+                "slot_index",
+                -1,
+            )
+
+            material_name = slot_data.get(
+                "material_name",
+                None,
+            )
+
+            if material_name:
+                slot_labels.append(
+                    '{} "{}"'.format(
+                        slot_index,
+                        material_name,
+                    )
+                )
+            else:
+                slot_labels.append(
+                    "{} (empty)".format(
+                        slot_index
+                    )
+                )
 
         issues.append(
             (
-                'Object "{}" has {} unused material slot{}: {}'
+                'Object "{}" has {} unused material slot{}: {}.'
             ).format(
                 object_name,
                 len(unused_slots),
-                "" if len(unused_slots) == 1 else "s",
-                ", ".join(
-                    str(slot["slot_index"])
-                    for slot in unused_slots
-                ),
+                ""
+                if len(unused_slots) == 1
+                else "s",
+                ", ".join(slot_labels),
             )
         )
 
     return {
         "issues": issues,
         "failed_objects": failed_objects,
+        "settings": settings,
     }
 
 
-def fix(result_data=None):
+def fix(
+        result_data=None,
+        preferences=None,
+    ):
     """
-    Removes unused material slots.
+    Removes unused material slots reported by the check.
 
-    Blender automatically updates polygon material indices.
+    Args:
+        result_data (dict | None):
+            Result returned by main().
+
+        preferences (dict | None):
+            User-configured check preferences.
 
     Returns:
-        dict
+        dict:
+        {
+            "fixed_objects": dict,
+            "issues": list[str],
+        }
     """
+    settings = resolve_settings(
+        preferences
+    )
+
     return remove_unused_material_slots(
         result_data=result_data,
+        settings=settings,
     )
 
 
@@ -77,54 +152,137 @@ def fix(result_data=None):
 
 def get_objects_with_unused_material_slots(
         objects=None,
+        settings=None,
     ):
     """
-    Finds material slots that are not referenced by any face.
+    Finds material slots that are not referenced by any polygon.
+
+    Args:
+        objects (iterable[bpy.types.Object] | None):
+            Objects to inspect. Defaults to current scene objects.
+
+        settings (dict | None):
+            Resolved check settings.
 
     Returns:
-        dict
+        dict:
+        {
+            "ObjectName": {
+                "object_type": "MESH",
+                "slot_count": 3,
+                "used_slot_indices": [0],
+                "unused_slot_count": 2,
+                "unused_slots": [
+                    {
+                        "slot_index": 1,
+                        "material_name": "Material.001",
+                        "is_empty": False,
+                        "is_last_slot": False,
+                    },
+                    {
+                        "slot_index": 2,
+                        "material_name": None,
+                        "is_empty": True,
+                        "is_last_slot": True,
+                    },
+                ],
+            }
+        }
     """
     if objects is None:
         objects = bpy.context.scene.objects
 
+    if settings is None:
+        settings = resolve_settings()
+
+    ignore_last_empty_slot = bool(
+        settings.get(
+            "ignore_last_empty_slot",
+            False,
+        )
+    )
+
     failed_objects = {}
 
     for obj in objects:
-
         if obj.type != "MESH":
             continue
 
-        mesh = obj.data
+        mesh = getattr(
+            obj,
+            "data",
+            None,
+        )
 
-        slot_count = len(mesh.materials)
+        if mesh is None:
+            continue
+
+        materials = getattr(
+            mesh,
+            "materials",
+            None,
+        )
+
+        polygons = getattr(
+            mesh,
+            "polygons",
+            None,
+        )
+
+        if materials is None or polygons is None:
+            continue
+
+        slot_count = len(materials)
 
         if slot_count == 0:
             continue
 
-        used_slots = set()
+        used_slot_indices = set()
 
-        for polygon in mesh.polygons:
-            used_slots.add(
+        for polygon in polygons:
+            material_index = int(
                 polygon.material_index
             )
 
+            if 0 <= material_index < slot_count:
+                used_slot_indices.add(
+                    material_index
+                )
+
         unused_slots = []
+        last_slot_index = slot_count - 1
 
-        for slot_index in range(slot_count):
-
-            if slot_index in used_slots:
+        for slot_index in range(
+            slot_count
+        ):
+            if slot_index in used_slot_indices:
                 continue
 
-            material = mesh.materials[
+            material = materials[
                 slot_index
             ]
 
+            is_empty = material is None
+            is_last_slot = (
+                slot_index == last_slot_index
+            )
+
+            if (
+                ignore_last_empty_slot
+                and is_last_slot
+                and is_empty
+            ):
+                continue
+
             unused_slots.append({
                 "slot_index": slot_index,
-                "material_name":
+                "material_name": (
                     material.name
-                    if material
-                    else None,
+                    if material is not None
+                    else None
+                ),
+                "is_empty": is_empty,
+                "is_last_slot": is_last_slot,
             })
 
         if not unused_slots:
@@ -133,6 +291,9 @@ def get_objects_with_unused_material_slots(
         failed_objects[obj.name] = {
             "object_type": obj.type,
             "slot_count": slot_count,
+            "used_slot_indices": sorted(
+                used_slot_indices
+            ),
             "unused_slot_count": len(
                 unused_slots
             ),
@@ -148,16 +309,31 @@ def get_objects_with_unused_material_slots(
 
 def remove_unused_material_slots(
         result_data=None,
+        settings=None,
     ):
     """
-    Removes unused material slots.
+    Removes unused material slots reported by the check.
 
-    Slots are removed from highest index to lowest so that
-    indices remain valid while deleting.
+    Slots are recalculated before removal and deleted from highest index
+    to lowest index so lower material-slot indices remain valid.
+
+    Args:
+        result_data (dict | None):
+            Result returned by main().
+
+        settings (dict | None):
+            Resolved settings.
 
     Returns:
-        dict
+        dict:
+        {
+            "fixed_objects": dict,
+            "issues": list[str],
+        }
     """
+    if settings is None:
+        settings = resolve_settings()
+
     if not isinstance(
         result_data,
         dict,
@@ -169,11 +345,16 @@ def remove_unused_material_slots(
         {},
     )
 
+    if not isinstance(
+        failed_objects,
+        dict,
+    ):
+        failed_objects = {}
+
     fixed_objects = {}
     issues = []
 
-    for object_name, object_data in failed_objects.items():
-
+    for object_name in failed_objects:
         obj = bpy.data.objects.get(
             object_name
         )
@@ -187,72 +368,76 @@ def remove_unused_material_slots(
             continue
 
         if obj.type != "MESH":
+            issues.append(
+                'Object "{}" is no longer a mesh.'.format(
+                    object_name
+                )
+            )
             continue
 
-        unused_slots = object_data.get(
-            "unused_slots",
-            [],
+        current_unused_indices = (
+            get_current_unused_slot_indices(
+                obj=obj,
+                settings=settings,
+            )
         )
 
-        if not unused_slots:
+        if not current_unused_indices:
             continue
 
-        removed = []
+        removed_slots = []
 
-        #
-        # Blender's remove_material_slot operator requires
-        # the object to be active.
-        #
-        bpy.context.view_layer.objects.active = obj
-
-        obj.select_set(True)
-
-        for slot in sorted(
-            unused_slots,
-            key=lambda x: x["slot_index"],
+        for slot_index in sorted(
+            current_unused_indices,
             reverse=True,
         ):
+            material_name = None
 
-            slot_index = slot["slot_index"]
-
-            if slot_index >= len(
+            if 0 <= slot_index < len(
                 obj.material_slots
             ):
-                continue
+                material = obj.material_slots[
+                    slot_index
+                ].material
 
-            obj.active_material_index = (
-                slot_index
+                if material is not None:
+                    material_name = material.name
+
+            success, error_message = (
+                remove_material_slot_by_index(
+                    obj=obj,
+                    slot_index=slot_index,
+                )
             )
 
-            try:
-
-                bpy.ops.object.material_slot_remove()
-
-                removed.append(
-                    slot_index
-                )
-
-            except Exception as error:
-
+            if not success:
                 issues.append(
                     (
-                        'Could not remove material slot {} '
-                        'from "{}": {}'
+                        "Could not remove material slot {} "
+                        'from object "{}": {}'
                     ).format(
                         slot_index,
                         object_name,
-                        error,
+                        error_message,
                     )
                 )
+                continue
 
-        if removed:
+            removed_slots.append({
+                "slot_index": slot_index,
+                "material_name": material_name,
+            })
 
+        if removed_slots:
             fixed_objects[object_name] = {
-                "removed_slots": sorted(
-                    removed
+                "removed_slot_count": len(
+                    removed_slots
                 ),
-                "removed_count": len(
-                    removed
+                "removed_slots": sorted(
+                    removed_slots,
+                    key=lambda item: item[
+                        "slot_index"
+                    ],
                 ),
             }
 
@@ -260,3 +445,193 @@ def remove_unused_material_slots(
         "fixed_objects": fixed_objects,
         "issues": issues,
     }
+
+
+# -------------------------------------------------------------------------
+# Helpers
+# -------------------------------------------------------------------------
+
+def resolve_settings(preferences=None):
+    """
+    Merges saved preferences over the check defaults.
+
+    Args:
+        preferences (dict | None):
+            Saved user preference values.
+
+    Returns:
+        dict
+    """
+    resolved = {
+        setting_name: definition.get(
+            "default"
+        )
+        for setting_name, definition
+        in SETTINGS.items()
+    }
+
+    if isinstance(preferences, dict):
+        for setting_name, value in preferences.items():
+            if setting_name in resolved:
+                resolved[setting_name] = value
+
+    return resolved
+
+
+def get_current_unused_slot_indices(
+        obj,
+        settings=None,
+    ):
+    """
+    Recalculates the object's currently unused material slot indices.
+
+    Args:
+        obj (bpy.types.Object):
+            Mesh object to inspect.
+
+        settings (dict | None):
+            Resolved settings.
+
+    Returns:
+        list[int]
+    """
+    if obj is None or obj.type != "MESH":
+        return []
+
+    results = get_objects_with_unused_material_slots(
+        objects=[obj],
+        settings=settings,
+    )
+
+    object_data = results.get(
+        obj.name,
+        {},
+    )
+
+    unused_slots = object_data.get(
+        "unused_slots",
+        [],
+    )
+
+    return [
+        slot_data["slot_index"]
+        for slot_data in unused_slots
+        if isinstance(slot_data, dict)
+        and "slot_index" in slot_data
+    ]
+
+
+def remove_material_slot_by_index(
+        obj,
+        slot_index,
+    ):
+    """
+    Removes one material slot using the Blender operator.
+
+    Args:
+        obj (bpy.types.Object):
+            Object containing the material slot.
+
+        slot_index (int):
+            Material slot index to remove.
+
+    Returns:
+        tuple[bool, str | None]:
+            Success state and optional error message.
+    """
+    if obj is None:
+        return False, "Object is unavailable."
+
+    if obj.type != "MESH":
+        return False, "Object is not a mesh."
+
+    if (
+        slot_index < 0
+        or slot_index >= len(obj.material_slots)
+    ):
+        return False, "Material slot index is out of range."
+
+    view_layer = bpy.context.view_layer
+
+    previous_active_object = (
+        view_layer.objects.active
+    )
+
+    previously_selected = [
+        selected_obj
+        for selected_obj in bpy.context.selected_objects
+    ]
+
+    previous_mode = (
+        obj.mode
+        if hasattr(obj, "mode")
+        else "OBJECT"
+    )
+
+    try:
+        if bpy.context.object is not None:
+            if bpy.context.object.mode != "OBJECT":
+                bpy.ops.object.mode_set(
+                    mode="OBJECT"
+                )
+
+        bpy.ops.object.select_all(
+            action="DESELECT"
+        )
+
+        obj.select_set(
+            True
+        )
+
+        view_layer.objects.active = obj
+
+        obj.active_material_index = int(
+            slot_index
+        )
+
+        result = bpy.ops.object.material_slot_remove()
+
+        if "FINISHED" not in result:
+            return (
+                False,
+                "Blender did not finish removing the slot.",
+            )
+
+        return True, None
+
+    except Exception as error:
+        return False, str(error)
+
+    finally:
+        try:
+            bpy.ops.object.select_all(
+                action="DESELECT"
+            )
+
+            for selected_obj in previously_selected:
+                if selected_obj.name in bpy.data.objects:
+                    selected_obj.select_set(
+                        True
+                    )
+
+            if (
+                previous_active_object is not None
+                and previous_active_object.name
+                in bpy.data.objects
+            ):
+                view_layer.objects.active = (
+                    previous_active_object
+                )
+
+            if (
+                previous_active_object is not None
+                and previous_mode != "OBJECT"
+                and view_layer.objects.active
+                == previous_active_object
+            ):
+                bpy.ops.object.mode_set(
+                    mode=previous_mode
+                )
+
+        except Exception:
+            pass
