@@ -275,7 +275,9 @@ def get_check_preferences(
 
 
 def get_check_id_for_item(item):
-    """Returns the stable preference identifier stored on a check item."""
+    """
+    Returns the stable preference identifier stored on a check item.
+    """
     if getattr(item, "check_id", ""):
         return item.check_id
 
@@ -286,7 +288,9 @@ def get_check_id_for_item(item):
 
 
 def call_check_main(module, check_id):
-    """Runs a check's main() and injects preferences when supported."""
+    """
+    Runs a check's main() and injects preferences when supported.
+    """
     main_function = getattr(module, "main", None)
 
     if not callable(main_function):
@@ -355,7 +359,9 @@ def call_check_fix(
 
 
 def module_has_settings(module):
-    """Returns True when a check module declares a non-empty SETTINGS map."""
+    """
+    Returns True when a check module declares a non-empty SETTINGS map.
+    """
     schema = getattr(module, "SETTINGS", {})
     return isinstance(schema, dict) and bool(schema)
 
@@ -2541,7 +2547,6 @@ class SCRIPTRONAUT_OT_QC_SelectObject(Operator):
     """
     Selects and activates an object associated with a QC issue.
     """
-
     bl_idname = "scriptronaut.qc_select_object"
     bl_label = "Select QC Object"
     bl_description = "Select this object in the scene"
