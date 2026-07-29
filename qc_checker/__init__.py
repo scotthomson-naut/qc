@@ -60,6 +60,287 @@ TIER = "Pro"
 # Helpers
 # -------------------------------------------------------------------------
 
+def get_matching_object_issues(
+        result_data,
+        object_name,
+    ):
+    """
+    Returns top-level issue messages associated with one object.
+
+    Existing checks usually include the object name in the issue string,
+    so this provides useful information without requiring every QC module
+    to change its return structure.
+    """
+    issues = get_issues_from_result(
+        result_data
+    )
+
+    matching_issues = []
+
+    object_name_lower = (
+        str(object_name).lower()
+    )
+
+    for issue in issues:
+        issue_text = str(issue)
+
+        if (
+            object_name_lower
+            in issue_text.lower()
+        ):
+            matching_issues.append(
+                issue_text
+            )
+
+    return matching_issues
+
+
+def format_qc_detail_label(key):
+    """
+    Converts dictionary keys into readable UI labels.
+
+    Example:
+        loose_vertex_count -> Loose Vertex Count
+    """
+    return (
+        str(key)
+        .replace("_", " ")
+        .strip()
+        .title()
+    )
+
+
+def format_qc_detail_value(
+        value,
+        maximum_list_items=20,
+    ):
+    """
+    Converts a QC result value into compact readable text.
+    """
+    if value is None:
+        return "None"
+
+    if isinstance(value, bool):
+        return "Yes" if value else "No"
+
+    if isinstance(value, float):
+        return "{:.6g}".format(value)
+
+    if isinstance(value, (list, tuple, set)):
+        values = list(value)
+
+        if not values:
+            return "None"
+
+        visible_values = values[
+            :maximum_list_items
+        ]
+
+        text = ", ".join(
+            str(item)
+            for item in visible_values
+        )
+
+        hidden_count = (
+            len(values)
+            - len(visible_values)
+        )
+
+        if hidden_count > 0:
+            text += (
+                " ... and {} more"
+            ).format(
+                hidden_count
+            )
+
+        return text
+
+    return str(value)
+
+
+def draw_wrapped_qc_text(
+        layout,
+        text,
+        icon="NONE",
+        width=75,
+    ):
+    """
+    Draws multiline text inside Blender UI layouts.
+
+    Blender labels do not automatically wrap, so this breaks long strings
+    into reasonably sized rows.
+    """
+    import textwrap
+
+    text = str(text or "")
+
+    source_lines = (
+        text.splitlines()
+        if text
+        else [""]
+    )
+
+    first_line = True
+
+    for source_line in source_lines:
+        wrapped_lines = textwrap.wrap(
+            source_line,
+            width=max(
+                20,
+                int(width),
+            ),
+            replace_whitespace=False,
+            drop_whitespace=True,
+        )
+
+        if not wrapped_lines:
+            wrapped_lines = [""]
+
+        for wrapped_line in wrapped_lines:
+            layout.label(
+                text=wrapped_line,
+                icon=(
+                    icon
+                    if first_line
+                    else "NONE"
+                ),
+            )
+
+            first_line = False
+
+
+def draw_qc_result_dictionary(
+        layout,
+        data,
+        level=0,
+    ):
+    """
+    Recursively displays serialized QC result data.
+
+    Nested dictionaries receive their own boxes. Lists of dictionaries are
+    displayed as numbered entries.
+    """
+    if not isinstance(data, dict):
+        draw_wrapped_qc_text(
+            layout,
+            format_qc_detail_value(data),
+        )
+        return
+
+    for key, value in data.items():
+        label = format_qc_detail_label(
+            key
+        )
+
+        # -----------------------------------------------------
+        # Nested dictionary
+        # -----------------------------------------------------
+
+        if isinstance(value, dict):
+            sub_box = layout.box()
+
+            sub_box.label(
+                text=label,
+                icon="DISCLOSURE_TRI_DOWN",
+            )
+
+            if value:
+                draw_qc_result_dictionary(
+                    sub_box,
+                    value,
+                    level=level + 1,
+                )
+            else:
+                sub_box.label(
+                    text="No data"
+                )
+
+            continue
+
+        # -----------------------------------------------------
+        # List containing dictionaries
+        # -----------------------------------------------------
+
+        if (
+            isinstance(value, (list, tuple))
+            and value
+            and all(
+                isinstance(item, dict)
+                for item in value
+            )
+        ):
+            list_box = layout.box()
+
+            list_box.label(
+                text="{} ({})".format(
+                    label,
+                    len(value),
+                ),
+                icon="LINENUMBERS_ON",
+            )
+
+            maximum_entries = 20
+
+            for list_index, list_item in enumerate(
+                value[:maximum_entries]
+            ):
+                item_box = list_box.box()
+
+                item_box.label(
+                    text="Item {}".format(
+                        list_index + 1
+                    )
+                )
+
+                draw_qc_result_dictionary(
+                    item_box,
+                    list_item,
+                    level=level + 1,
+                )
+
+            if len(value) > maximum_entries:
+                list_box.label(
+                    text="{} additional entries hidden.".format(
+                        len(value)
+                        - maximum_entries
+                    ),
+                    icon="INFO",
+                )
+
+            continue
+
+        # -----------------------------------------------------
+        # Simple value
+        # -----------------------------------------------------
+
+        value_text = format_qc_detail_value(
+            value
+        )
+
+        row = layout.row(
+            align=True
+        )
+
+        split = row.split(
+            factor=0.38,
+            align=True,
+        )
+
+        split.label(
+            text="{}:".format(label)
+        )
+
+        value_column = split.column(
+            align=True
+        )
+
+        draw_wrapped_qc_text(
+            value_column,
+            value_text,
+            width=55,
+        )
+
+
 def reset_check_settings_dialog(
         self,
         context,
@@ -2129,7 +2410,9 @@ class SCRIPTRONAUT_UL_QC_Checks(UIList):
 
 
 class SCRIPTRONAUT_UL_QC_EditorScripts(UIList):
-    """Displays discovered QC scripts with selection checkboxes."""
+    """
+    Displays discovered QC scripts with selection checkboxes.
+    """
 
     def draw_item(
         self,
@@ -3025,148 +3308,44 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
                     object_name,
                     object_data,
                 ) in failed_objects.items():
+
                     row = box.row(
                         align=True
                     )
 
                     row.alert = True
 
-                    message = (
-                        "Failed: {}".format(
-                            object_name
-                        )
-                    )
+                    # -------------------------------------------------
+                    # Object selection button
+                    # -------------------------------------------------
 
-                    message_detail = ""
-
-                    # ---------------------------------------------
-                    # Optional details !!
-                    # ---------------------------------------------
-
-                    if (
-                        isinstance(
-                            object_data,
-                            dict,
-                        )
-                    ):
-                        if (
-                            "ngon_count"
-                            in object_data
-                        ):
-                            message_detail = (
-                                "- {} N Gons".format(
-                                    object_data.get(
-                                        "ngon_count"
-                                    )
-                                )
-                            )
-
-                        elif (
-                            "poly_count"
-                            in object_data
-                        ):
-                            message_detail = (
-                                "- {} Polys".format(
-                                    object_data.get(
-                                        "poly_count"
-                                    )
-                                )
-                            )
-
-                        elif (
-                            "zero_area_face_count"
-                            in object_data
-                        ):
-                            message_detail = (
-                                "- {} Zero Area UV Faces".format(
-                                    object_data.get(
-                                        "zero_area_face_count"
-                                    )
-                                )
-                            )
-
-                        elif (
-                            "collapsed_edge_count"
-                            in object_data
-                        ):
-                            message_detail = (
-                                "- {} Collapsed UV Edges".format(
-                                    object_data.get(
-                                        "collapsed_edge_count"
-                                    )
-                                )
-                            )
-
-                        elif (
-                            "flipped_face_count"
-                            in object_data
-                        ):
-                            message_detail = (
-                                "- {} Flipped UV Faces".format(
-                                    object_data.get(
-                                        "flipped_face_count"
-                                    )
-                                )
-                            )
-
-                        elif (
-                            "overlapping_face_count"
-                            in object_data
-                        ):
-                            message_detail = (
-                                "- {} Overlapping UV Faces".format(
-                                    object_data.get(
-                                        "overlapping_face_count"
-                                    )
-                                )
-                            )
-
-                        elif (
-                            "small_island_count"
-                            in object_data
-                        ):
-                            message_detail = (
-                                "- {} Small UV Islands".format(
-                                    object_data.get(
-                                        "small_island_count"
-                                    )
-                                )
-                            )
-
-                        elif (
-                            "tiny_shell_count"
-                            in object_data
-                        ):
-                            message_detail = (
-                                "- {} Tiny UV Shells".format(
-                                    object_data.get(
-                                        "tiny_shell_count"
-                                    )
-                                )
-                            )
-
-                        elif (
-                            "oversized_shell_count"
-                            in object_data
-                        ):
-                            message_detail = (
-                                "- {} Oversized UV Shells".format(
-                                    object_data.get(
-                                        "oversized_shell_count"
-                                    )
-                                )
-                            )
-
-                    operator = row.operator(
+                    object_button = row.operator(
                         "scriptronaut.qc_select_object",
-                        text="{} {}".format(
-                            message,
-                            message_detail,
+                        text="Failed: {}".format(
+                            object_name
                         ),
                         icon="ERROR",
                     )
 
-                    operator.object_name = (
+                    object_button.object_name = (
+                        object_name
+                    )
+
+                    # -------------------------------------------------
+                    # Details popup button
+                    # -------------------------------------------------
+
+                    details_button = row.operator(
+                        "scriptronaut.qc_object_details",
+                        text="",
+                        icon="INFO",
+                    )
+
+                    details_button.check_index = (
+                        settings.check_index
+                    )
+
+                    details_button.object_name = (
                         object_name
                     )
 
@@ -4892,6 +5071,255 @@ class SCRIPTRONAUT_OT_QC_CheckSettings(Operator):
         return {"FINISHED"}
 
 
+class SCRIPTRONAUT_OT_QC_ObjectDetails(
+    Operator
+):
+    """
+    Displays detailed result information for one failed object.
+    """
+
+    bl_idname = (
+        "scriptronaut.qc_object_details"
+    )
+
+    bl_label = (
+        "QC Failure Details"
+    )
+
+    bl_description = (
+        "Display detailed information about this QC failure"
+    )
+
+    check_index: IntProperty(
+        name="Check Index",
+        default=-1,
+    )
+
+    object_name: StringProperty(
+        name="Object Name",
+        default="",
+    )
+
+    def invoke(
+        self,
+        context,
+        event,
+    ):
+        checks = (
+            context.scene
+            .scriptronaut_qc_checks
+        )
+
+        if (
+            self.check_index < 0
+            or self.check_index >= len(checks)
+        ):
+            self.report(
+                {"ERROR"},
+                "The QC check is no longer available.",
+            )
+
+            return {"CANCELLED"}
+
+        check_item = checks[
+            self.check_index
+        ]
+
+        result_data = (
+            result_data_from_json(
+                check_item.result_data
+            )
+        )
+
+        failed_objects = (
+            result_data.get(
+                "failed_objects",
+                {},
+            )
+        )
+
+        if (
+            not isinstance(
+                failed_objects,
+                dict,
+            )
+            or self.object_name
+            not in failed_objects
+        ):
+            self.report(
+                {"WARNING"},
+                (
+                    'No stored failure information was found for "{}".'
+                ).format(
+                    self.object_name
+                ),
+            )
+
+            return {"CANCELLED"}
+
+        return (
+            context.window_manager
+            .invoke_props_dialog(
+                self,
+                width=650,
+            )
+        )
+
+    def draw(
+        self,
+        context,
+    ):
+        layout = self.layout
+
+        checks = (
+            context.scene
+            .scriptronaut_qc_checks
+        )
+
+        if (
+            self.check_index < 0
+            or self.check_index >= len(checks)
+        ):
+            layout.label(
+                text="The QC check is no longer available.",
+                icon="ERROR",
+            )
+            return
+
+        check_item = checks[
+            self.check_index
+        ]
+
+        result_data = (
+            result_data_from_json(
+                check_item.result_data
+            )
+        )
+
+        failed_objects = (
+            result_data.get(
+                "failed_objects",
+                {},
+            )
+        )
+
+        object_data = {}
+
+        if isinstance(
+            failed_objects,
+            dict,
+        ):
+            object_data = (
+                failed_objects.get(
+                    self.object_name,
+                    {},
+                )
+            )
+
+        # -----------------------------------------------------
+        # Header
+        # -----------------------------------------------------
+
+        header_box = layout.box()
+
+        header_box.label(
+            text=(
+                check_item.display_name
+                or check_item.name
+            ),
+            icon=get_severity_icon(
+                check_item.severity
+            ),
+        )
+
+        header_box.label(
+            text=self.object_name,
+            icon="OBJECT_DATA",
+        )
+
+        # -----------------------------------------------------
+        # Issue messages
+        # -----------------------------------------------------
+
+        issue_box = layout.box()
+
+        issue_box.label(
+            text="Issue Messages",
+            icon="ERROR",
+        )
+
+        matching_issues = (
+            get_matching_object_issues(
+                result_data,
+                self.object_name,
+            )
+        )
+
+        # Some checks return only one general issue that does not
+        # contain the object name. Show it when only one issue exists.
+        if not matching_issues:
+            all_issues = (
+                get_issues_from_result(
+                    result_data
+                )
+            )
+
+            if len(all_issues) == 1:
+                matching_issues = all_issues
+
+        if matching_issues:
+            for issue_index, issue in enumerate(
+                matching_issues
+            ):
+                if issue_index:
+                    issue_box.separator()
+
+                draw_wrapped_qc_text(
+                    issue_box,
+                    issue,
+                    icon="ERROR",
+                    width=85,
+                )
+
+        else:
+            issue_box.label(
+                text=(
+                    "No object-specific issue message "
+                    "was returned by this check."
+                ),
+                icon="INFO",
+            )
+
+        # -----------------------------------------------------
+        # Structured result information
+        # -----------------------------------------------------
+
+        result_box = layout.box()
+
+        result_box.label(
+            text="Failure Data",
+            icon="PROPERTIES",
+        )
+
+        if isinstance(object_data, dict):
+            draw_qc_result_dictionary(
+                result_box,
+                object_data,
+            )
+
+        else:
+            draw_wrapped_qc_text(
+                result_box,
+                object_data,
+            )
+
+    def execute(
+        self,
+        context,
+    ):
+        return {"FINISHED"}
+
+
 # -------------------------------------------------------------------------
 # Register
 # -------------------------------------------------------------------------
@@ -4917,6 +5345,7 @@ classes = (
     SCRIPTRONAUT_OT_QC_SelectObject,
     SCRIPTRONAUT_OT_QC_CheckInfo,
     SCRIPTRONAUT_OT_QC_CheckSettings,
+    SCRIPTRONAUT_OT_QC_ObjectDetails,
     SCRIPTRONAUT_PT_QC_Checks,
     SCRIPTRONAUT_QC_FailedObjectItem,
     SCRIPTRONAUT_QC_ObjectCheckItem,

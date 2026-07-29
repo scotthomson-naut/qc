@@ -104,7 +104,7 @@ def get_objects_with_flipped_normals(
         {
             "Cube": {
                 "flipped_face_count": 2,
-                "flipped_faces": [1, 4],
+                "flipped_faces_indices": [1, 4],
                 "polygon_count": 6,
             }
         }
@@ -138,7 +138,7 @@ def get_objects_with_flipped_normals(
             "flipped_face_count": len(
                 flipped_faces
             ),
-            "flipped_faces": flipped_faces,
+            "flipped_faces_indices": flipped_faces,
             "polygon_count": len(
                 mesh.polygons
             ),
