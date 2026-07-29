@@ -1,11 +1,12 @@
-# Standard python imports
-
 # Blender imports
 import bpy
 
-# Company imports
 
-# Meta data
+# -------------------------------------------------------------------------
+# Metadata
+# -------------------------------------------------------------------------
+
+SEVERITY = "warning"
 LABEL = "Auto Save Enabled"
 DESCRIPTION = (
     "Checks if Blender's 'Auto Save Temporary Files' preference is "
@@ -29,26 +30,10 @@ def main():
         individual setup.
 
     Returns:
-        dict: {issues (list(str)), failed_objects(dict)}
+        dict: {issues (list(str)), failed_settings(dict)}
     """
-    status = get_autosave_status()
 
-    failed_objects = {}
-    issues = []
-
-    if not status["enabled"]:
-        failed_objects["Auto Save Temporary Files"] = {
-            "issue": "Auto Save Temporary Files is disabled.",
-        }
-        issues.append(
-            "Failed: Auto Save Temporary Files is disabled in "
-            "Blender's preferences."
-        )
-
-    return {
-        "issues": issues,
-        "failed_objects": failed_objects,
-    }
+    return get_autosave_status()
 
 
 def fix(result_data):
@@ -74,13 +59,10 @@ def fix(result_data):
 
     return fix_result
 
-# -------------------------------------------------------------------------
-# Functions
-# -------------------------------------------------------------------------
 
-# -------------------------
+# -------------------------------------------------------------------------
 # Find
-# -------------------------
+# -------------------------------------------------------------------------
 
 def get_autosave_status():
     """
@@ -93,17 +75,30 @@ def get_autosave_status():
             "interval_minutes": float,
         }
     """
+    failed_settings = {}
+    issues = []
+
     filepaths_prefs = bpy.context.preferences.filepaths
 
+    if not filepaths_prefs.use_auto_save_temporary_files:
+        failed_settings["Auto Save Temporary Files"] = {
+            "issue": "Auto Save Temporary Files is disabled.",
+        }
+        issues.append(
+            "Failed: Auto Save Temporary Files is disabled in "
+            "Blender's preferences."
+        )
+
     return {
-        "enabled": filepaths_prefs.use_auto_save_temporary_files,
-        "interval_minutes": filepaths_prefs.auto_save_time,
+        "issues": issues,
+        "failed_settings": failed_settings,
     }
 
 
-# -------------------------
+# -------------------------------------------------------------------------
 # Fix
-# -------------------------
+# -------------------------------------------------------------------------
+
 
 def fix_autosave_disabled(result_data):
     """
@@ -117,24 +112,9 @@ def fix_autosave_disabled(result_data):
         dict:
             Fix result.
     """
-    failed_objects = result_data.get(
-        "failed_objects",
-        {},
-    )
-
-    if "Auto Save Temporary Files" not in failed_objects:
-        return {
-            "issues": [],
-            "fixed_objects": {},
-        }
-
     bpy.context.preferences.filepaths.use_auto_save_temporary_files = True
 
     return {
+        "fixed_settings": {},
         "issues": [],
-        "fixed_objects": {
-            "Auto Save Temporary Files": {
-                "fixed": True,
-            },
-        },
     }
