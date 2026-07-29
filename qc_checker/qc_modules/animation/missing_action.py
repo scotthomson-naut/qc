@@ -1,12 +1,12 @@
-# Standard python imports
-
 # Blender imports
 import bpy
 
-# Company imports
 
+# -------------------------------------------------------------------------
+# Metadata
+# -------------------------------------------------------------------------
 
-# Meta data
+SEVERITY = "warning"
 LABEL = "Animation Data Without Action"
 DESCRIPTION = (
     "Checks for objects that contain empty animation data. "

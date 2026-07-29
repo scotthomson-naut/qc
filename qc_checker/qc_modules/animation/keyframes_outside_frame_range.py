@@ -1,11 +1,11 @@
-# Standard python imports
-
 # Blender imports
 import bpy
 
-# Company imports
 
-# Meta data
+# -------------------------------------------------------------------------
+# Metadata
+# -------------------------------------------------------------------------
+
 SEVERITY = "info"
 LABEL = "Keyframes Outside Timeline"
 DESCRIPTION = (
@@ -43,13 +43,8 @@ def main():
 
 
 # -------------------------------------------------------------------------
-# Functions
-# -------------------------------------------------------------------------
-
-# -------------------------
 # Find
-# -------------------------
-
+# -------------------------------------------------------------------------
 
 def get_objects_with_keyframes_outside_timeline(
         objects=None,
@@ -178,9 +173,9 @@ def get_objects_with_keyframes_outside_timeline(
     return failed_objects
 
 
-# -------------------------
-# Support Functions (Find)
-# -------------------------
+# -------------------------------------------------------------------------
+# Helpers
+# -------------------------------------------------------------------------
 
 def get_object_action(obj):
     """
@@ -271,10 +266,6 @@ def get_action_fcurves(action):
 
     return found_fcurves
 
-
-# -------------------------
-# Helper Functions
-# -------------------------
 
 def format_frame(frame):
     """

@@ -6,6 +6,7 @@ import bpy
 # Metadata
 # -------------------------------------------------------------------------
 
+SEVERITY = "warning"
 LABEL = "F-Curves Have Constant Key Values"
 DESCRIPTION = (
     "Checks for object F-Curves that contain multiple keyframes "

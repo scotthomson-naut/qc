@@ -1,12 +1,12 @@
-# Standard python imports
-
 # Blender imports
 import bpy
 
-# Company imports
 
+# -------------------------------------------------------------------------
+# Metadata
+# -------------------------------------------------------------------------
 
-# Meta data
+SEVERITY = "warning"
 LABEL = "Action Has Zero Keyframes"
 DESCRIPTION = (
     "Checks for objects that have animation data and an assigned Action, "
@@ -78,12 +78,8 @@ def fix(result_data=None):
 
 
 # -------------------------------------------------------------------------
-# Functions
-# -------------------------------------------------------------------------
-
-# -------------------------
 # Find
-# -------------------------
+# -------------------------------------------------------------------------
 
 def get_objects_with_empty_actions(
         objects=None,
@@ -345,9 +341,9 @@ def count_action_keyframes(
     return keyframe_count
 
 
-# -------------------------
+# -------------------------------------------------------------------------
 # Fix
-# -------------------------
+# -------------------------------------------------------------------------
 
 def unassign_empty_actions(
         result_data=None,
