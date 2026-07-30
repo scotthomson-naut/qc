@@ -3338,7 +3338,7 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
                     details_button = row.operator(
                         "scriptronaut.qc_object_details",
                         text="",
-                        icon="INFO",
+                        icon="TEXT",
                     )
 
                     details_button.check_index = (
