@@ -1,3 +1,6 @@
+# Python imports
+import re
+
 # Blender imports
 import bpy
 
