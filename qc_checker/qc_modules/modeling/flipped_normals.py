@@ -1,12 +1,11 @@
-# Standard python imports
-
 # Blender imports
 import bpy
 import bmesh
 
-# Company imports
+# -------------------------------------------------------------------------
+# Metadata
+# -------------------------------------------------------------------------
 
-# Meta data
 SEVERITY = "critical"
 LABEL = "Has Flipped Normals"
 DESCRIPTION = (
@@ -14,12 +13,16 @@ DESCRIPTION = (
     "relative to Blender's recalculated face orientation."
 )
 
+
+# -------------------------------------------------------------------------
 # Constants
+# -------------------------------------------------------------------------
+
 NORMAL_DOT_TOLERANCE = -0.5
 
 
 # -------------------------------------------------------------------------
-# Templates
+# Main
 # -------------------------------------------------------------------------
 
 def main():
@@ -63,12 +66,8 @@ def fix(result_data):
 
 
 # -------------------------------------------------------------------------
-# Functions
-# -------------------------------------------------------------------------
-
-# -------------------------
 # Find
-# -------------------------
+# -------------------------------------------------------------------------
 
 def get_objects_with_flipped_normals(
         objects=None,
@@ -147,9 +146,129 @@ def get_objects_with_flipped_normals(
     return failed_objects
 
 
-# -------------------------
-# Support Function (Find)
-# -------------------------
+# -------------------------------------------------------------------------
+# Fix
+# -------------------------------------------------------------------------
+
+def fix_objects_with_flipped_normals(
+        result_data=None,
+    ):
+    """
+    Recalculates outside normals on every failed mesh object.
+
+    Shared mesh datablocks are copied before modification so fixing
+    one object does not unexpectedly modify another object.
+
+    Args:
+        result_data (dict | None):
+            Result returned by main().
+
+    Returns:
+        dict:
+        {
+            "fixed_objects": dict,
+            "issues": list[str],
+        }
+    """
+    if not isinstance(
+        result_data,
+        dict,
+    ):
+        result_data = {}
+
+    failed_objects = result_data.get(
+        "failed_objects",
+        {},
+    )
+
+    if not isinstance(
+        failed_objects,
+        dict,
+    ):
+        failed_objects = {}
+
+    fixed_objects = {}
+    issues = []
+
+    for object_name in failed_objects:
+        obj = bpy.data.objects.get(
+            object_name
+        )
+
+        if obj is None:
+            issues.append(
+                'Object "{}" no longer exists.'.format(
+                    object_name
+                )
+            )
+            continue
+
+        if obj.type != "MESH":
+            continue
+
+        if obj.data is None:
+            continue
+
+        if obj.library is not None:
+            issues.append(
+                'Skipped linked object: "{}".'.format(
+                    object_name
+                )
+            )
+            continue
+
+        try:
+            if obj.data.users > 1:
+                obj.data = obj.data.copy()
+
+            bm = bmesh.new()
+
+            try:
+                bm.from_mesh(
+                    obj.data
+                )
+
+                bm.faces.ensure_lookup_table()
+
+                bmesh.ops.recalc_face_normals(
+                    bm,
+                    faces=list(
+                        bm.faces
+                    ),
+                )
+
+                bm.to_mesh(
+                    obj.data
+                )
+
+            finally:
+                bm.free()
+
+            obj.data.update()
+
+            fixed_objects[obj.name] = {
+                "normals_recalculated": True,
+            }
+
+        except Exception as error:
+            issues.append(
+                "Could not recalculate normals for {}: {}".format(
+                    object_name,
+                    error,
+                )
+            )
+
+    bpy.context.view_layer.update()
+
+    return {
+        "fixed_objects": fixed_objects,
+        "issues": issues,
+    }
+
+
+# -------------------------------------------------------------------------
+# Helpers
+# -------------------------------------------------------------------------
 
 def get_flipped_face_indices(
         mesh,
@@ -268,122 +387,3 @@ def has_non_manifold_edges(bm):
         for edge in bm.edges
     )
 
-
-# -------------------------
-# Fix
-# -------------------------
-
-def fix_objects_with_flipped_normals(
-        result_data=None,
-    ):
-    """
-    Recalculates outside normals on every failed mesh object.
-
-    Shared mesh datablocks are copied before modification so fixing
-    one object does not unexpectedly modify another object.
-
-    Args:
-        result_data (dict | None):
-            Result returned by main().
-
-    Returns:
-        dict:
-        {
-            "fixed_objects": dict,
-            "issues": list[str],
-        }
-    """
-    if not isinstance(
-        result_data,
-        dict,
-    ):
-        result_data = {}
-
-    failed_objects = result_data.get(
-        "failed_objects",
-        {},
-    )
-
-    if not isinstance(
-        failed_objects,
-        dict,
-    ):
-        failed_objects = {}
-
-    fixed_objects = {}
-    issues = []
-
-    for object_name in failed_objects:
-        obj = bpy.data.objects.get(
-            object_name
-        )
-
-        if obj is None:
-            issues.append(
-                'Object "{}" no longer exists.'.format(
-                    object_name
-                )
-            )
-            continue
-
-        if obj.type != "MESH":
-            continue
-
-        if obj.data is None:
-            continue
-
-        if obj.library is not None:
-            issues.append(
-                'Skipped linked object: "{}".'.format(
-                    object_name
-                )
-            )
-            continue
-
-        try:
-            if obj.data.users > 1:
-                obj.data = obj.data.copy()
-
-            bm = bmesh.new()
-
-            try:
-                bm.from_mesh(
-                    obj.data
-                )
-
-                bm.faces.ensure_lookup_table()
-
-                bmesh.ops.recalc_face_normals(
-                    bm,
-                    faces=list(
-                        bm.faces
-                    ),
-                )
-
-                bm.to_mesh(
-                    obj.data
-                )
-
-            finally:
-                bm.free()
-
-            obj.data.update()
-
-            fixed_objects[obj.name] = {
-                "normals_recalculated": True,
-            }
-
-        except Exception as error:
-            issues.append(
-                "Could not recalculate normals for {}: {}".format(
-                    object_name,
-                    error,
-                )
-            )
-
-    bpy.context.view_layer.update()
-
-    return {
-        "fixed_objects": fixed_objects,
-        "issues": issues,
-    }

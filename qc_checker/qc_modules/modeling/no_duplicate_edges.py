@@ -1,12 +1,11 @@
-# Standard python imports
-
 # Blender imports
 import bpy
 import bmesh
 
-# Company imports
+# -------------------------------------------------------------------------
+# Metadata
+# -------------------------------------------------------------------------
 
-# Meta data
 SEVERITY = "warning"
 LABEL = "No Duplicate Edges"
 DESCRIPTION = (
@@ -18,8 +17,9 @@ DESCRIPTION = (
     "candidate for review."
 )
 
+
 # -------------------------------------------------------------------------
-# Templates
+# Main
 # -------------------------------------------------------------------------
 
 def main():
@@ -59,13 +59,10 @@ def fix(result_data):
 
     return fix_result
 
-# -------------------------------------------------------------------------
-# Functions
-# -------------------------------------------------------------------------
 
-# -------------------------
+# -------------------------------------------------------------------------
 # Find
-# -------------------------
+# -------------------------------------------------------------------------
 
 def get_objects_with_duplicate_edges(objects=None):
     """
@@ -108,46 +105,6 @@ def get_objects_with_duplicate_edges(objects=None):
             }
 
     return failed_objects
-
-
-def find_duplicate_edge_indices(mesh):
-    """
-    Finds edge indices that connect the exact same pair of vertices
-    as at least one other edge on the same mesh.
-
-    Args:
-        mesh (bpy.types.Mesh):
-            Mesh datablock.
-
-    Returns:
-        list[int]:
-            Indices of all edges involved in a duplicate, sorted.
-    """
-    edge_count = len(mesh.edges)
-
-    if edge_count == 0:
-        return []
-
-    vertex_indices = [0] * (edge_count * 2)
-    mesh.edges.foreach_get("vertices", vertex_indices)
-
-    buckets = {}
-
-    for index in range(edge_count):
-        v0 = vertex_indices[index * 2]
-        v1 = vertex_indices[index * 2 + 1]
-
-        key = tuple(sorted((v0, v1)))
-
-        buckets.setdefault(key, []).append(index)
-
-    duplicate_indices = []
-
-    for indices in buckets.values():
-        if len(indices) > 1:
-            duplicate_indices.extend(indices)
-
-    return sorted(duplicate_indices)
 
 
 # -------------------------
@@ -282,3 +239,47 @@ def fix_duplicate_edges(result_data):
         "issues": issues,
         "fixed_objects": fixed_objects,
     }
+
+
+# -------------------------------------------------------------------------
+# Helpers
+# -------------------------------------------------------------------------
+
+def find_duplicate_edge_indices(mesh):
+    """
+    Finds edge indices that connect the exact same pair of vertices
+    as at least one other edge on the same mesh.
+
+    Args:
+        mesh (bpy.types.Mesh):
+            Mesh datablock.
+
+    Returns:
+        list[int]:
+            Indices of all edges involved in a duplicate, sorted.
+    """
+    edge_count = len(mesh.edges)
+
+    if edge_count == 0:
+        return []
+
+    vertex_indices = [0] * (edge_count * 2)
+    mesh.edges.foreach_get("vertices", vertex_indices)
+
+    buckets = {}
+
+    for index in range(edge_count):
+        v0 = vertex_indices[index * 2]
+        v1 = vertex_indices[index * 2 + 1]
+
+        key = tuple(sorted((v0, v1)))
+
+        buckets.setdefault(key, []).append(index)
+
+    duplicate_indices = []
+
+    for indices in buckets.values():
+        if len(indices) > 1:
+            duplicate_indices.extend(indices)
+
+    return sorted(duplicate_indices)

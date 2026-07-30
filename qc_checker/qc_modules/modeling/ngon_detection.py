@@ -1,13 +1,12 @@
-# Standard python imports
-
 # Blender imports
 import bpy
 import bmesh
 
-# Company imports
 
+# -------------------------------------------------------------------------
+# Metadata
+# -------------------------------------------------------------------------
 
-# Meta data
 SEVERITY = "critical"
 LABEL = "Has N-Gons"
 DESCRIPTION = (
@@ -16,7 +15,7 @@ DESCRIPTION = (
 
 
 # -------------------------------------------------------------------------
-# Templates
+# Main
 # -------------------------------------------------------------------------
 
 def main():
@@ -48,94 +47,8 @@ def main():
 
 
 # -------------------------------------------------------------------------
-# Functions
-# -------------------------------------------------------------------------
-
-# -------------------------
-# Validation
-# -------------------------
-
-def get_validated_mesh_copy(obj):
-    """
-    Creates and validates a temporary copy of an object's mesh.
-
-    This avoids passing potentially invalid mesh data directly
-    into bmesh.from_mesh(), which can cause Blender instability
-    or crashes with badly corrupted geometry.
-
-    The original mesh is never modified.
-
-    Args:
-        obj (bpy.types.Object):
-            Mesh object to validate.
-
-    Returns:
-        tuple:
-            (
-                validated_mesh | None,
-                was_invalid (bool),
-            )
-
-        validated_mesh:
-            Temporary validated mesh copy.
-
-            The caller is responsible for removing it with:
-
-                bpy.data.meshes.remove(mesh)
-
-        was_invalid:
-            True when Mesh.validate() detected and corrected
-            invalid geometry in the temporary copy.
-    """
-    if obj is None:
-        return None, True
-
-    if obj.type != "MESH":
-        return None, True
-
-    source_mesh = obj.data
-
-    if source_mesh is None:
-        return None, True
-
-    temp_mesh = None
-
-    try:
-        # Work only on a copy so QC never modifies
-        # the original artist mesh.
-        temp_mesh = source_mesh.copy()
-
-        # Mesh.validate() returns True when invalid data
-        # was detected and corrected.
-        was_invalid = temp_mesh.validate(
-            verbose=False,
-            clean_customdata=False,
-        )
-
-        temp_mesh.update()
-
-        return (
-            temp_mesh,
-            was_invalid,
-        )
-
-    except Exception:
-        if temp_mesh is not None:
-
-            try:
-                bpy.data.meshes.remove(
-                    temp_mesh
-                )
-
-            except Exception:
-                pass
-
-        return None, True
-
-
-# -------------------------
 # Find
-# -------------------------
+# -------------------------------------------------------------------------
 
 def get_objects_with_ngons(
         objects=None,
@@ -277,3 +190,85 @@ def get_objects_with_ngons(
                     pass
 
     return results
+
+
+# -------------------------------------------------------------------------
+# Helpers
+# -------------------------------------------------------------------------
+
+def get_validated_mesh_copy(obj):
+    """
+    Creates and validates a temporary copy of an object's mesh.
+
+    This avoids passing potentially invalid mesh data directly
+    into bmesh.from_mesh(), which can cause Blender instability
+    or crashes with badly corrupted geometry.
+
+    The original mesh is never modified.
+
+    Args:
+        obj (bpy.types.Object):
+            Mesh object to validate.
+
+    Returns:
+        tuple:
+            (
+                validated_mesh | None,
+                was_invalid (bool),
+            )
+
+        validated_mesh:
+            Temporary validated mesh copy.
+
+            The caller is responsible for removing it with:
+
+                bpy.data.meshes.remove(mesh)
+
+        was_invalid:
+            True when Mesh.validate() detected and corrected
+            invalid geometry in the temporary copy.
+    """
+    if obj is None:
+        return None, True
+
+    if obj.type != "MESH":
+        return None, True
+
+    source_mesh = obj.data
+
+    if source_mesh is None:
+        return None, True
+
+    temp_mesh = None
+
+    try:
+        # Work only on a copy so QC never modifies
+        # the original artist mesh.
+        temp_mesh = source_mesh.copy()
+
+        # Mesh.validate() returns True when invalid data
+        # was detected and corrected.
+        was_invalid = temp_mesh.validate(
+            verbose=False,
+            clean_customdata=False,
+        )
+
+        temp_mesh.update()
+
+        return (
+            temp_mesh,
+            was_invalid,
+        )
+
+    except Exception:
+        if temp_mesh is not None:
+
+            try:
+                bpy.data.meshes.remove(
+                    temp_mesh
+                )
+
+            except Exception:
+                pass
+
+        return None, True

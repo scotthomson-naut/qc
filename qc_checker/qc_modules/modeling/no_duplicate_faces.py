@@ -1,12 +1,11 @@
-# Standard python imports
-
 # Blender imports
 import bpy
 import bmesh
 
-# Company imports
+# -------------------------------------------------------------------------
+# Metadata
+# -------------------------------------------------------------------------
 
-# Meta data
 SEVERITY = "warning"
 LABEL = "No Duplicate Faces"
 DESCRIPTION = (
@@ -18,8 +17,9 @@ DESCRIPTION = (
     "(e.g. foliage cards)."
 )
 
+
 # -------------------------------------------------------------------------
-# Templates
+# Main
 # -------------------------------------------------------------------------
 
 def main():
@@ -59,13 +59,10 @@ def fix(result_data):
 
     return fix_result
 
-# -------------------------------------------------------------------------
-# Functions
-# -------------------------------------------------------------------------
 
-# -------------------------
+# -------------------------------------------------------------------------
 # Find
-# -------------------------
+# -------------------------------------------------------------------------
 
 def get_objects_with_duplicate_faces(objects=None):
     """
@@ -110,65 +107,9 @@ def get_objects_with_duplicate_faces(objects=None):
     return failed_objects
 
 
-def canonical_face_key(vertex_indices):
-    """
-    Builds a rotation-independent, winding-dependent key for a face's
-    vertex loop.
-
-    Rotating which vertex a face's loop happens to start at doesn't
-    change the face - [0, 1, 2, 3] and [1, 2, 3, 0] are the same
-    face, same winding. Reversing the order does change it - that's
-    the opposite winding direction, and is deliberately NOT
-    normalized away here, so flipped-winding "duplicates" get a
-    different key and are never matched as duplicates.
-
-    Args:
-        vertex_indices (tuple[int]):
-            A face's vertex indices, in loop order.
-
-    Returns:
-        tuple[int]:
-            Rotated so the lowest vertex index comes first, direction
-            unchanged.
-    """
-    min_position = vertex_indices.index(min(vertex_indices))
-
-    return vertex_indices[min_position:] + vertex_indices[:min_position]
-
-
-def find_duplicate_face_indices(mesh):
-    """
-    Finds face indices that are exact duplicates (same vertices, same
-    winding order) of at least one other face on the same mesh.
-
-    Args:
-        mesh (bpy.types.Mesh):
-            Mesh datablock.
-
-    Returns:
-        list[int]:
-            Indices of all faces involved in an exact duplicate,
-            sorted.
-    """
-    buckets = {}
-
-    for polygon in mesh.polygons:
-        key = canonical_face_key(tuple(polygon.vertices))
-
-        buckets.setdefault(key, []).append(polygon.index)
-
-    duplicate_indices = []
-
-    for indices in buckets.values():
-        if len(indices) > 1:
-            duplicate_indices.extend(indices)
-
-    return sorted(duplicate_indices)
-
-
-# -------------------------
+# -------------------------------------------------------------------------
 # Fix
-# -------------------------
+# -------------------------------------------------------------------------
 
 def fix_duplicate_faces(result_data):
     """
@@ -289,3 +230,63 @@ def fix_duplicate_faces(result_data):
         "issues": issues,
         "fixed_objects": fixed_objects,
     }
+
+
+# -------------------------------------------------------------------------
+# Helpers
+# -------------------------------------------------------------------------
+
+def canonical_face_key(vertex_indices):
+    """
+    Builds a rotation-independent, winding-dependent key for a face's
+    vertex loop.
+
+    Rotating which vertex a face's loop happens to start at doesn't
+    change the face - [0, 1, 2, 3] and [1, 2, 3, 0] are the same
+    face, same winding. Reversing the order does change it - that's
+    the opposite winding direction, and is deliberately NOT
+    normalized away here, so flipped-winding "duplicates" get a
+    different key and are never matched as duplicates.
+
+    Args:
+        vertex_indices (tuple[int]):
+            A face's vertex indices, in loop order.
+
+    Returns:
+        tuple[int]:
+            Rotated so the lowest vertex index comes first, direction
+            unchanged.
+    """
+    min_position = vertex_indices.index(min(vertex_indices))
+
+    return vertex_indices[min_position:] + vertex_indices[:min_position]
+
+
+def find_duplicate_face_indices(mesh):
+    """
+    Finds face indices that are exact duplicates (same vertices, same
+    winding order) of at least one other face on the same mesh.
+
+    Args:
+        mesh (bpy.types.Mesh):
+            Mesh datablock.
+
+    Returns:
+        list[int]:
+            Indices of all faces involved in an exact duplicate,
+            sorted.
+    """
+    buckets = {}
+
+    for polygon in mesh.polygons:
+        key = canonical_face_key(tuple(polygon.vertices))
+
+        buckets.setdefault(key, []).append(polygon.index)
+
+    duplicate_indices = []
+
+    for indices in buckets.values():
+        if len(indices) > 1:
+            duplicate_indices.extend(indices)
+
+    return sorted(duplicate_indices)

@@ -1,16 +1,11 @@
-# Standard python imports
-
 # Blender imports
 import bpy
 
-# Company imports
 
-# Constants
-# Matches Blender's own "Merge by Distance" operator default value.
-DISTANCE_TOLERANCE = 0.0001
-ROUND_DECIMALS = 4
+# -------------------------------------------------------------------------
+# Metadata
+# -------------------------------------------------------------------------
 
-# Meta data
 SEVERITY = "warning"
 LABEL = "No Duplicate Vertices"
 DESCRIPTION = (
@@ -21,8 +16,18 @@ DESCRIPTION = (
     "rather than confirmed mistakes."
 )
 
+
 # -------------------------------------------------------------------------
-# Templates
+# Constants
+# -------------------------------------------------------------------------
+
+# Matches Blender's own "Merge by Distance" operator default value.
+DISTANCE_TOLERANCE = 0.0001
+ROUND_DECIMALS = 4
+
+
+# -------------------------------------------------------------------------
+# Main
 # -------------------------------------------------------------------------
 
 def main():
@@ -55,13 +60,10 @@ def main():
 # geometry - needs an artist to review each case and decide with
 # Blender's own Merge by Distance tool.
 
-# -------------------------------------------------------------------------
-# Functions
-# -------------------------------------------------------------------------
 
-# -------------------------
+# -------------------------------------------------------------------------
 # Find
-# -------------------------
+# -------------------------------------------------------------------------
 
 def get_objects_with_duplicate_vertices(
         objects=None,
@@ -128,6 +130,10 @@ def get_objects_with_duplicate_vertices(
 
     return failed_objects
 
+
+# -------------------------------------------------------------------------
+# Helpers
+# -------------------------------------------------------------------------
 
 def find_duplicate_vertex_indices(mesh, distance_tolerance):
     """
