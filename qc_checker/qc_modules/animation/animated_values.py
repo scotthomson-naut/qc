@@ -9,8 +9,8 @@ import bpy
 SEVERITY = "warning"
 LABEL = "Animated Values"
 DESCRIPTION = (
-    "Checks for object F-Curves that contain multiple keyframes "
-    "but every keyframe has the same value."
+    "Checks for objects with keyed transform channels where none of "
+    "the keyed transform values actually change."
 )
 
 
@@ -51,7 +51,7 @@ SETTINGS = {
 
 def main(preferences=None):
     """
-    Finds objects containing F-Curves whose keyframe values are constant.
+    Finds objects whose keyed transform F-Curves are all constant.
 
     Args:
         preferences (dict | None):
@@ -86,8 +86,8 @@ def main(preferences=None):
 
         issues.append(
             (
-                "Failed object: {} - {} F-Curve{} contain "
-                "multiple keys with the same value."
+                "Failed object: {} - all {} keyed transform "
+                "F-Curve{} contain constant values."
             ).format(
                 object_name,
                 len(constant_curves),
@@ -147,7 +147,11 @@ def get_objects_with_constant_fcurves(
         settings=None,
     ):
     """
-    Finds object F-Curves whose keyframe values are all equal.
+    Finds objects whose eligible keyed transform F-Curves are all constant.
+
+    An object passes as soon as at least one eligible keyed transform
+    F-Curve changes value. Constant location, rotation, or scale channels
+    therefore do not fail an object that is genuinely animated elsewhere.
 
     Only F-Curves belonging to the object's assigned Action are checked.
     Both legacy and layered Blender Actions are supported.
@@ -165,7 +169,7 @@ def get_objects_with_constant_fcurves(
             "Cube": {
                 "object_type": "MESH",
                 "action_name": "CubeAction",
-                "constant_fcurve_count": 1,
+                "constant_fcurve_count": 3,
                 "constant_fcurves": [
                     {
                         "data_path": "location",
@@ -209,10 +213,17 @@ def get_objects_with_constant_fcurves(
             continue
 
         constant_fcurves = []
+        changing_fcurves = []
+        eligible_fcurve_count = 0
 
         for fcurve in get_action_fcurves(
             action
         ):
+            if not is_transform_fcurve(
+                fcurve
+            ):
+                continue
+
             keyframe_points = getattr(
                 fcurve,
                 "keyframe_points",
@@ -225,42 +236,58 @@ def get_objects_with_constant_fcurves(
             if len(keyframe_points) < minimum_keyframes:
                 continue
 
+            eligible_fcurve_count += 1
+
             values = [
                 float(key.co.y)
                 for key in keyframe_points
             ]
 
-            if not values_are_constant(
-                values,
-                tolerance=value_tolerance,
-            ):
-                continue
-
-            frames = [
-                float(key.co.x)
-                for key in keyframe_points
-            ]
-
-            constant_fcurves.append({
+            curve_data = {
                 "data_path": fcurve.data_path,
                 "array_index": fcurve.array_index,
                 "keyframe_count": len(
                     keyframe_points
                 ),
-                "value": values[0],
-                "frames": frames,
-            })
+                "frames": [
+                    float(key.co.x)
+                    for key in keyframe_points
+                ],
+            }
 
-        if not constant_fcurves:
+            if values_are_constant(
+                values,
+                tolerance=value_tolerance,
+            ):
+                curve_data["value"] = values[0]
+                constant_fcurves.append(
+                    curve_data
+                )
+            else:
+                curve_data["minimum_value"] = min(values)
+                curve_data["maximum_value"] = max(values)
+                changing_fcurves.append(
+                    curve_data
+                )
+
+        # No eligible transform animation means there is nothing to test.
+        if not eligible_fcurve_count:
             continue
 
+        # The object passes when any keyed transform channel changes.
+        if changing_fcurves:
+            continue
+
+        # At this point every eligible keyed transform curve is constant.
         failed_objects[obj.name] = {
             "object_type": obj.type,
             "action_name": action.name,
+            "eligible_fcurve_count": eligible_fcurve_count,
             "constant_fcurve_count": len(
                 constant_fcurves
             ),
             "constant_fcurves": constant_fcurves,
+            "changing_fcurves": changing_fcurves,
         }
 
     return failed_objects
@@ -656,6 +683,36 @@ def get_action_fcurves(action):
 
     return fcurves
 
+
+
+def is_transform_fcurve(fcurve):
+    """
+    Returns True when an F-Curve controls an object transform channel.
+
+    This intentionally checks direct object transforms only. It excludes
+    material values, custom properties, constraints, shape keys, and pose
+    bone channels.
+    """
+    if fcurve is None:
+        return False
+
+    transform_data_paths = {
+        "location",
+        "rotation_euler",
+        "rotation_quaternion",
+        "rotation_axis_angle",
+        "scale",
+        "delta_location",
+        "delta_rotation_euler",
+        "delta_rotation_quaternion",
+        "delta_scale",
+    }
+
+    return getattr(
+        fcurve,
+        "data_path",
+        "",
+    ) in transform_data_paths
 
 def values_are_constant(
         values,
