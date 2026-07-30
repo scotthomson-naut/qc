@@ -67,7 +67,7 @@ SETTINGS = {
 
 
 # -------------------------------------------------------------------------
-# Templates
+# Main
 # -------------------------------------------------------------------------
 
 def main(preferences=None):
@@ -633,6 +633,32 @@ def reduce_excessive_render_subdivision(
 # Helpers
 # -------------------------------------------------------------------------
 
+def resolve_settings(preferences=None):
+    """
+    Merges saved preferences over the check defaults.
+
+    Args:
+        preferences (dict | None)
+
+    Returns:
+        dict
+    """
+    resolved = {
+        setting_name: definition.get(
+            "default"
+        )
+        for setting_name, definition
+        in SETTINGS.items()
+    }
+
+    if isinstance(preferences, dict):
+        for setting_name, value in preferences.items():
+            if setting_name in resolved:
+                resolved[setting_name] = value
+
+    return resolved
+
+
 def get_recommended_render_levels(
         viewport_levels,
         maximum_render_levels,
@@ -716,33 +742,3 @@ def find_modifier(
             return modifier
 
     return None
-
-
-# -------------------------------------------------------------------------
-# Settings
-# -------------------------------------------------------------------------
-
-def resolve_settings(preferences=None):
-    """
-    Merges saved preferences over the check defaults.
-
-    Args:
-        preferences (dict | None)
-
-    Returns:
-        dict
-    """
-    resolved = {
-        setting_name: definition.get(
-            "default"
-        )
-        for setting_name, definition
-        in SETTINGS.items()
-    }
-
-    if isinstance(preferences, dict):
-        for setting_name, value in preferences.items():
-            if setting_name in resolved:
-                resolved[setting_name] = value
-
-    return resolved

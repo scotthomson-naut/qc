@@ -18,7 +18,7 @@ DESCRIPTION = (
 
 
 # -------------------------------------------------------------------------
-# Configurable settings
+# Settings
 # -------------------------------------------------------------------------
 
 SETTINGS = {
@@ -69,7 +69,7 @@ SETTINGS = {
 
 
 # -------------------------------------------------------------------------
-# Templates
+# Main
 # -------------------------------------------------------------------------
 
 def main(preferences=None):
@@ -471,6 +471,32 @@ def set_render_range_to_animation(
 # Helpers
 # -------------------------------------------------------------------------
 
+def resolve_settings(preferences=None):
+    """
+    Merges saved preferences over the check defaults.
+
+    Args:
+        preferences (dict | None)
+
+    Returns:
+        dict
+    """
+    resolved = {
+        setting_name: definition.get(
+            "default"
+        )
+        for setting_name, definition
+        in SETTINGS.items()
+    }
+
+    if isinstance(preferences, dict):
+        for setting_name, value in preferences.items():
+            if setting_name in resolved:
+                resolved[setting_name] = value
+
+    return resolved
+
+
 def get_object_animation_range(
         obj,
         include_muted_nla=False,
@@ -798,33 +824,3 @@ def get_action_fcurves(action):
             pass
 
     return fcurves
-
-
-# -------------------------------------------------------------------------
-# Settings
-# -------------------------------------------------------------------------
-
-def resolve_settings(preferences=None):
-    """
-    Merges saved preferences over the check defaults.
-
-    Args:
-        preferences (dict | None)
-
-    Returns:
-        dict
-    """
-    resolved = {
-        setting_name: definition.get(
-            "default"
-        )
-        for setting_name, definition
-        in SETTINGS.items()
-    }
-
-    if isinstance(preferences, dict):
-        for setting_name, value in preferences.items():
-            if setting_name in resolved:
-                resolved[setting_name] = value
-
-    return resolved
