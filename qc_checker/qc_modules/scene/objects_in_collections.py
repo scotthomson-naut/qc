@@ -8,7 +8,7 @@ import bpy
 # -------------------------------------------------------------------------
 
 SEVERITY = "warning"
-LABEL = "Objects Outside Collections"
+LABEL = "Objects in Collections"
 DESCRIPTION = (
     "Checks if objects are linked directly to the Scene Collection "
     "root, bypassing every named collection. Distinct from an object "
