@@ -1,11 +1,11 @@
-# Standard python imports
-
 # Blender imports
 import bpy
 
-# Company imports
+# -------------------------------------------------------------------------
+# Metadata
+# -------------------------------------------------------------------------
 
-# Meta data
+SEVERITY = "warning"
 LABEL = "Single-User Object and Datablock Names Match"
 DESCRIPTION = (
     "Checks that single-user mesh datablock names match their object names. "
@@ -13,7 +13,7 @@ DESCRIPTION = (
 )
 
 # -------------------------------------------------------------------------
-# Templates
+# Main
 # -------------------------------------------------------------------------
 
 def main():
@@ -57,12 +57,8 @@ def fix(result_data):
 
 
 # -------------------------------------------------------------------------
-# Functions
-# -------------------------------------------------------------------------
-
-# -------------------------
 # Find
-# -------------------------
+# -------------------------------------------------------------------------
 
 def get_objects_with_mismatched_mesh_names(
         objects=None,
@@ -103,9 +99,9 @@ def get_objects_with_mismatched_mesh_names(
     return failed_objects
 
 
-# -------------------------
+# -------------------------------------------------------------------------
 # Fix
-# -------------------------
+# -------------------------------------------------------------------------
 
 def fix_objects_with_mismatched_mesh_names(
         result_data=None,

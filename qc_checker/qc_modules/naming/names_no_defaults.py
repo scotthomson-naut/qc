@@ -1,12 +1,22 @@
-# Standard python imports
-import re
-
 # Blender imports
 import bpy
 
-# Company imports
 
+# -------------------------------------------------------------------------
+# Metadata
+# -------------------------------------------------------------------------
+
+SEVERITY = "info"
+LABEL = "Default Names"
+DESCRIPTION = (
+    "Checks if objects have default names like Cube, Sphere .."
+)
+
+
+# -------------------------------------------------------------------------
 # Constants
+# -------------------------------------------------------------------------
+
 DEFAULT_OBJECT_NAMES = {
     "Cube",
     "Plane",
@@ -28,19 +38,12 @@ DEFAULT_OBJECT_NAMES = {
     "Volume",
     "GreasePencil",
 }
-
 # "Camera",
 # "Light",
 
-# Meta data
-SEVERITY = "info"
-LABEL = "Default Names"
-DESCRIPTION = (
-    "Checks if objects have default names like Cube, Sphere .."
-)
 
 # -------------------------------------------------------------------------
-# Templates
+# Main
 # -------------------------------------------------------------------------
 
 def main():
@@ -63,12 +66,8 @@ def main():
 
 
 # -------------------------------------------------------------------------
-# Functions
-# -------------------------------------------------------------------------
-
-# -------------------------
 # Find
-# -------------------------
+# -------------------------------------------------------------------------
 
 def get_objects_with_default_names(
         objects=None,
