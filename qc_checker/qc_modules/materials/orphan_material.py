@@ -2,12 +2,21 @@
 import bpy
 
 
-# Meta data
+# -------------------------------------------------------------------------
+# Metadata
+# -------------------------------------------------------------------------
+
+SEVERITY = "warning"
 LABEL = "Material has zero users"
 DESCRIPTION = (
     "Checks for unused material datablocks, excluding protected, "
     "linked, asset, and Blender-managed materials."
 )
+
+
+# -------------------------------------------------------------------------
+# CONSTANTS
+# -------------------------------------------------------------------------
 
 # Materials that should remain available even with zero users.
 PROTECTED_MATERIAL_NAMES = {
@@ -16,7 +25,7 @@ PROTECTED_MATERIAL_NAMES = {
 
 
 # -------------------------------------------------------------------------
-# Templates
+# Main
 # -------------------------------------------------------------------------
 
 def main():
@@ -48,37 +57,6 @@ def fix(result_data):
 # -------------------------------------------------------------------------
 # Find
 # -------------------------------------------------------------------------
-
-def is_protected_material(material):
-    """
-    Returns True when a material should not be considered
-    an automatically removable orphan.
-    """
-    if material.name in PROTECTED_MATERIAL_NAMES:
-        return True
-
-    # Explicitly preserved by the artist or pipeline.
-    if material.use_fake_user:
-        return True
-
-    # Blender can internally retain an extra user.
-    if getattr(material, "use_extra_user", False):
-        return True
-
-    # Do not modify linked-library materials.
-    if material.library is not None:
-        return True
-
-    # Preserve materials marked as assets.
-    if material.asset_data is not None:
-        return True
-
-    # Preserve indirect linked datablocks.
-    if getattr(material, "is_library_indirect", False):
-        return True
-
-    return False
-
 
 def get_orphan_materials():
     """
@@ -201,3 +179,38 @@ def fix_orphan_materials(
         "fixed_materials": removed_materials,
         "issues": issues,
     }
+
+
+# -------------------------------------------------------------------------
+# Helpers
+# -------------------------------------------------------------------------
+
+def is_protected_material(material):
+    """
+    Returns True when a material should not be considered
+    an automatically removable orphan.
+    """
+    if material.name in PROTECTED_MATERIAL_NAMES:
+        return True
+
+    # Explicitly preserved by the artist or pipeline.
+    if material.use_fake_user:
+        return True
+
+    # Blender can internally retain an extra user.
+    if getattr(material, "use_extra_user", False):
+        return True
+
+    # Do not modify linked-library materials.
+    if material.library is not None:
+        return True
+
+    # Preserve materials marked as assets.
+    if material.asset_data is not None:
+        return True
+
+    # Preserve indirect linked datablocks.
+    if getattr(material, "is_library_indirect", False):
+        return True
+
+    return False

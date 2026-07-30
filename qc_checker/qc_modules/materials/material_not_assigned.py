@@ -15,7 +15,7 @@ DESCRIPTION = (
 
 
 # -------------------------------------------------------------------------
-# Templates
+# Main
 # -------------------------------------------------------------------------
 
 def main():
@@ -86,13 +86,9 @@ def get_objects_with_missing_materials(
             continue
 
         mesh = obj.data
-
         materials = mesh.materials
-
         reasons = []
-
         empty_slots = []
-
         invalid_faces = []
 
         # ---------------------------------------------------------
@@ -100,13 +96,11 @@ def get_objects_with_missing_materials(
         # ---------------------------------------------------------
 
         if len(materials) == 0:
-
             reasons.append(
                 "Object has no material slots."
             )
 
         else:
-
             # -----------------------------------------------------
             # Empty slots
             # -----------------------------------------------------
@@ -133,13 +127,11 @@ def get_objects_with_missing_materials(
             # -----------------------------------------------------
             # Faces
             # -----------------------------------------------------
-
             slot_count = len(
                 materials
             )
 
             for polygon in mesh.polygons:
-
                 material_index = (
                     polygon.material_index
                 )
@@ -166,7 +158,6 @@ def get_objects_with_missing_materials(
                     )
 
             if invalid_faces:
-
                 reasons.append(
                     "{} face(s) use missing materials.".format(
                         len(
@@ -184,11 +175,8 @@ def get_objects_with_missing_materials(
             "reason_count": len(
                 reasons
             ),
-
             "reasons": reasons,
-
             "empty_slots": empty_slots,
-
             "invalid_faces": invalid_faces,
         }
 

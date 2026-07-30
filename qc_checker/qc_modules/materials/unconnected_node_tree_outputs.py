@@ -241,6 +241,37 @@ def get_materials_with_unconnected_nodes(
     return failed_materials
 
 
+# -------------------------------------------------------------------------
+# Helpers
+# -------------------------------------------------------------------------
+
+def resolve_settings(preferences=None):
+    """
+    Merges saved preferences over the check defaults.
+
+    Args:
+        preferences (dict | None):
+            Saved user settings.
+
+    Returns:
+        dict
+    """
+    resolved = {
+        setting_name: definition.get(
+            "default"
+        )
+        for setting_name, definition
+        in SETTINGS.items()
+    }
+
+    if isinstance(preferences, dict):
+        for setting_name, value in preferences.items():
+            if setting_name in resolved:
+                resolved[setting_name] = value
+
+    return resolved
+
+
 def get_material_unconnected_nodes(
         material,
         settings=None,
@@ -772,34 +803,3 @@ def get_objects_using_failed_materials(
         }
 
     return failed_objects
-
-
-# -------------------------------------------------------------------------
-# Settings
-# -------------------------------------------------------------------------
-
-def resolve_settings(preferences=None):
-    """
-    Merges saved preferences over the check defaults.
-
-    Args:
-        preferences (dict | None):
-            Saved user settings.
-
-    Returns:
-        dict
-    """
-    resolved = {
-        setting_name: definition.get(
-            "default"
-        )
-        for setting_name, definition
-        in SETTINGS.items()
-    }
-
-    if isinstance(preferences, dict):
-        for setting_name, value in preferences.items():
-            if setting_name in resolved:
-                resolved[setting_name] = value
-
-    return resolved

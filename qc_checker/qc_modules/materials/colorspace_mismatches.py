@@ -172,8 +172,279 @@ def fix(result_data=None, preferences=None):
 
 
 # -------------------------------------------------------------------------
-# Scene analysis
+# Find
 # -------------------------------------------------------------------------
+
+def build_failed_objects(failed_materials, scene=None):
+    """
+    Finds scene objects using materials with color-space mismatches.
+    """
+    if scene is None:
+        scene = bpy.context.scene
+
+    failed_objects = {}
+
+    for obj in scene.objects:
+        material_results = []
+
+        for slot_index, slot in enumerate(
+            getattr(obj, "material_slots", [])
+        ):
+            material = getattr(slot, "material", None)
+
+            if material is None:
+                continue
+
+            if material.name not in failed_materials:
+                continue
+
+            material_data = failed_materials[
+                material.name
+            ]
+
+            material_results.append({
+                "slot_index": slot_index,
+                "material_name": material.name,
+                "image_count": material_data[
+                    "image_count"
+                ],
+                "images": material_data[
+                    "images"
+                ],
+            })
+
+        if material_results:
+            failed_objects[obj.name] = {
+                "object_type": obj.type,
+                "material_count": len(
+                    material_results
+                ),
+                "materials": material_results,
+            }
+
+    return failed_objects
+
+
+# -------------------------------------------------------------------------
+# Fix
+# -------------------------------------------------------------------------
+
+def fix_texture_colorspaces(
+        result_data=None,
+        settings=None,
+    ):
+    """
+    Corrects mismatched image color spaces.
+
+    Since color space belongs to the image datablock rather than an
+    individual Image Texture node, changing it affects every user of that
+    image.
+    """
+    if settings is None:
+        settings = resolve_settings()
+
+    if not isinstance(result_data, dict):
+        result_data = {}
+
+    failed_images = result_data.get(
+        "failed_images",
+        {},
+    )
+
+    if not isinstance(failed_images, dict):
+        failed_images = {}
+
+    required_colorspace = settings[
+        "required_colorspace"
+    ]
+
+    skip_mixed = settings[
+        "skip_mixed_usage_on_fix"
+    ]
+
+    fixed_images = {}
+    issues = []
+
+    for image_name, previous_data in failed_images.items():
+        image = bpy.data.images.get(image_name)
+
+        if image is None:
+            issues.append(
+                'Image "{}" no longer exists.'.format(
+                    image_name
+                )
+            )
+            continue
+
+        # Reanalyze the current scene instead of relying only on stale data.
+        current_result = analyze_single_image_usage(
+            image=image,
+            settings=settings,
+        )
+
+        if current_result is None:
+            continue
+
+        current_colorspace = get_image_colorspace(
+            image
+        )
+
+        if colorspace_matches(
+            current=current_colorspace,
+            required=required_colorspace,
+        ):
+            continue
+
+        if (
+            current_result["mixed_usage"]
+            and skip_mixed
+        ):
+            issues.append(
+                (
+                    'Image "{}" was not changed because it is used '
+                    "for both color and non-color data."
+                ).format(image_name)
+            )
+            continue
+
+        try:
+            previous_colorspace = current_colorspace
+
+            image.colorspace_settings.name = (
+                required_colorspace
+            )
+
+        except Exception as error:
+            issues.append(
+                (
+                    'Could not set image "{}" to color space "{}": {}'
+                ).format(
+                    image_name,
+                    required_colorspace,
+                    error,
+                )
+            )
+            continue
+
+        fixed_images[image_name] = {
+            "previous_colorspace": previous_colorspace,
+            "current_colorspace": get_image_colorspace(
+                image
+            ),
+            "non_color_usages": current_result[
+                "non_color_usages"
+            ],
+            "color_usages": current_result[
+                "color_usages"
+            ],
+            "mixed_usage": current_result[
+                "mixed_usage"
+            ],
+        }
+
+    current_analysis = analyze_scene_texture_usage(
+        settings=settings,
+    )
+
+    current_failed_materials = build_failed_materials(
+        current_analysis["failed_images"]
+    )
+
+    fixed_materials = {}
+    fixed_objects = {}
+
+    for image_name in fixed_images:
+        previous_image_data = failed_images.get(
+            image_name,
+            {},
+        )
+
+        material_names = sorted(
+            set(
+                usage["material_name"]
+                for usage in previous_image_data.get(
+                    "usages",
+                    []
+                )
+            )
+        )
+
+        for material_name in material_names:
+            fixed_materials.setdefault(
+                material_name,
+                {
+                    "fixed_images": [],
+                },
+            )
+
+            fixed_materials[
+                material_name
+            ]["fixed_images"].append(
+                image_name
+            )
+
+    for obj in bpy.context.scene.objects:
+        fixed_object_materials = []
+
+        for slot_index, slot in enumerate(
+            getattr(obj, "material_slots", [])
+        ):
+            material = getattr(
+                slot,
+                "material",
+                None,
+            )
+
+            if (
+                material is None
+                or material.name not in fixed_materials
+            ):
+                continue
+
+            fixed_object_materials.append({
+                "slot_index": slot_index,
+                "material_name": material.name,
+                "fixed_images": fixed_materials[
+                    material.name
+                ]["fixed_images"],
+            })
+
+        if fixed_object_materials:
+            fixed_objects[obj.name] = {
+                "materials": fixed_object_materials,
+            }
+
+    return {
+        "fixed_images": fixed_images,
+        "fixed_materials": fixed_materials,
+        "fixed_objects": fixed_objects,
+        "issues": issues,
+    }
+
+
+
+
+# -------------------------------------------------------------------------
+# Helpers
+# -------------------------------------------------------------------------
+
+def resolve_settings(preferences=None):
+    """
+    Merges saved preferences over the check defaults.
+    """
+    resolved = {
+        setting_name: definition.get("default")
+        for setting_name, definition
+        in SETTINGS.items()
+    }
+
+    if isinstance(preferences, dict):
+        for setting_name, value in preferences.items():
+            if setting_name in resolved:
+                resolved[setting_name] = value
+
+    return resolved
+
 
 def analyze_scene_texture_usage(settings=None):
     """
@@ -684,253 +955,6 @@ def build_failed_materials(failed_images):
     return failed_materials
 
 
-def build_failed_objects(failed_materials, scene=None):
-    """
-    Finds scene objects using materials with color-space mismatches.
-    """
-    if scene is None:
-        scene = bpy.context.scene
-
-    failed_objects = {}
-
-    for obj in scene.objects:
-        material_results = []
-
-        for slot_index, slot in enumerate(
-            getattr(obj, "material_slots", [])
-        ):
-            material = getattr(slot, "material", None)
-
-            if material is None:
-                continue
-
-            if material.name not in failed_materials:
-                continue
-
-            material_data = failed_materials[
-                material.name
-            ]
-
-            material_results.append({
-                "slot_index": slot_index,
-                "material_name": material.name,
-                "image_count": material_data[
-                    "image_count"
-                ],
-                "images": material_data[
-                    "images"
-                ],
-            })
-
-        if material_results:
-            failed_objects[obj.name] = {
-                "object_type": obj.type,
-                "material_count": len(
-                    material_results
-                ),
-                "materials": material_results,
-            }
-
-    return failed_objects
-
-
-# -------------------------------------------------------------------------
-# Fix
-# -------------------------------------------------------------------------
-
-def fix_texture_colorspaces(
-        result_data=None,
-        settings=None,
-    ):
-    """
-    Corrects mismatched image color spaces.
-
-    Since color space belongs to the image datablock rather than an
-    individual Image Texture node, changing it affects every user of that
-    image.
-    """
-    if settings is None:
-        settings = resolve_settings()
-
-    if not isinstance(result_data, dict):
-        result_data = {}
-
-    failed_images = result_data.get(
-        "failed_images",
-        {},
-    )
-
-    if not isinstance(failed_images, dict):
-        failed_images = {}
-
-    required_colorspace = settings[
-        "required_colorspace"
-    ]
-
-    skip_mixed = settings[
-        "skip_mixed_usage_on_fix"
-    ]
-
-    fixed_images = {}
-    issues = []
-
-    for image_name, previous_data in failed_images.items():
-        image = bpy.data.images.get(image_name)
-
-        if image is None:
-            issues.append(
-                'Image "{}" no longer exists.'.format(
-                    image_name
-                )
-            )
-            continue
-
-        # Reanalyze the current scene instead of relying only on stale data.
-        current_result = analyze_single_image_usage(
-            image=image,
-            settings=settings,
-        )
-
-        if current_result is None:
-            continue
-
-        current_colorspace = get_image_colorspace(
-            image
-        )
-
-        if colorspace_matches(
-            current=current_colorspace,
-            required=required_colorspace,
-        ):
-            continue
-
-        if (
-            current_result["mixed_usage"]
-            and skip_mixed
-        ):
-            issues.append(
-                (
-                    'Image "{}" was not changed because it is used '
-                    "for both color and non-color data."
-                ).format(image_name)
-            )
-            continue
-
-        try:
-            previous_colorspace = current_colorspace
-
-            image.colorspace_settings.name = (
-                required_colorspace
-            )
-
-        except Exception as error:
-            issues.append(
-                (
-                    'Could not set image "{}" to color space "{}": {}'
-                ).format(
-                    image_name,
-                    required_colorspace,
-                    error,
-                )
-            )
-            continue
-
-        fixed_images[image_name] = {
-            "previous_colorspace": previous_colorspace,
-            "current_colorspace": get_image_colorspace(
-                image
-            ),
-            "non_color_usages": current_result[
-                "non_color_usages"
-            ],
-            "color_usages": current_result[
-                "color_usages"
-            ],
-            "mixed_usage": current_result[
-                "mixed_usage"
-            ],
-        }
-
-    current_analysis = analyze_scene_texture_usage(
-        settings=settings,
-    )
-
-    current_failed_materials = build_failed_materials(
-        current_analysis["failed_images"]
-    )
-
-    fixed_materials = {}
-    fixed_objects = {}
-
-    for image_name in fixed_images:
-        previous_image_data = failed_images.get(
-            image_name,
-            {},
-        )
-
-        material_names = sorted(
-            set(
-                usage["material_name"]
-                for usage in previous_image_data.get(
-                    "usages",
-                    []
-                )
-            )
-        )
-
-        for material_name in material_names:
-            fixed_materials.setdefault(
-                material_name,
-                {
-                    "fixed_images": [],
-                },
-            )
-
-            fixed_materials[
-                material_name
-            ]["fixed_images"].append(
-                image_name
-            )
-
-    for obj in bpy.context.scene.objects:
-        fixed_object_materials = []
-
-        for slot_index, slot in enumerate(
-            getattr(obj, "material_slots", [])
-        ):
-            material = getattr(
-                slot,
-                "material",
-                None,
-            )
-
-            if (
-                material is None
-                or material.name not in fixed_materials
-            ):
-                continue
-
-            fixed_object_materials.append({
-                "slot_index": slot_index,
-                "material_name": material.name,
-                "fixed_images": fixed_materials[
-                    material.name
-                ]["fixed_images"],
-            })
-
-        if fixed_object_materials:
-            fixed_objects[obj.name] = {
-                "materials": fixed_object_materials,
-            }
-
-    return {
-        "fixed_images": fixed_images,
-        "fixed_materials": fixed_materials,
-        "fixed_objects": fixed_objects,
-        "issues": issues,
-    }
-
-
 def analyze_single_image_usage(image, settings=None):
     """
     Rechecks all scene Image Texture nodes using one image.
@@ -979,10 +1003,6 @@ def analyze_single_image_usage(image, settings=None):
         ),
     }
 
-
-# -------------------------------------------------------------------------
-# General helpers
-# -------------------------------------------------------------------------
 
 def get_scene_materials(scene=None):
     """
@@ -1057,25 +1077,3 @@ def get_datablock_key(datablock):
         return datablock.as_pointer()
     except Exception:
         return id(datablock)
-
-
-# -------------------------------------------------------------------------
-# Settings
-# -------------------------------------------------------------------------
-
-def resolve_settings(preferences=None):
-    """
-    Merges saved preferences over the check defaults.
-    """
-    resolved = {
-        setting_name: definition.get("default")
-        for setting_name, definition
-        in SETTINGS.items()
-    }
-
-    if isinstance(preferences, dict):
-        for setting_name, value in preferences.items():
-            if setting_name in resolved:
-                resolved[setting_name] = value
-
-    return resolved
