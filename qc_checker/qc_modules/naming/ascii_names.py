@@ -6,7 +6,7 @@ import bpy
 # -------------------------------------------------------------------------
 
 SEVERITY = "critical"
-LABEL = "Name is ASCII"
+LABEL = "ASCII Names"
 DESCRIPTION = (
     "Checks if Object's Name is ASCII"
 )

@@ -9,7 +9,7 @@ import bpy
 # -------------------------------------------------------------------------
 
 SEVERITY = "info"
-LABEL = "No Duplicate Object Names"
+LABEL = "No Auto Suffixes"
 DESCRIPTION = (
     "Checks if Object's Name is a Duplicate"
 )

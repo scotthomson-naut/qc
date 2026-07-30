@@ -7,9 +7,9 @@ import bpy
 # -------------------------------------------------------------------------
 
 SEVERITY = "warning"
-LABEL = "Name Has Valid Prefix"
+LABEL = "Final Names"
 DESCRIPTION = (
-    "Checks if Object's Name dhas a valid Prefix"
+    "Checks if Object's Name has a valid Prefix"
 )
 
 

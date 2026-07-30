@@ -6,7 +6,7 @@ import bpy
 # -------------------------------------------------------------------------
 
 SEVERITY = "critical"
-LABEL = "Name has no Trailing Spaces"
+LABEL = "No Trailing Spaces"
 DESCRIPTION = (
     "Checks if Object's Name has Trailing Spaces"
 )

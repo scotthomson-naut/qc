@@ -7,7 +7,7 @@ import bpy
 # -------------------------------------------------------------------------
 
 SEVERITY = "info"
-LABEL = "Default Names"
+LABEL = "Descriptive Names"
 DESCRIPTION = (
     "Checks if objects have default names like Cube, Sphere .."
 )

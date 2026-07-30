@@ -6,7 +6,7 @@ import bpy
 # -------------------------------------------------------------------------
 
 SEVERITY = "warning"
-LABEL = "Single-User Object and Datablock Names Match"
+LABEL = "Object and Datablock Names Match"
 DESCRIPTION = (
     "Checks that single-user mesh datablock names match their object names. "
     "Shared mesh datablocks are allowed and ignored."
