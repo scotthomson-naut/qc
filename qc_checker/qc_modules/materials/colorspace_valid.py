@@ -7,7 +7,7 @@ import bpy
 # -------------------------------------------------------------------------
 
 SEVERITY = "warning"
-LABEL = "Texture Colorspace Mismatches"
+LABEL = "Colorspace Valid"
 DESCRIPTION = (
     "Checks image textures used as normal, roughness, metallic, height, "
     "displacement, masks, or other non-color data and verifies that their "

@@ -7,7 +7,7 @@ import bpy
 # -------------------------------------------------------------------------
 
 SEVERITY = "critical"
-LABEL = "Missing Materials"
+LABEL = "Material Assigned"
 DESCRIPTION = (
     "Checks for objects that have missing materials, empty material slots, "
     "or faces assigned to invalid or empty material slots."

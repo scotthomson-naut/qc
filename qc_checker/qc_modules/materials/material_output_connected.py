@@ -7,7 +7,7 @@ import bpy
 # -------------------------------------------------------------------------
 
 SEVERITY = "warning"
-LABEL = "Unconnected Shader Nodes"
+LABEL = "Material Output Connected"
 DESCRIPTION = (
     "Checks materials for shader nodes that are not connected, directly "
     "or indirectly, to an active Material Output node."

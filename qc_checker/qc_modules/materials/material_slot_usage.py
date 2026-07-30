@@ -7,7 +7,7 @@ import bpy
 # -------------------------------------------------------------------------
 
 SEVERITY = "info"
-LABEL = "Unused Material Slots"
+LABEL = "Material Slot Usage"
 DESCRIPTION = (
     "Checks for material slots that are not assigned to any face."
 )

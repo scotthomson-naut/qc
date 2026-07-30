@@ -11,7 +11,7 @@ import bpy
 
 # Meta data
 SEVERITY = "critical"
-LABEL = "Texture File exists"
+LABEL = "Texture File Exists"
 DESCRIPTION = (
     "Checks if Image texture references a file that doesn't exist on disk"
 )

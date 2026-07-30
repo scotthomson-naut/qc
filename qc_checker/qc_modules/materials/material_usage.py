@@ -7,7 +7,7 @@ import bpy
 # -------------------------------------------------------------------------
 
 SEVERITY = "warning"
-LABEL = "Material has zero users"
+LABEL = "Material Usage"
 DESCRIPTION = (
     "Checks for unused material datablocks, excluding protected, "
     "linked, asset, and Blender-managed materials."
