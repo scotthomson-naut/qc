@@ -7,7 +7,7 @@ import bpy
 # -------------------------------------------------------------------------
 
 SEVERITY = "info"
-LABEL = "Keyframes Outside Timeline"
+LABEL = "Keyframes in Range"
 DESCRIPTION = (
     "Checks for objects with keyframes before scene start frame "
     "or after the scene end frame."

@@ -7,7 +7,7 @@ import bpy
 # -------------------------------------------------------------------------
 
 SEVERITY = "warning"
-LABEL = "F-Curves Have Constant Key Values"
+LABEL = "Animated Values"
 DESCRIPTION = (
     "Checks for object F-Curves that contain multiple keyframes "
     "but every keyframe has the same value."

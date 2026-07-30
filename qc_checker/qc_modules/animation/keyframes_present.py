@@ -7,7 +7,7 @@ import bpy
 # -------------------------------------------------------------------------
 
 SEVERITY = "warning"
-LABEL = "Action Has Zero Keyframes"
+LABEL = "Keyframes Present"
 DESCRIPTION = (
     "Checks for objects that have animation data and an assigned Action, "
     "but the Action contains no keyframes."

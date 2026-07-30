@@ -7,7 +7,7 @@ import bpy
 # -------------------------------------------------------------------------
 
 SEVERITY = "warning"
-LABEL = "Muted NLA Tracks or Strips"
+LABEL = "NLA Playback Enabled"
 DESCRIPTION = (
     "Checks for objects that contain muted NLA tracks "
     "or muted NLA strips."

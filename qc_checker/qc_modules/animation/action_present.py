@@ -7,7 +7,7 @@ import bpy
 # -------------------------------------------------------------------------
 
 SEVERITY = "warning"
-LABEL = "Animation Data Without Action"
+LABEL = "Action Present"
 DESCRIPTION = (
     "Checks for objects that contain empty animation data. "
     "Objects using an Action, NLA strips, or drivers are considered valid."

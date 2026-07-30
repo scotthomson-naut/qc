@@ -7,7 +7,7 @@ import bpy
 # -------------------------------------------------------------------------
 
 SEVERITY = "warning"
-LABEL = "Empty NLA Tracks"
+LABEL = "NLA Strips Present"
 DESCRIPTION = (
     "Checks for objects that contain NLA tracks with no strips."
 )

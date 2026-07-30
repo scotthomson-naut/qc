@@ -7,7 +7,7 @@ import bpy
 # -------------------------------------------------------------------------
 
 SEVERITY = "warning"
-LABEL = "Start End Keyframes Missing"
+LABEL = "Range Boundry Keys"
 DESCRIPTION = (
     "Checks if Animated Objects have Keyframes "
     "at Start and End of the Timeline."
