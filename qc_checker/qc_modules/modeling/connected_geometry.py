@@ -8,7 +8,7 @@ import bmesh
 # -------------------------------------------------------------------------
 
 SEVERITY = "warning"
-LABEL = "Loose Geometry Islands"
+LABEL = "Connected Geometry"
 DESCRIPTION = (
     "Checks mesh objects for vertices, edges, or faces that are not "
     "connected to the object's main mesh body."

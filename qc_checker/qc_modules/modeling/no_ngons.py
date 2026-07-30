@@ -8,7 +8,7 @@ import bmesh
 # -------------------------------------------------------------------------
 
 SEVERITY = "critical"
-LABEL = "Has N-Gons"
+LABEL = "No N-Gons"
 DESCRIPTION = (
     "Checks if Object has N-Gons"
 )
