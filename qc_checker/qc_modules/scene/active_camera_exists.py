@@ -7,7 +7,7 @@ import bpy
 
 # Meta data
 SEVERITY = "critical"
-LABEL = "Active Render Camera"
+LABEL = "Active Camera Exists"
 DESCRIPTION = (
     "Checks if the scene has an active render camera assigned "
     "(scene.camera). Distinct from checking whether any camera "
