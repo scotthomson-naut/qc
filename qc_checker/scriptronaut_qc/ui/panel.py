@@ -1,0 +1,713 @@
+"""Scriptronaut QC Checks internal module."""
+
+from bpy.types import Panel, UIList
+
+from ..constants import COMMON_CATEGORY, TIER
+from ..core import get_qc_elapsed_text, get_severity_icon
+from ..utils.json_io import result_data_from_json
+
+class SCRIPTRONAUT_PT_QC_Checks(Panel):
+    """
+    Main QC Checks panel displayed in the 3D Viewport sidebar.
+
+    Provides two display modes:
+
+        CHECKS
+            View QC checks.
+            Run selected checks.
+            View all failed objects for the selected check.
+            Fix all failed objects for the selected check.
+
+        OBJECTS
+            View objects that failed one or more checks.
+            View all failed checks for the selected object.
+            Fix only the selected check on the selected object.
+    """
+
+    bl_label = "QC Checks"
+    bl_idname = "SCRIPTRONAUT_PT_QC_Checks"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = "Scriptronaut"
+
+    def draw(self, context):
+
+        layout = self.layout
+        scene = context.scene
+
+        settings = (
+            scene.scriptronaut_qc_settings
+        )
+
+        checks = (
+            scene.scriptronaut_qc_checks
+        )
+
+        # ---------------------------------------------------------
+        # Tier-level settings
+        # ---------------------------------------------------------
+
+        if TIER in [
+            "Pro",
+            "Studio",
+        ]:
+            settings_box = layout.box()
+            settings_box.label(
+                text="Settings",
+                icon="PREFERENCES",
+            )
+
+            settings_row = settings_box.row(
+                align=True
+            )
+
+            # ---------------------------------------------------------
+            # Left side - checkbox
+            # ---------------------------------------------------------
+
+            use_settings_row = settings_row.row(
+                align=True
+            )
+
+            use_settings_row.prop(
+                settings,
+                "use_check_settings",
+                text="Use Check Settings",
+            )
+
+            # ---------------------------------------------------------
+            # Right side - edit button
+            # ---------------------------------------------------------
+
+            editor_row = settings_row.row(
+                align=True
+            )
+
+            editor_row.enabled = (
+                settings.use_check_settings
+            )
+
+            editor_row.operator(
+                "scriptronaut.qc_open_json_editor",
+                text="Edit Check Settings",
+                icon="GREASEPENCIL",
+            )
+
+        # ---------------------------------------------------------
+        # Mode
+        # ---------------------------------------------------------
+
+        mode_box = layout.box()
+
+        mode_box.label(
+            text="Mode",
+            icon="OPTIONS",
+        )
+
+        mode_row =  mode_box.row()
+        mode_row.prop(
+            settings,
+            "mode",
+            expand=True,
+        )
+
+        # ---------------------------------------------------------
+        # Status
+        # ---------------------------------------------------------
+
+        status_box = layout.box()
+        status_box.label(
+            text="Status",
+            icon="INFO",
+        )
+
+        elapsed_text = get_qc_elapsed_text(settings)
+        status_row = status_box.row()
+
+        if not settings.last_run_time:
+            status_row.label(
+                text="Last Run: Not Run Yet",
+                icon="QUESTION",
+            )
+
+        elif settings.scene_modified_since_qc:
+            status_row.alert = True
+            status_row.label(
+                text="Last Run: {}".format(elapsed_text),
+                icon="TIME",
+            )
+            status_row.label(
+                text="Scene Modified Since Last Run",
+                icon="ERROR",
+            )
+
+        else:
+            status_row.label(
+                text="Last Run: {}".format(elapsed_text),
+                icon="TIME",
+            )
+            status_row.label(
+                text="Scene Has Not Changed",
+                icon="CHECKMARK",
+            )
+
+        # ---------------------------------------------------------
+        # Failure Severity Summary
+        # ---------------------------------------------------------
+
+        critical_count = sum(
+            1
+            for item in checks
+            if (
+                item.status == "FAIL"
+                and item.severity == "critical"
+            )
+        )
+
+        warning_count = sum(
+            1
+            for item in checks
+            if (
+                item.status == "FAIL"
+                and item.severity == "warning"
+            )
+        )
+
+        info_count = sum(
+            1
+            for item in checks
+            if (
+                item.status == "FAIL"
+                and item.severity == "info"
+            )
+        )
+
+        severity_row = layout.row(
+            align=True
+        )
+
+        critical_col = severity_row.column(
+            align=True
+        )
+
+        warning_col = severity_row.column(
+            align=True
+        )
+
+        info_col = severity_row.column(
+            align=True
+        )
+
+        critical_col.label(
+            text="Critical: {}".format(
+                critical_count
+            ),
+            icon="KEYTYPE_EXTREME_VEC",
+        )
+
+        warning_col.label(
+            text="Warning: {}".format(
+                warning_count
+            ),
+            icon="KEYTYPE_KEYFRAME_VEC",
+        )
+
+        info_col.label(
+            text="Info: {}".format(
+                info_count
+            ),
+            icon="KEYTYPE_BREAKDOWN_VEC",
+        )
+
+
+        # ---------------------------------------------------------
+        # CHECK MODE
+        # ---------------------------------------------------------
+
+        if settings.mode == "CHECKS":
+            self.draw_checks_mode(
+                context,
+                layout,
+                settings,
+                checks,
+            )
+
+        # ---------------------------------------------------------
+        # OBJECT MODE
+        # ---------------------------------------------------------
+
+        elif settings.mode == "OBJECTS":
+            self.draw_objects_mode(
+                context,
+                layout,
+                settings,
+                checks,
+            )
+
+    # ---------------------------------------------------------------------
+    # CHECK MODE
+    # ---------------------------------------------------------------------
+
+    def draw_checks_mode(
+        self,
+        context,
+        layout,
+        settings,
+        checks,
+    ):
+        """
+        Draws the traditional check-oriented QC interface.
+        """
+        scene = context.scene
+
+        # ---------------------------------------------------------
+        # Category
+        # ---------------------------------------------------------
+
+        layout.prop(
+            settings,
+            "category",
+            text="Category",
+        )
+
+        # ---------------------------------------------------------
+        # Select All / Critical / None
+        # ---------------------------------------------------------
+
+        row = layout.row(align=True)
+
+        row.operator(
+            "scriptronaut.qc_select_all",
+            icon="CHECKBOX_HLT",
+            text="Select All",
+        )
+
+        row.separator()
+
+        row.operator(
+            "scriptronaut.qc_select_critical",
+            icon="KEYTYPE_EXTREME_VEC",
+            text="",
+        )
+
+        row.separator()
+
+        row.operator(
+            "scriptronaut.qc_select_none",
+            icon="CHECKBOX_DEHLT",
+            text="Select None",
+        )
+
+        # ---------------------------------------------------------
+        # Check list
+        # ---------------------------------------------------------
+
+        layout.template_list(
+            "SCRIPTRONAUT_UL_QC_Checks",
+            "",
+            scene,
+            "scriptronaut_qc_checks",
+            settings,
+            "check_index",
+            rows=8,
+        )
+
+        # ---------------------------------------------------------
+        # Run selected
+        # ---------------------------------------------------------
+
+        selected_check_count = sum(
+            1
+            for item in checks
+            if item.selected
+        )
+
+        run_row = layout.row()
+        run_row.scale_y = 1.5
+
+        run_row.enabled = (
+            selected_check_count > 0
+        )
+
+        if selected_check_count == 0:
+            run_button_text = (
+                "No Checks Selected"
+            )
+        else:
+            run_button_text = (
+                "Run ({}) Selected Check{}".format(
+                    selected_check_count,
+                    ""
+                    if selected_check_count == 1
+                    else "s",
+                )
+            )
+
+        run_row.operator(
+            "scriptronaut.qc_run_selected",
+            icon="PLAY",
+            text=run_button_text,
+        )
+
+        # ---------------------------------------------------------
+        # Current check
+        # ---------------------------------------------------------
+
+        current_item = None
+        if (
+            checks
+            and
+            0
+            <= settings.check_index
+            < len(checks)
+        ):
+            current_item = checks[
+                settings.check_index
+            ]
+
+        # ---------------------------------------------------------
+        # Fix All
+        # ---------------------------------------------------------
+
+        fixable_count = sum(
+            1
+            for item in checks
+            if (
+                item.status == "FAIL"
+                and item.has_fix
+            )
+        )
+
+        fix_all_row = layout.row()
+        fix_all_row.scale_y = 1.1
+        fix_all_row.enabled = (
+            fixable_count > 0
+        )
+
+        if fixable_count > 0:
+            fix_all_text = (
+                "Fix All ({})".format(
+                    fixable_count
+                )
+            )
+        else:
+            fix_all_text = (
+                "No Automatic Fixes Available"
+            )
+
+        fix_all_row.operator(
+            "scriptronaut.qc_fix_all",
+            icon="TOOL_SETTINGS",
+            text=fix_all_text,
+        )
+
+        # ---------------------------------------------------------
+        # Issues
+        # ---------------------------------------------------------
+
+        box = layout.box()
+        box.label(
+            text="Issues:",
+            icon="INFO",
+        )
+
+        if current_item:
+            result_data = (
+                result_data_from_json(
+                    current_item.result_data
+                )
+            )
+
+            failed_objects = (
+                result_data.get(
+                    "failed_objects",
+                    {},
+                )
+            )
+
+            if (
+                isinstance(
+                    failed_objects,
+                    dict,
+                )
+                and
+                failed_objects
+            ):
+                for (
+                    object_name,
+                    object_data,
+                ) in failed_objects.items():
+
+                    row = box.row(
+                        align=True
+                    )
+
+                    row.alert = True
+
+                    # -------------------------------------------------
+                    # Object selection button
+                    # -------------------------------------------------
+
+                    object_button = row.operator(
+                        "scriptronaut.qc_select_object",
+                        text="Failed: {}".format(
+                            object_name
+                        ),
+                        icon="ERROR",
+                    )
+
+                    object_button.object_name = (
+                        object_name
+                    )
+
+                    # -------------------------------------------------
+                    # Details popup button
+                    # -------------------------------------------------
+
+                    details_button = row.operator(
+                        "scriptronaut.qc_object_details",
+                        text="",
+                        icon="TEXT",
+                    )
+
+                    details_button.check_index = (
+                        settings.check_index
+                    )
+
+                    details_button.object_name = (
+                        object_name
+                    )
+
+            elif settings.issues_display:
+                for line in (
+                    settings.issues_display
+                    .split("\n")
+                ):
+                    box.label(
+                        text=line
+                    )
+
+            else:
+                box.label(
+                    text="No issues found.",
+                    icon="CHECKMARK",
+                )
+
+        else:
+            box.label(
+                text="No issues selected."
+            )
+
+    # ---------------------------------------------------------------------
+    # OBJECT MODE
+    # ---------------------------------------------------------------------
+
+    def draw_objects_mode(
+        self,
+        context,
+        layout,
+        settings,
+        checks,
+    ):
+        """
+        Draws QC results organized by failed object.
+        """
+        scene = context.scene
+
+        failed_objects = (
+            scene.scriptronaut_qc_failed_objects
+        )
+
+        object_checks = (
+            scene.scriptronaut_qc_object_checks
+        )
+
+        # ---------------------------------------------------------
+        # No results yet
+        # ---------------------------------------------------------
+
+        if not checks:
+            box = layout.box()
+            box.label(
+                text="No QC results available.",
+                icon="INFO",
+            )
+            box.label(
+                text="Run checks in Checks mode first."
+            )
+
+            return
+
+        # ---------------------------------------------------------
+        # Failed objects
+        # ---------------------------------------------------------
+
+        object_box = layout.box()
+
+        object_box.label(
+            text="Failed Objects",
+            icon="OBJECT_DATA",
+        )
+
+        if not failed_objects:
+            object_box.label(
+                text="No failed objects.",
+                icon="CHECKMARK",
+            )
+
+            return
+
+        object_box.template_list(
+            "SCRIPTRONAUT_UL_QC_FailedObjects",
+            "",
+            scene,
+            "scriptronaut_qc_failed_objects",
+            settings,
+            "failed_object_index",
+            rows=6,
+        )
+
+        # ---------------------------------------------------------
+        # Selected object
+        # ---------------------------------------------------------
+
+        current_object_item = None
+
+        if (
+            0
+            <= settings.failed_object_index
+            < len(failed_objects)
+        ):
+            current_object_item = (
+                failed_objects[
+                    settings.failed_object_index
+                ]
+            )
+
+        if current_object_item:
+            info_row = object_box.row()
+            info_row.label(
+                text="Selected: {}".format(
+                    current_object_item.name
+                ),
+                icon="RESTRICT_SELECT_OFF",
+            )
+
+            object_box.operator(
+                "scriptronaut.qc_select_current_failed_object",
+                text="Select Object",
+                icon="RESTRICT_SELECT_OFF",
+            )
+
+        # ---------------------------------------------------------
+        # Failed checks for selected object
+        # ---------------------------------------------------------
+
+        check_box = layout.box()
+
+        check_box.label(
+            text="Failed Checks",
+            icon="ERROR",
+        )
+
+        if not object_checks:
+            check_box.label(
+                text="No failed checks for this object.",
+                icon="CHECKMARK",
+            )
+
+            return
+
+        check_box.template_list(
+            "SCRIPTRONAUT_UL_QC_ObjectChecks",
+            "",
+            scene,
+            "scriptronaut_qc_object_checks",
+            settings,
+            "object_check_index",
+            rows=6,
+        )
+
+        # ---------------------------------------------------------
+        # Current failed check
+        # ---------------------------------------------------------
+
+        current_object_check = None
+
+        if (
+            0
+            <= settings.object_check_index
+            < len(object_checks)
+        ):
+            current_object_check = (
+                object_checks[
+                    settings.object_check_index
+                ]
+            )
+
+        if current_object_check is None:
+            return
+
+        # ---------------------------------------------------------
+        # Fix all failed checks for the selected object
+        # ---------------------------------------------------------
+
+        fixable_object_check_count = sum(
+            1
+            for item in object_checks
+            if item.has_fix
+        )
+
+        fix_all_object_row = layout.row()
+        fix_all_object_row.scale_y = 1.4
+
+        fix_all_object_row.enabled = (
+            fixable_object_check_count > 0
+        )
+
+        if fixable_object_check_count > 0:
+            button_text = (
+                "Fix All Checks on This Object ({})".format(
+                    fixable_object_check_count
+                )
+            )
+
+        else:
+            button_text = (
+                "No Automatic Fixes Available"
+            )
+
+        fix_all_object_row.operator(
+            "scriptronaut.qc_fix_all_object_checks",
+            text=button_text,
+            icon="TOOL_SETTINGS",
+        )
+
+        # ---------------------------------------------------------
+        # Optional check information
+        # ---------------------------------------------------------
+
+        details_box = layout.box()
+
+        details_box.label(
+            text="Selected Check:",
+            icon="INFO",
+        )
+
+        details_box.label(
+            text=current_object_check.name
+        )
+
+        if current_object_check.has_fix:
+            details_box.label(
+                text="Automatic fix available.",
+                icon="TOOL_SETTINGS",
+            )
+
+        else:
+            details_box.label(
+                text="Manual fix required.",
+                icon="INFO",
+            )
+
+CLASSES = (SCRIPTRONAUT_PT_QC_Checks,)
