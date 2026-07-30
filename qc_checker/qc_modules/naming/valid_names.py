@@ -10,7 +10,7 @@ import bpy
 # -------------------------------------------------------------------------
 
 SEVERITY = "critical"
-LABEL = "Valid Name"
+LABEL = "Valid Names"
 DESCRIPTION = (
     "Checks if Object's Name has Special Charcaters"
 )

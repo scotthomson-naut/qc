@@ -10,7 +10,7 @@ import bpy
 # -------------------------------------------------------------------------
 
 SEVERITY = "critical"
-LABEL = "UV Map Exist"
+LABEL = "UV Map Exists"
 DESCRIPTION = (
     "Checks if Object has at least one UV map"
 )

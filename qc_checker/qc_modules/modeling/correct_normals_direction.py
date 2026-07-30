@@ -7,7 +7,7 @@ import bmesh
 # -------------------------------------------------------------------------
 
 SEVERITY = "critical"
-LABEL = "Correct Normal Direction"
+LABEL = "Correct Normals Direction"
 DESCRIPTION = (
     "Checks mesh objects for faces whose normals are flipped "
     "relative to Blender's recalculated face orientation."
