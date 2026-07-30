@@ -7,7 +7,7 @@ import bpy
 # -------------------------------------------------------------------------
 
 SEVERITY = "warning"
-LABEL = "No Duplicate Vertices"
+LABEL = "Unique Vertices"
 DESCRIPTION = (
     "Checks for overlapping/duplicate vertices (multiple vertices "
     "sharing nearly the same position within tolerance). Note: "

@@ -7,14 +7,14 @@ import bmesh
 # -------------------------------------------------------------------------
 
 SEVERITY = "warning"
-LABEL = "No Duplicate Faces"
+LABEL = "Unique Edges"
 DESCRIPTION = (
-    "Checks for exact duplicate faces - two or more faces sharing "
-    "the same vertices in the same winding order. Deliberately "
-    "ignores faces that share the same vertices but with reversed "
-    "winding (opposite normal direction), since that pattern is a "
-    "legitimate, intentional technique for double-sided geometry "
-    "(e.g. foliage cards)."
+    "Checks for duplicate edges - two or more edges connecting the "
+    "exact same pair of vertices. Unlike overlapping vertices, this "
+    "has no legitimate modeling-technique justification (hard-edge "
+    "and UV seam splits work by splitting vertices, not duplicating "
+    "edges), so this is treated as an actual mistake rather than a "
+    "candidate for review."
 )
 
 
@@ -29,12 +29,12 @@ def main():
     Returns:
         dict: {issues (list(str)), failed_objects(dict)}
     """
-    failed_objects = get_objects_with_duplicate_faces()
+    failed_objects = get_objects_with_duplicate_edges()
 
     issues = [
-        "Failed object: {} - {} duplicate faces".format(
+        "Failed object: {} - {} duplicate edges".format(
             object_name,
-            data["duplicate_face_count"],
+            data["duplicate_edge_count"],
         )
         for object_name, data in failed_objects.items()
     ]
@@ -55,7 +55,7 @@ def fix(result_data):
         dict: Fix result.
     """
     # Call Function
-    fix_result = fix_duplicate_faces(result_data)
+    fix_result = fix_duplicate_edges(result_data)
 
     return fix_result
 
@@ -64,10 +64,10 @@ def fix(result_data):
 # Find
 # -------------------------------------------------------------------------
 
-def get_objects_with_duplicate_faces(objects=None):
+def get_objects_with_duplicate_edges(objects=None):
     """
-    Finds Mesh objects with two or more faces sharing the exact same
-    vertices in the exact same winding order.
+    Finds Mesh objects with two or more edges connecting the exact
+    same pair of vertices.
 
     Args:
         objects (iterable[bpy.types.Object] | None):
@@ -78,8 +78,8 @@ def get_objects_with_duplicate_faces(objects=None):
         dict:
         {
             "Cube": {
-                "duplicate_face_indices": [2, 5],
-                "duplicate_face_count": 2,
+                "duplicate_edge_indices": [3, 7],
+                "duplicate_edge_count": 2,
             },
             ...
         }
@@ -96,31 +96,32 @@ def get_objects_with_duplicate_faces(objects=None):
         if obj.data is None:
             continue
 
-        duplicate_indices = find_duplicate_face_indices(obj.data)
+        duplicate_indices = find_duplicate_edge_indices(obj.data)
 
         if duplicate_indices:
             failed_objects[obj.name] = {
-                "duplicate_face_indices": duplicate_indices,
-                "duplicate_face_count": len(duplicate_indices),
+                "duplicate_edge_indices": duplicate_indices,
+                "duplicate_edge_count": len(duplicate_indices),
             }
 
     return failed_objects
 
 
-# -------------------------------------------------------------------------
+# -------------------------
 # Fix
-# -------------------------------------------------------------------------
+# -------------------------
 
-def fix_duplicate_faces(result_data):
+def fix_duplicate_edges(result_data):
     """
-    Removes redundant exact-duplicate faces, keeping one face per
-    unique (vertices, winding) combination.
+    Removes redundant duplicate edges, keeping one edge per unique
+    vertex pair.
 
     Note:
-        Uses bmesh to perform the actual deletion, with context
-        'FACES' - this removes only the redundant face itself, not
-        the underlying vertices/edges, which may still be in use by
-        neighboring surviving geometry.
+        Uses bmesh to perform the actual deletion. Any face relying
+        solely on a removed edge is removed along with it - this only
+        matters in practice for a duplicated edge that also carries
+        its own duplicated face, which is itself a real mistake worth
+        cleaning up.
 
     Args:
         result_data (dict):
@@ -162,7 +163,7 @@ def fix_duplicate_faces(result_data):
             continue
 
         # Recheck before fixing.
-        duplicate_indices = find_duplicate_face_indices(obj.data)
+        duplicate_indices = find_duplicate_edge_indices(obj.data)
 
         if not duplicate_indices:
             continue
@@ -174,11 +175,19 @@ def fix_duplicate_faces(result_data):
 
         mesh = obj.data
 
+        edge_count = len(mesh.edges)
+        vertex_indices = [0] * (edge_count * 2)
+        mesh.edges.foreach_get("vertices", vertex_indices)
+
         buckets = {}
 
-        for polygon in mesh.polygons:
-            key = canonical_face_key(tuple(polygon.vertices))
-            buckets.setdefault(key, []).append(polygon.index)
+        for index in range(edge_count):
+            v0 = vertex_indices[index * 2]
+            v1 = vertex_indices[index * 2 + 1]
+
+            key = tuple(sorted((v0, v1)))
+
+            buckets.setdefault(key, []).append(index)
 
         indices_to_delete = []
 
@@ -194,30 +203,30 @@ def fix_duplicate_faces(result_data):
 
         try:
             bm.from_mesh(mesh)
-            bm.faces.ensure_lookup_table()
+            bm.edges.ensure_lookup_table()
 
-            faces_to_remove = [
-                bm.faces[index]
+            edges_to_remove = [
+                bm.edges[index]
                 for index in indices_to_delete
-                if index < len(bm.faces)
+                if index < len(bm.edges)
             ]
 
             bmesh.ops.delete(
                 bm,
-                geom=faces_to_remove,
-                context='FACES',
+                geom=edges_to_remove,
+                context='EDGES',
             )
 
             bm.to_mesh(mesh)
             mesh.update()
 
             fixed_objects[object_name] = {
-                "removed_face_count": len(faces_to_remove),
+                "removed_edge_count": len(edges_to_remove),
             }
 
         except Exception as error:
             issues.append(
-                "Could not fix duplicate faces on {}: {}".format(
+                "Could not fix duplicate edges on {}: {}".format(
                     object_name,
                     error,
                 )
@@ -236,36 +245,10 @@ def fix_duplicate_faces(result_data):
 # Helpers
 # -------------------------------------------------------------------------
 
-def canonical_face_key(vertex_indices):
+def find_duplicate_edge_indices(mesh):
     """
-    Builds a rotation-independent, winding-dependent key for a face's
-    vertex loop.
-
-    Rotating which vertex a face's loop happens to start at doesn't
-    change the face - [0, 1, 2, 3] and [1, 2, 3, 0] are the same
-    face, same winding. Reversing the order does change it - that's
-    the opposite winding direction, and is deliberately NOT
-    normalized away here, so flipped-winding "duplicates" get a
-    different key and are never matched as duplicates.
-
-    Args:
-        vertex_indices (tuple[int]):
-            A face's vertex indices, in loop order.
-
-    Returns:
-        tuple[int]:
-            Rotated so the lowest vertex index comes first, direction
-            unchanged.
-    """
-    min_position = vertex_indices.index(min(vertex_indices))
-
-    return vertex_indices[min_position:] + vertex_indices[:min_position]
-
-
-def find_duplicate_face_indices(mesh):
-    """
-    Finds face indices that are exact duplicates (same vertices, same
-    winding order) of at least one other face on the same mesh.
+    Finds edge indices that connect the exact same pair of vertices
+    as at least one other edge on the same mesh.
 
     Args:
         mesh (bpy.types.Mesh):
@@ -273,15 +256,25 @@ def find_duplicate_face_indices(mesh):
 
     Returns:
         list[int]:
-            Indices of all faces involved in an exact duplicate,
-            sorted.
+            Indices of all edges involved in a duplicate, sorted.
     """
+    edge_count = len(mesh.edges)
+
+    if edge_count == 0:
+        return []
+
+    vertex_indices = [0] * (edge_count * 2)
+    mesh.edges.foreach_get("vertices", vertex_indices)
+
     buckets = {}
 
-    for polygon in mesh.polygons:
-        key = canonical_face_key(tuple(polygon.vertices))
+    for index in range(edge_count):
+        v0 = vertex_indices[index * 2]
+        v1 = vertex_indices[index * 2 + 1]
 
-        buckets.setdefault(key, []).append(polygon.index)
+        key = tuple(sorted((v0, v1)))
+
+        buckets.setdefault(key, []).append(index)
 
     duplicate_indices = []
 
