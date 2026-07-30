@@ -762,7 +762,7 @@ def remove_object_loose_components(
 
 
 # -------------------------------------------------------------------------
-# Settings
+# Helpers
 # -------------------------------------------------------------------------
 
 def resolve_settings(preferences=None):

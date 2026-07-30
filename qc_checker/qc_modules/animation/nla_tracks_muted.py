@@ -14,7 +14,7 @@ DESCRIPTION = (
 )
 
 # -------------------------------------------------------------------------
-# Templates
+# Main
 # -------------------------------------------------------------------------
 
 def main():
@@ -227,148 +227,6 @@ def get_objects_with_muted_nla_items(
         }
 
     return failed_objects
-
-
-# -------------------------------------------------------------------------
-# Helpers
-# -------------------------------------------------------------------------
-
-def find_nla_track(
-        animation_data,
-        track_name="",
-        track_index=None,
-    ):
-    """
-    Finds an NLA track using its name, with index as a fallback.
-
-    Args:
-        animation_data (bpy.types.AnimData):
-            Animation data containing the NLA tracks.
-
-        track_name (str):
-            Expected track name.
-
-        track_index (int | None):
-            Original track index.
-
-    Returns:
-        bpy.types.NlaTrack | None
-    """
-    if animation_data is None:
-        return None
-
-    nla_tracks = getattr(
-        animation_data,
-        "nla_tracks",
-        None,
-    )
-
-    if nla_tracks is None:
-        return None
-
-    if track_name:
-        try:
-            track = nla_tracks.get(
-                track_name
-            )
-
-            if track is not None:
-                return track
-
-        except Exception:
-            pass
-
-        for track in nla_tracks:
-            if track.name == track_name:
-                return track
-
-    if track_index is not None:
-        try:
-            track_index = int(
-                track_index
-            )
-
-            if (
-                0 <= track_index
-                < len(nla_tracks)
-            ):
-                return nla_tracks[
-                    track_index
-                ]
-
-        except Exception:
-            pass
-
-    return None
-
-
-def find_nla_strip(
-        track,
-        strip_name="",
-        strip_index=None,
-    ):
-    """
-    Finds an NLA strip using its name, with index as a fallback.
-
-    Args:
-        track (bpy.types.NlaTrack):
-            Track containing the strip.
-
-        strip_name (str):
-            Expected strip name.
-
-        strip_index (int | None):
-            Original strip index.
-
-    Returns:
-        bpy.types.NlaStrip | None
-    """
-    if track is None:
-        return None
-
-    strips = getattr(
-        track,
-        "strips",
-        None,
-    )
-
-    if strips is None:
-        return None
-
-    if strip_name:
-        try:
-            strip = strips.get(
-                strip_name
-            )
-
-            if strip is not None:
-                return strip
-
-        except Exception:
-            pass
-
-        for strip in strips:
-            if strip.name == strip_name:
-                return strip
-
-    if strip_index is not None:
-        try:
-            strip_index = int(
-                strip_index
-            )
-
-            if (
-                0 <= strip_index
-                < len(strips)
-            ):
-                return strips[
-                    strip_index
-                ]
-
-        except Exception:
-            pass
-
-    return None
 
 
 # -------------------------------------------------------------------------
@@ -662,3 +520,145 @@ def unmute_nla_items(
         "fixed_objects": fixed_objects,
         "issues": issues,
     }
+
+
+# -------------------------------------------------------------------------
+# Helpers
+# -------------------------------------------------------------------------
+
+def find_nla_track(
+        animation_data,
+        track_name="",
+        track_index=None,
+    ):
+    """
+    Finds an NLA track using its name, with index as a fallback.
+
+    Args:
+        animation_data (bpy.types.AnimData):
+            Animation data containing the NLA tracks.
+
+        track_name (str):
+            Expected track name.
+
+        track_index (int | None):
+            Original track index.
+
+    Returns:
+        bpy.types.NlaTrack | None
+    """
+    if animation_data is None:
+        return None
+
+    nla_tracks = getattr(
+        animation_data,
+        "nla_tracks",
+        None,
+    )
+
+    if nla_tracks is None:
+        return None
+
+    if track_name:
+        try:
+            track = nla_tracks.get(
+                track_name
+            )
+
+            if track is not None:
+                return track
+
+        except Exception:
+            pass
+
+        for track in nla_tracks:
+            if track.name == track_name:
+                return track
+
+    if track_index is not None:
+        try:
+            track_index = int(
+                track_index
+            )
+
+            if (
+                0 <= track_index
+                < len(nla_tracks)
+            ):
+                return nla_tracks[
+                    track_index
+                ]
+
+        except Exception:
+            pass
+
+    return None
+
+
+def find_nla_strip(
+        track,
+        strip_name="",
+        strip_index=None,
+    ):
+    """
+    Finds an NLA strip using its name, with index as a fallback.
+
+    Args:
+        track (bpy.types.NlaTrack):
+            Track containing the strip.
+
+        strip_name (str):
+            Expected strip name.
+
+        strip_index (int | None):
+            Original strip index.
+
+    Returns:
+        bpy.types.NlaStrip | None
+    """
+    if track is None:
+        return None
+
+    strips = getattr(
+        track,
+        "strips",
+        None,
+    )
+
+    if strips is None:
+        return None
+
+    if strip_name:
+        try:
+            strip = strips.get(
+                strip_name
+            )
+
+            if strip is not None:
+                return strip
+
+        except Exception:
+            pass
+
+        for strip in strips:
+            if strip.name == strip_name:
+                return strip
+
+    if strip_index is not None:
+        try:
+            strip_index = int(
+                strip_index
+            )
+
+            if (
+                0 <= strip_index
+                < len(strips)
+            ):
+                return strips[
+                    strip_index
+                ]
+
+        except Exception:
+            pass
+
+    return None

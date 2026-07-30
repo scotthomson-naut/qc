@@ -6,13 +6,14 @@ import bpy
 # Metadata
 # -------------------------------------------------------------------------
 
+SEVERITY = "warning"
 LABEL = "Empty NLA Tracks"
 DESCRIPTION = (
     "Checks for objects that contain NLA tracks with no strips."
 )
 
 # -------------------------------------------------------------------------
-# Templates
+# Main
 # -------------------------------------------------------------------------
 
 def main():
@@ -158,53 +159,6 @@ def get_objects_with_empty_nla_tracks(
         }
 
     return failed_objects
-
-
-# -------------------------------------------------------------------------
-# Helpers
-# -------------------------------------------------------------------------
-
-def find_nla_track(
-        animation_data,
-        track_name,
-    ):
-    """
-    Finds an NLA track by name.
-
-    Args:
-        animation_data (bpy.types.AnimData):
-            Animation data containing NLA tracks.
-
-        track_name (str):
-            Name of the NLA track.
-
-    Returns:
-        bpy.types.NlaTrack | None
-    """
-    if animation_data is None:
-        return None
-
-    nla_tracks = getattr(
-        animation_data,
-        "nla_tracks",
-        None,
-    )
-
-    if nla_tracks is None:
-        return None
-
-    try:
-        return nla_tracks.get(
-            track_name
-        )
-    except Exception:
-        pass
-
-    for track in nla_tracks:
-        if track.name == track_name:
-            return track
-
-    return None
 
 
 # -------------------------------------------------------------------------
@@ -380,3 +334,50 @@ def remove_empty_nla_tracks(
         "fixed_objects": fixed_objects,
         "issues": issues,
     }
+
+
+# -------------------------------------------------------------------------
+# Helpers
+# -------------------------------------------------------------------------
+
+def find_nla_track(
+        animation_data,
+        track_name,
+    ):
+    """
+    Finds an NLA track by name.
+
+    Args:
+        animation_data (bpy.types.AnimData):
+            Animation data containing NLA tracks.
+
+        track_name (str):
+            Name of the NLA track.
+
+    Returns:
+        bpy.types.NlaTrack | None
+    """
+    if animation_data is None:
+        return None
+
+    nla_tracks = getattr(
+        animation_data,
+        "nla_tracks",
+        None,
+    )
+
+    if nla_tracks is None:
+        return None
+
+    try:
+        return nla_tracks.get(
+            track_name
+        )
+    except Exception:
+        pass
+
+    for track in nla_tracks:
+        if track.name == track_name:
+            return track
+
+    return None

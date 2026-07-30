@@ -15,7 +15,7 @@ DESCRIPTION = (
 
 
 # -------------------------------------------------------------------------
-# Templates
+# Main
 # -------------------------------------------------------------------------
 
 def main():
@@ -149,9 +149,159 @@ def get_objects_with_empty_actions(
     return failed_objects
 
 
-# -------------------------
-# Support Functions (Find)
-# -------------------------
+# -------------------------------------------------------------------------
+# Fix
+# -------------------------------------------------------------------------
+
+def unassign_empty_actions(
+        result_data=None,
+    ):
+    """
+    Unassigns empty Actions from failed objects.
+
+    Each object and Action is revalidated before making changes. This
+    prevents an Action that gained keyframes after the QC run from being
+    removed accidentally.
+
+    Args:
+        result_data (dict | None):
+            Result returned by main().
+
+    Returns:
+        dict:
+        {
+            "fixed_objects": dict,
+            "issues": list[str],
+        }
+    """
+    if not isinstance(
+        result_data,
+        dict,
+    ):
+        result_data = {}
+
+    failed_objects = result_data.get(
+        "failed_objects",
+        {},
+    )
+
+    if not isinstance(
+        failed_objects,
+        dict,
+    ):
+        failed_objects = {}
+
+    fixed_objects = {}
+    issues = []
+
+    for object_name, stored_data in failed_objects.items():
+        obj = bpy.data.objects.get(
+            object_name
+        )
+
+        if obj is None:
+            issues.append(
+                'Object "{}" no longer exists.'.format(
+                    object_name
+                )
+            )
+            continue
+
+        animation_data = getattr(
+            obj,
+            "animation_data",
+            None,
+        )
+
+        if animation_data is None:
+            continue
+
+        action = get_object_action(
+            obj
+        )
+
+        if action is None:
+            continue
+
+        expected_action_name = ""
+
+        if isinstance(
+            stored_data,
+            dict,
+        ):
+            expected_action_name = (
+                stored_data.get(
+                    "action_name",
+                    "",
+                )
+            )
+
+        if (
+            expected_action_name
+            and action.name != expected_action_name
+        ):
+            issues.append(
+                (
+                    'Skipped "{}" because its assigned Action '
+                    'changed from "{}" to "{}".'
+                ).format(
+                    object_name,
+                    expected_action_name,
+                    action.name,
+                )
+            )
+            continue
+
+        keyframe_count = count_action_keyframes(
+            action
+        )
+
+        if keyframe_count > 0:
+            issues.append(
+                (
+                    'Skipped "{}" because Action "{}" now '
+                    "contains {} keyframe{}."
+                ).format(
+                    object_name,
+                    action.name,
+                    keyframe_count,
+                    ""
+                    if keyframe_count == 1
+                    else "s",
+                )
+            )
+            continue
+
+        action_name = action.name
+
+        try:
+            animation_data.action = None
+
+            fixed_objects[object_name] = {
+                "action_unassigned": action_name,
+            }
+
+        except Exception as error:
+            issues.append(
+                (
+                    'Could not unassign Action "{}" '
+                    'from object "{}": {}'
+                ).format(
+                    action_name,
+                    object_name,
+                    error,
+                )
+            )
+
+    return {
+        "fixed_objects": fixed_objects,
+        "issues": issues,
+    }
+
+
+# -------------------------------------------------------------------------
+# Helpers
+# -------------------------------------------------------------------------
 
 def get_object_action(obj):
     """
@@ -339,153 +489,3 @@ def count_action_keyframes(
         )
 
     return keyframe_count
-
-
-# -------------------------------------------------------------------------
-# Fix
-# -------------------------------------------------------------------------
-
-def unassign_empty_actions(
-        result_data=None,
-    ):
-    """
-    Unassigns empty Actions from failed objects.
-
-    Each object and Action is revalidated before making changes. This
-    prevents an Action that gained keyframes after the QC run from being
-    removed accidentally.
-
-    Args:
-        result_data (dict | None):
-            Result returned by main().
-
-    Returns:
-        dict:
-        {
-            "fixed_objects": dict,
-            "issues": list[str],
-        }
-    """
-    if not isinstance(
-        result_data,
-        dict,
-    ):
-        result_data = {}
-
-    failed_objects = result_data.get(
-        "failed_objects",
-        {},
-    )
-
-    if not isinstance(
-        failed_objects,
-        dict,
-    ):
-        failed_objects = {}
-
-    fixed_objects = {}
-    issues = []
-
-    for object_name, stored_data in failed_objects.items():
-        obj = bpy.data.objects.get(
-            object_name
-        )
-
-        if obj is None:
-            issues.append(
-                'Object "{}" no longer exists.'.format(
-                    object_name
-                )
-            )
-            continue
-
-        animation_data = getattr(
-            obj,
-            "animation_data",
-            None,
-        )
-
-        if animation_data is None:
-            continue
-
-        action = get_object_action(
-            obj
-        )
-
-        if action is None:
-            continue
-
-        expected_action_name = ""
-
-        if isinstance(
-            stored_data,
-            dict,
-        ):
-            expected_action_name = (
-                stored_data.get(
-                    "action_name",
-                    "",
-                )
-            )
-
-        if (
-            expected_action_name
-            and action.name != expected_action_name
-        ):
-            issues.append(
-                (
-                    'Skipped "{}" because its assigned Action '
-                    'changed from "{}" to "{}".'
-                ).format(
-                    object_name,
-                    expected_action_name,
-                    action.name,
-                )
-            )
-            continue
-
-        keyframe_count = count_action_keyframes(
-            action
-        )
-
-        if keyframe_count > 0:
-            issues.append(
-                (
-                    'Skipped "{}" because Action "{}" now '
-                    "contains {} keyframe{}."
-                ).format(
-                    object_name,
-                    action.name,
-                    keyframe_count,
-                    ""
-                    if keyframe_count == 1
-                    else "s",
-                )
-            )
-            continue
-
-        action_name = action.name
-
-        try:
-            animation_data.action = None
-
-            fixed_objects[object_name] = {
-                "action_unassigned": action_name,
-            }
-
-        except Exception as error:
-            issues.append(
-                (
-                    'Could not unassign Action "{}" '
-                    'from object "{}": {}'
-                ).format(
-                    action_name,
-                    object_name,
-                    error,
-                )
-            )
-
-    return {
-        "fixed_objects": fixed_objects,
-        "issues": issues,
-    }

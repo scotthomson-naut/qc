@@ -15,7 +15,7 @@ DESCRIPTION = (
 
 
 # -------------------------------------------------------------------------
-# Templates
+# Main
 # -------------------------------------------------------------------------
 
 def main():
@@ -148,85 +148,6 @@ def get_objects_with_empty_animation_data(
     return failed_objects
 
 
-# -------------------------
-# Support Functions (Find)
-# -------------------------
-
-def get_object_action(obj):
-    """
-    Returns the Action assigned to an object.
-
-    Args:
-        obj (bpy.types.Object):
-            Object to inspect.
-
-    Returns:
-        bpy.types.Action | None
-    """
-    animation_data = getattr(
-        obj,
-        "animation_data",
-        None,
-    )
-
-    if animation_data is None:
-        return None
-
-    return getattr(
-        animation_data,
-        "action",
-        None,
-    )
-
-
-def animation_data_has_nla_strips(
-        animation_data,
-    ):
-    """
-    Returns True when animation data contains at least one NLA strip.
-
-    Empty or muted NLA tracks still count only when they contain strips.
-    """
-    nla_tracks = getattr(
-        animation_data,
-        "nla_tracks",
-        None,
-    )
-
-    if not nla_tracks:
-        return False
-
-    for track in nla_tracks:
-        strips = getattr(
-            track,
-            "strips",
-            None,
-        )
-
-        if strips and len(strips) > 0:
-            return True
-
-    return False
-
-
-def animation_data_has_drivers(
-        animation_data,
-    ):
-    """
-    Returns True when animation data contains at least one driver.
-    """
-    drivers = getattr(
-        animation_data,
-        "drivers",
-        None,
-    )
-
-    return bool(
-        drivers
-        and len(drivers) > 0
-    )
-
-
 # -------------------------------------------------------------------------
 # Fix
 # -------------------------------------------------------------------------
@@ -349,3 +270,82 @@ def remove_empty_animation_data(
         "fixed_objects": fixed_objects,
         "issues": issues,
     }
+
+
+# -------------------------------------------------------------------------
+# Helpers
+# -------------------------------------------------------------------------
+
+def get_object_action(obj):
+    """
+    Returns the Action assigned to an object.
+
+    Args:
+        obj (bpy.types.Object):
+            Object to inspect.
+
+    Returns:
+        bpy.types.Action | None
+    """
+    animation_data = getattr(
+        obj,
+        "animation_data",
+        None,
+    )
+
+    if animation_data is None:
+        return None
+
+    return getattr(
+        animation_data,
+        "action",
+        None,
+    )
+
+
+def animation_data_has_nla_strips(
+        animation_data,
+    ):
+    """
+    Returns True when animation data contains at least one NLA strip.
+
+    Empty or muted NLA tracks still count only when they contain strips.
+    """
+    nla_tracks = getattr(
+        animation_data,
+        "nla_tracks",
+        None,
+    )
+
+    if not nla_tracks:
+        return False
+
+    for track in nla_tracks:
+        strips = getattr(
+            track,
+            "strips",
+            None,
+        )
+
+        if strips and len(strips) > 0:
+            return True
+
+    return False
+
+
+def animation_data_has_drivers(
+        animation_data,
+    ):
+    """
+    Returns True when animation data contains at least one driver.
+    """
+    drivers = getattr(
+        animation_data,
+        "drivers",
+        None,
+    )
+
+    return bool(
+        drivers
+        and len(drivers) > 0
+    )
