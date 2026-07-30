@@ -6,7 +6,7 @@ import bpy
 # -------------------------------------------------------------------------
 
 SEVERITY = "info"
-LABEL = "UV Outside Tile Area"
+LABEL = "UV Within Bounds"
 DESCRIPTION = (
     "Checks if Object has UVs Outside of the Tile Area"
 )

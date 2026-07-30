@@ -10,7 +10,7 @@ import bpy
 # -------------------------------------------------------------------------
 
 SEVERITY = "warning"
-LABEL = "Overlapping UV Faces"
+LABEL = "UV Overlap"
 DESCRIPTION = (
     "Checks if Object has UV faces that overlap "
     "with other UV faces."
