@@ -2,9 +2,15 @@
 
 import inspect
 from typing import Any
-
-from ..utils.json_io import load_all_check_preferences
+from ..utils import json_io
 from ..utils.naming import sanitize_category_name
+
+
+def load_all_check_preferences():
+    return json_io.load_all_check_preferences()
+
+def save_all_check_preferences(data):
+    return json_io.save_all_check_preferences(data)
 
 def get_check_preference_id(category_name, module_name):
     """

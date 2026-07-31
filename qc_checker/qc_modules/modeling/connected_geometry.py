@@ -78,7 +78,10 @@ def main(preferences=None):
             "settings": dict,
         }
     """
-    settings = resolve_settings(preferences)
+    settings = resolve_settings(
+        SETTINGS,
+        preferences
+    )
 
     failed_objects = get_objects_with_loose_geometry(
         settings=settings,
@@ -146,7 +149,10 @@ def fix(
             "issues": list[str],
         }
     """
-    settings = resolve_settings(preferences)
+    settings = resolve_settings(
+        SETTINGS,
+        preferences
+    )
 
     return remove_loose_geometry_components(
         result_data=result_data,
@@ -186,7 +192,7 @@ def get_objects_with_loose_geometry(
         objects = bpy.context.scene.objects
 
     if settings is None:
-        settings = resolve_settings()
+        settings = resolve_settings(SETTINGS)
 
     failed_objects = {}
 
@@ -221,7 +227,7 @@ def analyze_object_components(
         return None
 
     if settings is None:
-        settings = resolve_settings()
+        settings = resolve_settings(SETTINGS)
 
     mesh = getattr(obj, "data", None)
 
@@ -578,7 +584,7 @@ def remove_loose_geometry_components(
         dict
     """
     if settings is None:
-        settings = resolve_settings()
+        settings = resolve_settings(SETTINGS)
 
     if not isinstance(result_data, dict):
         result_data = {}
@@ -649,7 +655,7 @@ def remove_object_loose_components(
         dict
     """
     if settings is None:
-        settings = resolve_settings()
+        settings = resolve_settings(SETTINGS)
 
     mesh = obj.data
 
@@ -759,38 +765,3 @@ def remove_object_loose_components(
 
     finally:
         bm.free()
-
-
-# -------------------------------------------------------------------------
-# Helpers
-# -------------------------------------------------------------------------
-
-def resolve_settings(preferences=None):
-    """
-    Merges saved preferences over the check defaults.
-
-    Returns:
-        dict
-    """
-    resolved = {
-        setting_name: definition.get("default")
-        for setting_name, definition
-        in SETTINGS.items()
-    }
-
-    if isinstance(preferences, dict):
-        for setting_name, value in preferences.items():
-            if setting_name in resolved:
-                resolved[setting_name] = value
-
-    resolved["minimum_loose_vertices"] = max(
-        1,
-        int(
-            resolved.get(
-                "minimum_loose_vertices",
-                1,
-            )
-        ),
-    )
-
-    return resolved

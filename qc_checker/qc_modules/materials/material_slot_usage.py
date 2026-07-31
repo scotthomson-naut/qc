@@ -51,6 +51,7 @@ def main(preferences=None):
         }
     """
     settings = resolve_settings(
+        SETTINGS,
         preferences
     )
 
@@ -137,6 +138,7 @@ def fix(
         }
     """
     settings = resolve_settings(
+        SETTINGS,
         preferences
     )
 
@@ -193,7 +195,7 @@ def get_objects_with_unused_material_slots(
         objects = bpy.context.scene.objects
 
     if settings is None:
-        settings = resolve_settings()
+        settings = resolve_settings(SETTINGS)
 
     ignore_last_empty_slot = bool(
         settings.get(
@@ -332,7 +334,7 @@ def remove_unused_material_slots(
         }
     """
     if settings is None:
-        settings = resolve_settings()
+        settings = resolve_settings(SETTINGS)
 
     if not isinstance(
         result_data,
@@ -450,33 +452,6 @@ def remove_unused_material_slots(
 # -------------------------------------------------------------------------
 # Helpers
 # -------------------------------------------------------------------------
-
-def resolve_settings(preferences=None):
-    """
-    Merges saved preferences over the check defaults.
-
-    Args:
-        preferences (dict | None):
-            Saved user preference values.
-
-    Returns:
-        dict
-    """
-    resolved = {
-        setting_name: definition.get(
-            "default"
-        )
-        for setting_name, definition
-        in SETTINGS.items()
-    }
-
-    if isinstance(preferences, dict):
-        for setting_name, value in preferences.items():
-            if setting_name in resolved:
-                resolved[setting_name] = value
-
-    return resolved
-
 
 def get_current_unused_slot_indices(
         obj,

@@ -90,6 +90,7 @@ def main(preferences=None):
         dict
     """
     settings = resolve_settings(
+        SETTINGS,
         preferences
     )
 
@@ -119,6 +120,7 @@ def fix(result_data, preferences=None):
     Automatically reduces render samples to the recommended amount.
     """
     settings = resolve_settings(
+        SETTINGS,
         preferences
     )
 
@@ -242,24 +244,3 @@ def fix_render_samples(result_data=None):
         },
         "issues": [],
     }
-
-
-# -------------------------------------------------------------------------
-# Helpers
-# -------------------------------------------------------------------------
-
-def resolve_settings(preferences=None):
-    """
-    Merge user preferences over the hardcoded defaults.
-    """
-    resolved = {
-        name: definition.get("default")
-        for name, definition in SETTINGS.items()
-    }
-
-    if isinstance(preferences, dict):
-        for name, value in preferences.items():
-            if name in resolved:
-                resolved[name] = value
-
-    return resolved

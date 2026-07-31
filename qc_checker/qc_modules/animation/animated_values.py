@@ -65,6 +65,7 @@ def main(preferences=None):
         }
     """
     settings = resolve_settings(
+        SETTINGS,
         preferences
     )
 
@@ -129,6 +130,7 @@ def fix(
         }
     """
     settings = resolve_settings(
+        SETTINGS,
         preferences
     )
 
@@ -183,7 +185,7 @@ def get_objects_with_constant_fcurves(
         }
     """
     if settings is None:
-        settings = resolve_settings()
+        settings = resolve_settings(SETTINGS)
 
     minimum_keyframes = max(
         2,
@@ -324,7 +326,7 @@ def reduce_constant_fcurves(
         }
     """
     if settings is None:
-        settings = resolve_settings()
+        settings = resolve_settings(SETTINGS)
 
     value_tolerance = max(
         0.0,
@@ -527,26 +529,6 @@ def reduce_constant_fcurves(
 # -------------------------------------------------------------------------
 # Helpers 
 # -------------------------------------------------------------------------
-
-def resolve_settings(preferences=None):
-    """
-    Merges user preferences over the check defaults.
-    """
-    resolved = {
-        setting_name: definition.get(
-            "default"
-        )
-        for setting_name, definition
-        in SETTINGS.items()
-    }
-
-    if isinstance(preferences, dict):
-        for setting_name, value in preferences.items():
-            if setting_name in resolved:
-                resolved[setting_name] = value
-
-    return resolved
-
 
 def get_object_action(obj):
     """

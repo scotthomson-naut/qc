@@ -60,6 +60,7 @@ def main(preferences=None):
             Normalized QC result.
     """
     settings = resolve_settings(
+        SETTINGS,
         preferences
     )
 
@@ -124,7 +125,7 @@ def get_objects_exceeding_poly_budget(
         }
     """
     if settings is None:
-        settings = resolve_settings()
+        settings = resolve_settings(SETTINGS)
 
     scene_poly_budget = int(
         settings["budget_scene"]
@@ -186,35 +187,3 @@ def get_objects_exceeding_poly_budget(
         ),
         "failed_objects": failed_objects,
     }
-
-
-# -------------------------------------------------------------------------
-# Helpers
-# -------------------------------------------------------------------------
-
-def resolve_settings(preferences=None):
-    """
-    Merges user preferences over the check defaults.
-
-    Args:
-        preferences (dict | None):
-            User-configured preference values.
-
-    Returns:
-        dict:
-            Fully resolved settings.
-    """
-    resolved = {
-        setting_name: definition.get(
-            "default"
-        )
-        for setting_name, definition
-        in SETTINGS.items()
-    }
-
-    if isinstance(preferences, dict):
-        for setting_name, value in preferences.items():
-            if setting_name in resolved:
-                resolved[setting_name] = value
-
-    return resolved

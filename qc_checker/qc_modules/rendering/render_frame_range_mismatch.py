@@ -95,6 +95,7 @@ def main(preferences=None):
         }
     """
     settings = resolve_settings(
+        SETTINGS,
         preferences
     )
 
@@ -251,6 +252,7 @@ def fix(
         }
     """
     settings = resolve_settings(
+        SETTINGS,
         preferences
     )
 
@@ -294,7 +296,7 @@ def get_scene_animation_range(
         scene = bpy.context.scene
 
     if settings is None:
-        settings = resolve_settings()
+        settings = resolve_settings(SETTINGS)
 
     include_muted_nla = bool(
         settings["include_muted_nla"]
@@ -386,7 +388,7 @@ def set_render_range_to_animation(
         }
     """
     if settings is None:
-        settings = resolve_settings()
+        settings = resolve_settings(SETTINGS)
 
     scene = bpy.context.scene
 
@@ -470,32 +472,6 @@ def set_render_range_to_animation(
 # -------------------------------------------------------------------------
 # Helpers
 # -------------------------------------------------------------------------
-
-def resolve_settings(preferences=None):
-    """
-    Merges saved preferences over the check defaults.
-
-    Args:
-        preferences (dict | None)
-
-    Returns:
-        dict
-    """
-    resolved = {
-        setting_name: definition.get(
-            "default"
-        )
-        for setting_name, definition
-        in SETTINGS.items()
-    }
-
-    if isinstance(preferences, dict):
-        for setting_name, value in preferences.items():
-            if setting_name in resolved:
-                resolved[setting_name] = value
-
-    return resolved
-
 
 def get_object_animation_range(
         obj,

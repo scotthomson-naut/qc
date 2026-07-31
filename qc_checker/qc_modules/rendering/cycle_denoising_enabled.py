@@ -64,7 +64,10 @@ def get_cycles_denoise_setting(preferences=None):
     Returns:
         dict
     """
-    settings = resolve_settings(preferences)
+    settings = resolve_settings(
+        SETTINGS,
+        preferences
+    )
 
     scene = bpy.context.scene
 
@@ -133,23 +136,3 @@ def fix_cycles_denoise_setting():
         "issues": [],
     }
 
-
-# -------------------------------------------------------------------------
-# Helpers
-# -------------------------------------------------------------------------
-
-def resolve_settings(preferences=None):
-    """
-    Resolve user preferences over defaults.
-    """
-    resolved = {
-        name: definition.get("default")
-        for name, definition in SETTINGS.items()
-    }
-
-    if isinstance(preferences, dict):
-        for key, value in preferences.items():
-            if key in resolved:
-                resolved[key] = value
-
-    return resolved

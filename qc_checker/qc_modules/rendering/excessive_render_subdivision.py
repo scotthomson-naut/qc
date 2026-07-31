@@ -87,6 +87,7 @@ def main(preferences=None):
         }
     """
     settings = resolve_settings(
+        SETTINGS,
         preferences
     )
 
@@ -163,6 +164,7 @@ def fix(
         }
     """
     settings = resolve_settings(
+        SETTINGS,
         preferences
     )
 
@@ -218,7 +220,7 @@ def get_objects_with_excessive_render_subdivision(
         objects = bpy.context.scene.objects
 
     if settings is None:
-        settings = resolve_settings()
+        settings = resolve_settings(SETTINGS)
 
     maximum_render_levels = max(
         0,
@@ -404,7 +406,7 @@ def reduce_excessive_render_subdivision(
         dict
     """
     if settings is None:
-        settings = resolve_settings()
+        settings = resolve_settings(SETTINGS)
 
     if not isinstance(
         result_data,
@@ -632,32 +634,6 @@ def reduce_excessive_render_subdivision(
 # -------------------------------------------------------------------------
 # Helpers
 # -------------------------------------------------------------------------
-
-def resolve_settings(preferences=None):
-    """
-    Merges saved preferences over the check defaults.
-
-    Args:
-        preferences (dict | None)
-
-    Returns:
-        dict
-    """
-    resolved = {
-        setting_name: definition.get(
-            "default"
-        )
-        for setting_name, definition
-        in SETTINGS.items()
-    }
-
-    if isinstance(preferences, dict):
-        for setting_name, value in preferences.items():
-            if setting_name in resolved:
-                resolved[setting_name] = value
-
-    return resolved
-
 
 def get_recommended_render_levels(
         viewport_levels,

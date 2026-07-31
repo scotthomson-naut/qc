@@ -90,7 +90,7 @@ def main(preferences=None):
             "settings": dict,
         }
     """
-    settings = resolve_settings(preferences)
+    settings = resolve_settings(SETTINGS, preferences)
 
     analysis = analyze_scene_texture_usage(
         settings=settings,
@@ -163,7 +163,7 @@ def fix(result_data=None, preferences=None):
             "issues": list[str],
         }
     """
-    settings = resolve_settings(preferences)
+    settings = resolve_settings(SETTINGS, preferences)
 
     return fix_texture_colorspaces(
         result_data=result_data,
@@ -241,7 +241,7 @@ def fix_texture_colorspaces(
     image.
     """
     if settings is None:
-        settings = resolve_settings()
+        settings = resolve_settings(SETTINGS)
 
     if not isinstance(result_data, dict):
         result_data = {}
@@ -426,24 +426,6 @@ def fix_texture_colorspaces(
 # Helpers
 # -------------------------------------------------------------------------
 
-def resolve_settings(preferences=None):
-    """
-    Merges saved preferences over the check defaults.
-    """
-    resolved = {
-        setting_name: definition.get("default")
-        for setting_name, definition
-        in SETTINGS.items()
-    }
-
-    if isinstance(preferences, dict):
-        for setting_name, value in preferences.items():
-            if setting_name in resolved:
-                resolved[setting_name] = value
-
-    return resolved
-
-
 def analyze_scene_texture_usage(settings=None):
     """
     Examines materials assigned to objects in the current scene.
@@ -455,7 +437,7 @@ def analyze_scene_texture_usage(settings=None):
         dict
     """
     if settings is None:
-        settings = resolve_settings()
+        settings = resolve_settings(SETTINGS)
 
     image_usage = {}
 
@@ -572,7 +554,7 @@ def classify_image_texture_usage(node, settings=None):
         }
     """
     if settings is None:
-        settings = resolve_settings()
+        settings = resolve_settings(SETTINGS)
 
     result = {
         "non_color_usages": set(),
@@ -958,7 +940,7 @@ def analyze_single_image_usage(image, settings=None):
     Rechecks all scene Image Texture nodes using one image.
     """
     if settings is None:
-        settings = resolve_settings()
+        settings = resolve_settings(SETTINGS)
 
     non_color_usages = set()
     color_usages = set()

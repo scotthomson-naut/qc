@@ -50,7 +50,10 @@ def main(preferences=None):
             "settings": dict,
         }
     """
-    settings = resolve_settings(preferences)
+    settings = resolve_settings(
+        SETTINGS,
+        preferences
+    )
 
     failed_settings = get_resolution_percentage_mismatch(
         settings=settings,
@@ -105,7 +108,10 @@ def fix(
             "issues": list[str],
         }
     """
-    settings = resolve_settings(preferences)
+    settings = resolve_settings(
+        SETTINGS,
+        preferences
+    )
 
     return fix_resolution_percentage(
         result_data=result_data,
@@ -154,7 +160,7 @@ def get_resolution_percentage_mismatch(
         return {}
 
     if settings is None:
-        settings = resolve_settings()
+        settings = resolve_settings(SETTINGS)
 
     required_percentage = int(
         settings.get(
@@ -231,7 +237,7 @@ def fix_resolution_percentage(
         }
     """
     if settings is None:
-        settings = resolve_settings()
+        settings = resolve_settings(SETTINGS)
 
     scene = bpy.context.scene
 
@@ -298,47 +304,3 @@ def fix_resolution_percentage(
         },
         "issues": [],
     }
-
-
-# -------------------------------------------------------------------------
-# Helpers
-# -------------------------------------------------------------------------
-
-def resolve_settings(preferences=None):
-    """
-    Merges saved preferences over the check defaults.
-
-    Args:
-        preferences (dict | None):
-            Saved user settings.
-
-    Returns:
-        dict
-    """
-    resolved = {
-        setting_name: definition.get(
-            "default"
-        )
-        for setting_name, definition
-        in SETTINGS.items()
-    }
-
-    if isinstance(preferences, dict):
-        for setting_name, value in preferences.items():
-            if setting_name in resolved:
-                resolved[setting_name] = value
-
-    resolved["required_percentage"] = max(
-        1,
-        min(
-            100,
-            int(
-                resolved.get(
-                    "required_percentage",
-                    100,
-                )
-            ),
-        ),
-    )
-
-    return resolved
