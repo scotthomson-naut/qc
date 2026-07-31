@@ -11,7 +11,7 @@ CHECK_PREFERENCES_DIR = bpy.utils.user_resource(
 CHECK_PREFERENCES_FILE = str(
     Path(CHECK_PREFERENCES_DIR) / "check_preferences.json"
 )
-TIER = "Pro"
+TIER = "Core"
 
 QC_IS_RUNNING = False
 QC_IGNORE_CHANGES_UNTIL = 0.0

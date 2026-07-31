@@ -13,6 +13,18 @@ from ..core import *
 from ..properties import SCRIPTRONAUT_PG_CheckSetting
 from ..utils import *
 
+from ..core.icons import get_severity_icon
+
+from ..core.results import (
+    get_issues_from_result
+)
+
+from ..utils.formatting import (
+    draw_qc_result_dictionary,
+    draw_wrapped_qc_text,
+    get_matching_object_issues,
+)
+
 class SCRIPTRONAUT_OT_QC_CheckInfo(Operator):
     """
     UI-only operator used to provide a tooltip
@@ -136,16 +148,19 @@ class SCRIPTRONAUT_OT_QC_ObjectDetails(
             )
         )
 
-    def draw(
-        self,
-        context,
-    ):
+    def draw(self, context):
+        """
+        Draw the stored issue messages and structured failure data for the
+        selected object.
+        """
         layout = self.layout
 
-        checks = (
-            context.scene
-            .scriptronaut_qc_checks
-        )
+        scene = context.scene
+        checks = scene.scriptronaut_qc_checks
+
+        # ---------------------------------------------------------
+        # Validate check index
+        # ---------------------------------------------------------
 
         if (
             self.check_index < 0
@@ -161,35 +176,28 @@ class SCRIPTRONAUT_OT_QC_ObjectDetails(
             self.check_index
         ]
 
-        result_data = (
-            result_data_from_json(
-                check_item.result_data
-            )
+        result_data = result_data_from_json(
+            check_item.result_data
         )
 
-        failed_objects = (
-            result_data.get(
-                "failed_objects",
-                {},
-            )
+        failed_objects = result_data.get(
+            "failed_objects",
+            {},
         )
 
-        object_data = {}
-
-        if isinstance(
+        if not isinstance(
             failed_objects,
             dict,
         ):
-            object_data = (
-                failed_objects.get(
-                    self.object_name,
-                    {},
-                )
-            )
+            failed_objects = {}
 
-        # -----------------------------------------------------
+        object_data = failed_objects.get(
+            self.object_name
+        )
+
+        # ---------------------------------------------------------
         # Header
-        # -----------------------------------------------------
+        # ---------------------------------------------------------
 
         header_box = layout.box()
 
@@ -208,9 +216,9 @@ class SCRIPTRONAUT_OT_QC_ObjectDetails(
             icon="OBJECT_DATA",
         )
 
-        # -----------------------------------------------------
+        # ---------------------------------------------------------
         # Issue messages
-        # -----------------------------------------------------
+        # ---------------------------------------------------------
 
         issue_box = layout.box()
 
@@ -219,22 +227,17 @@ class SCRIPTRONAUT_OT_QC_ObjectDetails(
             icon="ERROR",
         )
 
-        matching_issues = (
-            get_matching_object_issues(
-                result_data,
-                self.object_name,
-            )
+        matching_issues = get_matching_object_issues(
+            result_data,
+            self.object_name,
         )
 
-        # Some checks return only one general issue that does not
-        # contain the object name. Show it when only one issue exists.
         if not matching_issues:
-            all_issues = (
-                get_issues_from_result(
-                    result_data
-                )
+            all_issues = get_issues_from_result(
+                result_data
             )
 
+            # Show one general issue when the check only returned one.
             if len(all_issues) == 1:
                 matching_issues = all_issues
 
@@ -261,9 +264,9 @@ class SCRIPTRONAUT_OT_QC_ObjectDetails(
                 icon="INFO",
             )
 
-        # -----------------------------------------------------
-        # Structured result information
-        # -----------------------------------------------------
+        # ---------------------------------------------------------
+        # Structured failure data
+        # ---------------------------------------------------------
 
         result_box = layout.box()
 
@@ -272,16 +275,36 @@ class SCRIPTRONAUT_OT_QC_ObjectDetails(
             icon="PROPERTIES",
         )
 
-        if isinstance(object_data, dict):
-            draw_qc_result_dictionary(
-                result_box,
-                object_data,
+        if object_data is None:
+            result_box.label(
+                text=(
+                    'No failed_objects data was found for "{}".'
+                ).format(
+                    self.object_name
+                ),
+                icon="INFO",
             )
+
+        elif isinstance(
+            object_data,
+            dict,
+        ):
+            if object_data:
+                draw_qc_result_dictionary(
+                    result_box,
+                    object_data,
+                )
+            else:
+                result_box.label(
+                    text="The object failure dictionary is empty.",
+                    icon="INFO",
+                )
 
         else:
             draw_wrapped_qc_text(
                 result_box,
-                object_data,
+                str(object_data),
+                width=85,
             )
 
     def execute(
