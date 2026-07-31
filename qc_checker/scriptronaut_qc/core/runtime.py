@@ -157,21 +157,55 @@ def redraw_qc_status_timer():
 
 def initialize_qc_checks_timer():
     """
-    Timer wrapper used when enabling the addon.
+    Initialize the check list after Blender has a usable window context.
+
+    During startup or extension reload, Blender may call this timer before
+    bpy.context.window exists. Returning a positive number asks Blender
+    to retry instead of permanently ending the timer with an empty list.
     """
-    initialize_qc_checks_after_load()
+    if not bpy.context.window_manager.windows:
+        return 0.25
+
+    initialized = initialize_qc_checks_after_load()
+
+    if not initialized:
+        return 0.25
+
     return None
 
+@persistent
 def initialize_qc_checks_after_load(_dummy=None):
     """
     Initializes the QC category and script list after a Blender file loads.
     """
+    windows = list(
+        bpy.context.window_manager.windows
+    )
+
+    if not windows:
+        return False
+
+    window = (
+        bpy.context.window
+        or windows[0]
+    )
+
+    screen = window.screen
+
     for scene in bpy.data.scenes:
-        if not hasattr(scene, "scriptronaut_qc_settings"):
+        if not hasattr(
+            scene,
+            "scriptronaut_qc_settings",
+        ):
             continue
 
-        settings = scene.scriptronaut_qc_settings
-        checks = scene.scriptronaut_qc_checks
+        settings = (
+            scene.scriptronaut_qc_settings
+        )
+
+        checks = (
+            scene.scriptronaut_qc_checks
+        )
 
         categories = get_categories(
             settings.folder_path,
@@ -186,12 +220,13 @@ def initialize_qc_checks_after_load(_dummy=None):
         if settings.category not in categories:
             settings.category = categories[0]
 
-        # Load using a context override for this scene.
-        window = bpy.context.window
+        with bpy.context.temp_override(
+            window=window,
+            screen=screen,
+            scene=scene,
+        ):
+            load_qc_category(
+                bpy.context
+            )
 
-        if window is not None:
-            with bpy.context.temp_override(
-                window=window,
-                scene=scene,
-            ):
-                load_qc_category(bpy.context)
+    return True
