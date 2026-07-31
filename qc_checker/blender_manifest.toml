@@ -4,13 +4,20 @@ id = "scriptronaut_qc_checks"
 version = "1.1.0"
 name = "Scriptronaut QC Checks"
 tagline = "Run categorized quality-control sanity checks in Blender"
-maintainer = "Scriptronaut"
-type = "add-on"
 
-tags = ["3D View", "Workflow"]
-blender_version_min = "4.3.0"
+maintainer = "Scriptronaut"
+copyright = ["2026 Scriptronaut"]
+
+type = "add-on"
+tags = [
+    "3D View",
+    "Pipeline",
+    "Workflow",
+]
+
+blender_version_min = "5.1.0"
 license = ["SPDX:GPL-3.0-or-later"]
 
+
 [permissions]
-network = true
 files = true
