@@ -150,6 +150,11 @@ def get_objects_with_non_manifold_geometry(
                     "multi_face_edges": multi_face_edges,
                     "non_manifold_edges": non_manifold_edges,
                     "edge_count": len(non_manifold_edges),
+
+                    "selection": {
+                        "mode": "EDGE",
+                        "indices": non_manifold_edges,
+                    },
                 }
 
         finally:

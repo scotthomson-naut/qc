@@ -1,6 +1,19 @@
-from .category_editor import *
-from .run import *
-from .selection import *
-from .fix import *
-from .info import *
-from .settings import *
+"""Scriptronaut QC operators."""
+
+from . import (
+    category_editor,
+    fix,
+    info,
+    run,
+    selection,
+    settings,
+)
+
+CLASSES = (
+    *category_editor.CLASSES,
+    *fix.CLASSES,
+    *info.CLASSES,
+    *run.CLASSES,
+    *selection.CLASSES,
+    *settings.CLASSES,
+)

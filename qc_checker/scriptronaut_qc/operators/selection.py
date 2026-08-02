@@ -1,74 +1,297 @@
-"""Scriptronaut QC Checks internal module."""
-
-import os
-import traceback
+"""Scriptronaut QC Checks selection operators."""
 
 import bpy
-from bpy.props import BoolProperty, CollectionProperty, IntProperty, StringProperty
+
+from bpy.props import (
+    IntProperty,
+    StringProperty,
+)
 from bpy.types import Operator
 
-from .. import constants
-from ..core.context import QCContext
-from ..core import *
-from ..properties import SCRIPTRONAUT_PG_CheckSetting
-from ..utils import *
+from ..core.selection import (
+    select_mesh_components,
+    select_object,
+)
+from ..utils.json_io import (
+    result_data_from_json,
+)
 
-class SCRIPTRONAUT_OT_QC_SelectObject(Operator):
+
+class SCRIPTRONAUT_OT_QC_SelectObject(
+    Operator
+):
     """
-    Selects and activates an object associated with a QC issue.
+    Selects a failed object and optionally its failed mesh components.
+
+    When component-selection metadata is available, the operator enters
+    Edit Mode and selects the reported vertices, edges, or faces.
+
+    If the scene changed after the QC run, component indices may be stale.
+    In that case, only the object is selected.
     """
-    bl_idname = "scriptronaut.qc_select_object"
-    bl_label = "Select QC Object"
-    bl_description = "Select this object in the scene"
+
+    bl_idname = (
+        "scriptronaut.qc_select_object"
+    )
+
+    bl_label = (
+        "Select QC Failure"
+    )
+
+    bl_description = (
+        "Select the failed object or its failed mesh components"
+    )
 
     object_name: StringProperty(
         name="Object Name",
         default="",
     )
 
-    def execute(self, context):
-        obj = bpy.data.objects.get(self.object_name)
+    check_index: IntProperty(
+        name="Check Index",
+        default=-1,
+    )
+
+    def execute(
+        self,
+        context,
+    ):
+        obj = bpy.data.objects.get(
+            self.object_name
+        )
 
         if obj is None:
             self.report(
                 {"ERROR"},
-                'Object "{}" no longer exists.'.format(self.object_name),
+                'Object "{}" no longer exists.'.format(
+                    self.object_name
+                ),
             )
+
             return {"CANCELLED"}
 
-        # Ensure the object is visible and selectable.
-        try:
-            obj.hide_set(False)
-        except RuntimeError:
-            pass
+        selection_data = (
+            self.get_component_selection_data(
+                context
+            )
+        )
 
-        obj.hide_viewport = False
-        obj.hide_select = False
+        # -----------------------------------------------------
+        # Component selection
+        # -----------------------------------------------------
 
-        # Deselect everything currently selected.
-        for selected_obj in context.selected_objects:
-            selected_obj.select_set(False)
+        if isinstance(
+            selection_data,
+            dict,
+        ):
+            settings = (
+                context.scene
+                .scriptronaut_qc_settings
+            )
 
-        # Select and activate the failed object.
-        obj.select_set(True)
-        context.view_layer.objects.active = obj
+            '''
+            # Component indices belong to the mesh state that existed
+            # when the check was run. Do not use them after scene edits.
+            if settings.scene_modified_since_qc:
+                selected = select_object(
+                    context,
+                    obj,
+                )
+
+                if not selected:
+                    self.report(
+                        {"ERROR"},
+                        (
+                            'Could not select object "{}".'
+                        ).format(
+                            obj.name
+                        ),
+                    )
+
+                    return {"CANCELLED"}
+
+                self.report(
+                    {"WARNING"},
+                    (
+                        "The scene changed after the last QC run. "
+                        "The object was selected, but its mesh "
+                        "components were not selected. Run the "
+                        "check again to refresh the component data."
+                    ),
+                )
+
+                return {"FINISHED"}
+            '''
+
+            success, message = (
+                select_mesh_components(
+                    context=context,
+                    obj=obj,
+                    selection_data=selection_data,
+                )
+            )
+
+            if success:
+                self.report(
+                    {"INFO"},
+                    message,
+                )
+
+                return {"FINISHED"}
+
+            # Component metadata may no longer match the mesh even
+            # when the global dirty flag was not triggered.
+            selected = select_object(
+                context,
+                obj,
+            )
+
+            if not selected:
+                self.report(
+                    {"ERROR"},
+                    (
+                        "{} Could not select object "
+                        '"{}".'
+                    ).format(
+                        message,
+                        obj.name,
+                    ),
+                )
+
+                return {"CANCELLED"}
+
+            self.report(
+                {"WARNING"},
+                (
+                    "{} The object was selected instead."
+                ).format(
+                    message
+                ),
+            )
+
+            return {"FINISHED"}
+
+        # -----------------------------------------------------
+        # Object-only selection
+        # -----------------------------------------------------
+
+        if not select_object(
+            context,
+            obj,
+        ):
+            self.report(
+                {"ERROR"},
+                'Could not select object "{}".'.format(
+                    self.object_name
+                ),
+            )
+
+            return {"CANCELLED"}
 
         self.report(
             {"INFO"},
-            'Selected object: "{}"'.format(obj.name),
+            'Selected object: "{}".'.format(
+                obj.name
+            ),
         )
 
         return {"FINISHED"}
 
+    def get_component_selection_data(
+        self,
+        context,
+    ):
+        """
+        Gets the component-selection metadata stored by the selected check.
+
+        Returns:
+            dict | None:
+                A dictionary such as:
+
+                {
+                    "mode": "FACE",
+                    "indices": [1, 4, 8],
+                }
+
+                or None when the check does not provide component data.
+        """
+        checks = (
+            context.scene
+            .scriptronaut_qc_checks
+        )
+
+        if (
+            self.check_index < 0
+            or self.check_index >= len(checks)
+        ):
+            return None
+
+        check_item = checks[
+            self.check_index
+        ]
+
+        result_data = result_data_from_json(
+            check_item.result_data
+        )
+
+        if not isinstance(
+            result_data,
+            dict,
+        ):
+            return None
+
+        failed_objects = result_data.get(
+            "failed_objects",
+            {},
+        )
+
+        if not isinstance(
+            failed_objects,
+            dict,
+        ):
+            return None
+
+        object_data = failed_objects.get(
+            self.object_name,
+            {},
+        )
+
+        if not isinstance(
+            object_data,
+            dict,
+        ):
+            return None
+
+        selection_data = object_data.get(
+            "selection"
+        )
+
+        if not isinstance(
+            selection_data,
+            dict,
+        ):
+            return None
+
+        return selection_data
+
+
 class SCRIPTRONAUT_OT_QC_SelectCurrentFailedObject(
     Operator
 ):
+    """
+    Selects the currently highlighted failed object in Object mode.
+    """
+
     bl_idname = (
         "scriptronaut.qc_select_current_failed_object"
     )
 
     bl_label = (
         "Select Failed Object"
+    )
+
+    bl_description = (
+        "Select the currently highlighted failed object"
     )
 
     def execute(
@@ -87,10 +310,14 @@ class SCRIPTRONAUT_OT_QC_SelectCurrentFailedObject(
 
         if (
             settings.failed_object_index < 0
-            or
-            settings.failed_object_index
+            or settings.failed_object_index
             >= len(failed_objects)
         ):
+            self.report(
+                {"WARNING"},
+                "No failed object is selected.",
+            )
+
             return {"CANCELLED"}
 
         object_name = failed_objects[
@@ -102,32 +329,37 @@ class SCRIPTRONAUT_OT_QC_SelectCurrentFailedObject(
         )
 
         if obj is None:
-            return {"CANCELLED"}
-
-        for selected_obj in (
-            context.selected_objects
-        ):
-            selected_obj.select_set(
-                False
+            self.report(
+                {"ERROR"},
+                'Object "{}" no longer exists.'.format(
+                    object_name
+                ),
             )
 
-        try:
-            obj.hide_set(False)
-        except RuntimeError:
-            pass
+            return {"CANCELLED"}
 
-        obj.hide_viewport = False
-        obj.hide_select = False
+        if not select_object(
+            context,
+            obj,
+        ):
+            self.report(
+                {"ERROR"},
+                'Could not select object "{}".'.format(
+                    object_name
+                ),
+            )
 
-        obj.select_set(
-            True
-        )
+            return {"CANCELLED"}
 
-        context.view_layer.objects.active = (
-            obj
+        self.report(
+            {"INFO"},
+            'Selected object: "{}".'.format(
+                object_name
+            ),
         )
 
         return {"FINISHED"}
+
 
 CLASSES = (
     SCRIPTRONAUT_OT_QC_SelectObject,

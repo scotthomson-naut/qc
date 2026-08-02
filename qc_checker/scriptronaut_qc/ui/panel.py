@@ -405,97 +405,144 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
         # Issues
         # ---------------------------------------------------------
 
-        box = layout.box()
-        box.label(
+        issues_box = layout.box()
+
+        issues_box.label(
             text="Issues:",
             icon="INFO",
         )
 
-        if current_item:
-            result_data = (
-                result_data_from_json(
-                    current_item.result_data
-                )
+        if current_item is None:
+            issues_box.label(
+                text="No check selected.",
             )
+            return
 
-            failed_objects = (
-                result_data.get(
-                    "failed_objects",
-                    {},
-                )
-            )
+        result_data = result_data_from_json(
+            current_item.result_data
+        )
 
-            if (
-                isinstance(
-                    failed_objects,
-                    dict,
+        failed_objects = result_data.get(
+            "failed_objects",
+            {},
+        )
+
+        # ---------------------------------------------------------
+        # Failed objects
+        # ---------------------------------------------------------
+
+        if (
+            isinstance(failed_objects, dict)
+            and failed_objects
+        ):
+            for object_name, object_data in failed_objects.items():
+
+                row = issues_box.row(
+                    align=True
                 )
-                and
-                failed_objects
-            ):
-                for (
-                    object_name,
+
+                row.alert = True
+
+                selection_data = None
+
+                if isinstance(
                     object_data,
-                ) in failed_objects.items():
-
-                    row = box.row(
-                        align=True
-                    )
-
-                    row.alert = True
-
-                    # -------------------------------------------------
-                    # Object selection button
-                    # -------------------------------------------------
-
-                    object_button = row.operator(
-                        "scriptronaut.qc_select_object",
-                        text="Failed: {}".format(
-                            object_name
-                        ),
-                        icon="ERROR",
-                    )
-
-                    object_button.object_name = (
-                        object_name
-                    )
-
-                    # -------------------------------------------------
-                    # Details popup button
-                    # -------------------------------------------------
-
-                    details_button = row.operator(
-                        "scriptronaut.qc_object_details",
-                        text="",
-                        icon="TEXT",
-                    )
-
-                    details_button.check_index = (
-                        settings.check_index
-                    )
-
-                    details_button.object_name = (
-                        object_name
-                    )
-
-            elif settings.issues_display:
-                for line in (
-                    settings.issues_display
-                    .split("\n")
+                    dict,
                 ):
-                    box.label(
-                        text=line
+                    selection_data = object_data.get(
+                        "selection"
                     )
 
-            else:
-                box.label(
-                    text="No issues found.",
-                    icon="CHECKMARK",
+                # -------------------------------------------------
+                # Selection button
+                # -------------------------------------------------
+
+                if isinstance(
+                    selection_data,
+                    dict,
+                ):
+                    selection_mode = str(
+                        selection_data.get(
+                            "mode",
+                            "",
+                        )
+                    ).upper()
+
+                    if selection_mode == "FACE":
+                        button_icon = "FACESEL"
+
+                    elif selection_mode == "EDGE":
+                        button_icon = "EDGESEL"
+
+                    elif selection_mode == "VERT":
+                        button_icon = "VERTEXSEL"
+
+                    else:
+                        button_icon = "EDITMODE_HLT"
+
+                    button_text = (
+                        "Select Failed Components: {}".format(
+                            object_name
+                        )
+                    )
+
+                else:
+                    button_icon = "OBJECT_DATA"
+
+                    button_text = (
+                        "Select Failed Object: {}".format(
+                            object_name
+                        )
+                    )
+
+                select_operator = row.operator(
+                    "scriptronaut.qc_select_object",
+                    text=button_text,
+                    icon=button_icon,
+                )
+
+                select_operator.object_name = (
+                    object_name
+                )
+
+                # Required so the operator can retrieve this
+                # check's stored component-selection data.
+                select_operator.check_index = (
+                    settings.check_index
+                )
+
+                # -------------------------------------------------
+                # Details button
+                # -------------------------------------------------
+
+                details_operator = row.operator(
+                    "scriptronaut.qc_object_details",
+                    text="",
+                    icon="TEXT",
+                )
+
+                details_operator.check_index = (
+                    settings.check_index
+                )
+
+                details_operator.object_name = (
+                    object_name
+                )
+
+        # ---------------------------------------------------------
+        # Non-object issue messages
+        # ---------------------------------------------------------
+
+        elif settings.issues_display:
+            for line in settings.issues_display.splitlines():
+                issues_box.label(
+                    text=line,
                 )
 
         else:
-            box.label(
-                text="No issues selected."
+            issues_box.label(
+                text="No issues found.",
+                icon="CHECKMARK",
             )
 
     # ---------------------------------------------------------------------

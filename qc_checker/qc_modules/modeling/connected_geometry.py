@@ -341,6 +341,13 @@ def analyze_object_components(
             "loose_edge_indices": loose_edge_indices,
             "loose_face_indices": loose_face_indices,
             "loose_components": loose_components,
+
+            "selection": {
+                "mode": "MIXED",
+                "vertex_indices": loose_vertex_indices,
+                "edge_indices": loose_edge_indices,
+                "face_indices": loose_face_indices,
+            },
         }
 
     finally:

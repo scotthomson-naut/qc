@@ -413,4 +413,9 @@ class SCRIPTRONAUT_UL_QC_ObjectChecks(UIList):
                 text="Manual"
             )
 
-CLASSES = (SCRIPTRONAUT_UL_QC_Checks, SCRIPTRONAUT_UL_QC_EditorScripts, SCRIPTRONAUT_UL_QC_FailedObjects, SCRIPTRONAUT_UL_QC_ObjectChecks)
+CLASSES = (
+    SCRIPTRONAUT_UL_QC_Checks,
+    SCRIPTRONAUT_UL_QC_EditorScripts,
+    SCRIPTRONAUT_UL_QC_FailedObjects,
+    SCRIPTRONAUT_UL_QC_ObjectChecks
+)

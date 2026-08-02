@@ -9,3 +9,8 @@ from .categories import *
 from .callbacks import *
 from .runtime import *
 from .icons import *
+
+from .selection import (
+    select_mesh_components,
+    select_object,
+)

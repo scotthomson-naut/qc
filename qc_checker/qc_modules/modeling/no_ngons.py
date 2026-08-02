@@ -156,13 +156,13 @@ def get_objects_with_ngons(
                 if ngon_faces:
 
                     results[obj.name] = {
-                        "ngon_faces":
-                            ngon_faces,
+                        "ngon_faces": ngon_faces,
+                        "ngon_count": len(ngon_faces),
 
-                        "ngon_count":
-                            len(
-                                ngon_faces
-                            ),
+                        "selection": {
+                            "mode": "FACE",
+                            "indices": ngon_faces,
+                        },
                     }
             finally:
                 bm.free()

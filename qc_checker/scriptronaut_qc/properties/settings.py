@@ -139,4 +139,7 @@ class SCRIPTRONAUT_PG_CheckSetting(
         default=1000000000.0,
     )
 
-CLASSES = (SCRIPTRONAUT_QC_Settings, SCRIPTRONAUT_PG_CheckSetting)
+CLASSES = (
+    SCRIPTRONAUT_QC_Settings,
+    SCRIPTRONAUT_PG_CheckSetting
+)
