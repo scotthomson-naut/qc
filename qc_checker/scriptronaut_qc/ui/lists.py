@@ -91,13 +91,13 @@ class SCRIPTRONAUT_UL_QC_Checks(UIList):
         # ---------------------------------------------------------
         # Main columns
         #
-        # Name         ~72%
+        # Name         ~70%
         # Status       ~15%
         # Fix button   remaining
         # ---------------------------------------------------------
 
         main_split = row.split(
-            factor=0.72,
+            factor=0.7,
             align=True,
         )
 
@@ -194,7 +194,7 @@ class SCRIPTRONAUT_UL_QC_Checks(UIList):
         ):
             fix_operator = action_column.operator(
                 "scriptronaut.qc_fix_check_inline",
-                text="Fix",
+                text="",
                 icon="TOOL_SETTINGS",
             )
             fix_operator.check_index = index
@@ -391,7 +391,7 @@ class SCRIPTRONAUT_UL_QC_ObjectChecks(UIList):
             operator = (
                 action_column.operator(
                     "scriptronaut.qc_fix_object_inline",
-                    text="Fix",
+                    text="",
                     icon="TOOL_SETTINGS",
                 )
             )
