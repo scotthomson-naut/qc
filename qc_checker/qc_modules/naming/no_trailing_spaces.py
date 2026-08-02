@@ -132,6 +132,10 @@ def fix_objects_with_trailing_spaces(result_data):
 
         obj.name = new_name
 
+        # Change data name if not shared
+        if obj.data.users < 2:
+            obj.data.name = obj.name
+
         fixed_objects[old_name] = {
             "new_name": obj.name,
         }

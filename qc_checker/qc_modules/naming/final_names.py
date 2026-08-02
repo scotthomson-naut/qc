@@ -264,6 +264,10 @@ def fix_invalid_prefixes_from_objects(
 
         obj.name = new_name
 
+        # Change data name if not shared
+        if obj.data.users < 2:
+            obj.data.name = obj.name
+
         fixed_objects[old_name] = {
             "old_name": old_name,
             "new_name": obj.name,
