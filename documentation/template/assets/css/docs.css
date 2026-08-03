@@ -29,12 +29,35 @@ body {
 }
 a { color: inherit; text-decoration: none; }
 img { max-width: 100%; }
+
+/* Creates full-screen stacked star layers */
 .stars {
-  position: fixed; inset: 0; z-index: -1; pointer-events: none;
-  opacity: .28;
-  background-image: radial-gradient(circle, rgba(255,255,255,.75) 0 1px, transparent 1.6px);
-  background-size: 230px 230px;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-image: radial-gradient(white, rgba(255,255,255,.25) 2px, transparent 5px);
+  background-size: 550px 550px;
+  animation: twinkle 4s ease-in-out infinite;
 }
+
+.stars-medium {
+  background-image: radial-gradient(white, rgba(255,255,255,.20) 1.5px, transparent 3px);
+  background-size: 350px 350px;
+  background-position: 20px 30px;
+  animation: twinkle 8s ease-in-out infinite;
+}
+
+.stars-faint {
+  background-image: radial-gradient(white, rgba(255,255,255,.15) 1px, transparent 2px);
+  background-size: 200px 200px;
+  background-position: 130px 240px;
+  animation: twinkle 12s ease-in-out infinite;
+}
+
+@keyframes twinkle {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+
 .topbar {
   position: fixed; inset: 0 0 auto 0; z-index: 20;
   height: var(--topbar);
@@ -44,6 +67,7 @@ img { max-width: 100%; }
   background: rgba(7,8,13,.84);
   backdrop-filter: blur(16px);
 }
+
 .brand { display: flex; align-items: center; gap: 12px; font-weight: 700; }
 .brand img { width: 170px; height: 34px; object-fit: contain; object-position: left center; }
 .brand-mark {
@@ -52,12 +76,14 @@ img { max-width: 100%; }
   color: var(--orange); background: var(--panel);
   font-family: "Space Grotesk", sans-serif;
 }
+
 .top-actions { display: flex; align-items: center; gap: 16px; color: var(--muted); font-size: .9rem; }
 .badge, .pill {
   display: inline-flex; align-items: center; gap: 8px;
   padding: 7px 11px; border: 1px solid var(--line); border-radius: 999px;
   background: var(--panel); color: var(--text); font-size: .82rem;
 }
+
 .shell { display: grid; grid-template-columns: var(--sidebar) minmax(0,1fr); padding-top: var(--topbar); min-height: 100vh; }
 .sidebar {
   position: fixed; top: var(--topbar); left: 0; bottom: 0; width: var(--sidebar);
@@ -109,6 +135,7 @@ p, li { line-height: 1.75; }
 .card:hover { transform: translateY(-3px); border-color: rgba(252,132,44,.45); background: rgba(255,255,255,.075); }
 .card p { color: var(--muted); margin: 0 0 15px; }
 .count { color: var(--orange-light); font-size: .88rem; font-weight: 700; }
+
 .hero-card { display: grid; grid-template-columns: 1fr 220px; gap: 30px; align-items: center; padding: 30px; margin: 36px 0; overflow: hidden; }
 .hero-card img { max-height: 220px; justify-self: center; filter: drop-shadow(0 22px 30px rgba(0,0,0,.5)); }
 .detail-card { padding: 24px; margin-top: 28px; }
@@ -142,6 +169,9 @@ code { color: var(--orange-light); background: rgba(0,0,0,.24); padding: 2px 6px
 .search-result strong { display: block; margin-bottom: 5px; }
 .search-result span { color: var(--muted); font-size: .87rem; }
 .footer { margin-top: 70px; padding-top: 24px; border-top: 1px solid var(--line); color: #747784; font-size: .84rem; }
+
+/* Media */
+
 @media (max-width: 900px) {
   :root { --sidebar: 230px; }
   .grid { grid-template-columns: 1fr; }
