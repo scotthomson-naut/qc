@@ -104,23 +104,26 @@ def main(preferences=None):
     # ------------------------------------------------------------------
 
     elif camera_count > 1 and settings["required"]:
-        issues.append(
-            (
-                "Failed: {} Camera objects exist in the scene; "
-                "exactly one is expected."
-            ).format(camera_count)
-        )
-
         failed_settings["single_camera"] = {
             "current_camera_count": camera_count,
             "expected_camera_count": 1,
             "active_camera": active_camera_name,
         }
 
-        # Include every camera so the artist can select and inspect them.
+        # One named message per camera, so the panel can match each
+        # camera's own detail view to its issue text - a combined
+        # count-only summary never names any specific camera, which
+        # leaves the detail view with no message to show.
         for camera_obj in status["camera_objects"]:
+            issues.append(
+                (
+                    'Failed: Camera "{}" - {} Camera objects exist in '
+                    "the scene; exactly one is expected."
+                ).format(camera_obj.name, camera_count)
+            )
+
             failed_objects[camera_obj.name] = {
-                "issue": "Multiple Camera objects exist in the scene.",
+                "object_type": camera_obj.type,
                 "is_active_render_camera": (
                     camera_obj == scene.camera
                 ),
@@ -149,7 +152,7 @@ def main(preferences=None):
         }
 
         failed_objects[camera_obj.name] = {
-            "issue": "The only Camera object is not the active render camera.",
+            "object_type": camera_obj.type,
             "is_active_render_camera": False,
             "camera_count": 1,
             "can_auto_fix": True,
@@ -162,19 +165,35 @@ def main(preferences=None):
     # ------------------------------------------------------------------
 
     elif camera_count > 1 and scene.camera is None:
-        issues.append(
-            (
-                "Failed: No active render camera is assigned, and the scene "
-                "contains multiple cameras, so the correct camera is ambiguous."
-            )
-        )
-
         failed_settings["active_camera"] = {
             "current": None,
             "expected": "One of the scene cameras",
             "camera_count": camera_count,
             "can_auto_fix": False,
         }
+
+        # Same reasoning as the branch above - name each camera so
+        # the panel has a matching message for every detail view.
+        # This branch previously never populated failed_objects at
+        # all, leaving Failure Data empty on top of the missing
+        # message.
+        for camera_obj in status["camera_objects"]:
+            issues.append(
+                (
+                    'Failed: Camera "{}" - No active render camera is '
+                    "assigned, and the scene contains multiple "
+                    "cameras, so the correct camera is ambiguous."
+                ).format(camera_obj.name)
+            )
+
+            failed_objects.setdefault(
+                camera_obj.name,
+                {
+                    "object_type": camera_obj.type,
+                    "is_active_render_camera": False,
+                    "camera_count": camera_count,
+                },
+            )
 
     return {
         "issues": issues,
