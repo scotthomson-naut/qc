@@ -13,6 +13,7 @@
   --sidebar: 280px;
   --topbar: 72px;
   --content: 1050px;
+  --hilite-core: #409ce8;
 }
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
@@ -100,6 +101,10 @@ p, li { line-height: 1.75; }
   border: 1px solid var(--line); border-radius: 16px;
   background: var(--panel); backdrop-filter: blur(10px);
 }
+
+/* hilites*/
+.hilite-core {color: var(--hilite-core)}
+
 .card { padding: 21px; transition: transform .2s ease, border-color .2s ease, background .2s ease; }
 .card:hover { transform: translateY(-3px); border-color: rgba(252,132,44,.45); background: rgba(255,255,255,.075); }
 .card p { color: var(--muted); margin: 0 0 15px; }

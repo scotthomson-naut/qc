@@ -49,7 +49,7 @@ def navigation(records: list[dict[str, Any]], depth: int, active_category: str =
         f'<a class="nav-link" href="{prefix}index.html">Overview</a>'
         f'<a class="nav-link" href="{prefix}panel.html">Panel guide</a>'
         f'<a class="nav-link" href="{prefix}search.html">Search</a>'
-        '</div><div class="nav-section"><div class="nav-title">Core checks</div>'
+        '</div><div class="nav-section"><div class="nav-title"><b class="hilite-core">Core</b> checks</div>'
         + "".join(links)
         + '</div></nav></aside>'
     )
@@ -78,11 +78,11 @@ def page_shell(
         '<div class="stars"></div><header class="topbar">'
         f'<a class="brand" href="{prefix}index.html"><span class="brand-mark">#</span>'
         f'<img src="{prefix}assets/svg/scriptronaut_name.svg" alt="Scriptronaut"></a>'
-        '<div class="top-actions"><span class="hide-mobile">QC Checker Documentation</span>'
-        f'<span class="badge">Core {esc(version)}</span></div></header>'
+        '<div class="top-actions"><span class="hide-mobile"><b>QC Checker</b> Documentation</span>'
+        f'<span class="badge hilite-core"><b>Core</b> {esc(version)}</span></div></header>'
         '<div class="shell">'
         + navigation(records, depth, active_category)
-        + f'<main class="content">{body}<footer class="footer">Scriptronaut QC Checker Core documentation.</footer></main></div>'
+        + f'<main class="content">{body}<footer class="footer"><b>Scriptronaut</b> | QC Checker <b class="hilite-core">Core</b> documentation.</footer></main></div>'
         f'<script src="{prefix}assets/js/checks-data.js"></script>'
         f'<script src="{prefix}assets/js/docs.js"></script></body></html>'
     )
@@ -164,19 +164,19 @@ def generate_site(
 
     category_cards = "".join(
         f'<a class="card" href="categories/{category_slug(category)}.html"><h3>{esc(category)}</h3>'
-        f'<p>Browse the {esc(category.lower())} checks included with QC Checker Core.</p>'
+        f'<p>Browse the {esc(category.lower())} checks included with QC Checker <b class="hilite-core">Core</b>.</p>'
         f'<span class="count">{counts[category]} checks →</span></a>'
         for category in categories
     )
     index_body = (
-        '<div class="eyebrow">Official Documentation</div><h1>QC Checker Core</h1>'
-        f'<p class="lead">Production-focused documentation for the QC Checker interface and the {len(records)} checks included with the Core edition.</p>'
+        '<div class="eyebrow">Official Documentation</div><h1>QC Checker <b class="hilite-core">Core</b></h1>'
+        f'<p class="lead">Production-focused documentation for the QC Checker interface and the {len(records)} checks included with the <b class="hilite-core">Core</b> edition.</p>'
         '<section class="hero-card"><div><h2 style="margin-top:0">Start with the panel</h2>'
         '<p class="lead" style="font-size:1rem">Learn how to run checks, read severity, inspect failures, select affected geometry, apply fixes and edit check settings.</p>'
         '<div class="actions"><a class="button primary" href="panel.html">Open panel guide →</a>'
         '<a class="button" href="categories/animation.html">Browse checks</a></div></div>'
         '<img src="assets/svg/scriptronaut_character.svg" alt="Scriptronaut character"></section>'
-        '<h2>Core categories</h2><div class="grid">' + category_cards + '</div>'
+        '<h2><b class="hilite-core">Core</b> categories</h2><div class="grid">' + category_cards + '</div>'
         '<h2>Check Packs</h2><div class="callout">Future Packs can use the same generated page system while remaining separate from Core.</div>'
         '<h2>Pro edition</h2><p class="lead">The same documentation structure can later cover batch reports, studio profiles, pipeline integrations and advanced automation.</p>'
     )
@@ -202,7 +202,7 @@ def generate_site(
                 '</div></a>'
             )
         category_body = (
-            '<div class="breadcrumbs"><a href="../index.html">Documentation</a><span>›</span>Core checks</div>'
+            '<div class="breadcrumbs"><a href="../index.html">Documentation</a><span>›</span><b class="hilite-core">Core</b> checks</div>'
             '<div class="eyebrow">Core Category</div>'
             f'<h1>{esc(category)}</h1><p class="lead">{len(items)} checks, listed alphabetically. Open a check for purpose, severity, fix availability, settings and selection behavior.</p>'
             '<div class="grid">' + "".join(cards) + '</div>'
