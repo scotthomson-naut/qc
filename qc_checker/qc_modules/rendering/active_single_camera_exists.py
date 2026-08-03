@@ -9,22 +9,58 @@ import bpy
 SEVERITY = "critical"
 LABEL = "Active Single Camera Exists"
 DESCRIPTION = (
-    "Checks that the scene contains exactly one Camera object and that "
-    "the same camera is assigned as the active render camera."
+    "Checks that the scene has at least one Camera object, that a "
+    "camera is assigned as the active render camera, and (when the "
+    "'Require Single Camera' setting is on) that exactly one Camera "
+    "object exists."
 )
+
+# -------------------------------------------------------------------------
+# Settings
+# -------------------------------------------------------------------------
+
+SETTINGS = {
+    "required": {
+        "type": "bool",
+        "label": "Require Single Camera",
+        "description": (
+            "If enabled, the check fails when more than one Camera "
+            "object exists in the scene. Disable this if your "
+            "project intentionally uses multiple cameras. Does not "
+            "affect the 'no camera exists' or 'no active camera' "
+            "checks, which always apply regardless of this setting."
+        ),
+        "default": True,
+    },
+}
 
 
 # -------------------------------------------------------------------------
 # Main
 # -------------------------------------------------------------------------
 
-def main():
+def main(preferences=None):
     """
     Checks that:
 
-        1. At least one Camera object exists.
-        2. Only one Camera object exists.
-        3. The camera is assigned to scene.camera.
+        1. At least one Camera object exists. (always checked)
+        2. The scene has an active render camera assigned.
+           (always checked)
+        3. Only one Camera object exists. (only checked when the
+           'Require Single Camera' setting is enabled)
+
+    Note:
+        resolve_settings() is called here but not imported anywhere
+        in this file - not confirmed how it reaches this module, best
+        understanding is the QC framework injects it into each check
+        module's namespace at runtime, same as how "preferences"
+        arrives as an argument. Flag with your team if this errors as
+        undefined.
+
+    Args:
+        preferences (dict | None):
+            User-configured settings for this check, resolved against
+            SETTINGS. Passed in by the QC framework.
 
     Returns:
         dict:
@@ -35,6 +71,8 @@ def main():
             "camera_status": dict,
         }
     """
+    settings = resolve_settings(SETTINGS, preferences)
+
     scene = bpy.context.scene
     status = get_camera_status(scene)
 
@@ -46,7 +84,7 @@ def main():
     active_camera_name = status["active_camera_name"]
 
     # ------------------------------------------------------------------
-    # No camera exists
+    # No camera exists - always checked, regardless of settings
     # ------------------------------------------------------------------
 
     if camera_count == 0:
@@ -61,10 +99,11 @@ def main():
         }
 
     # ------------------------------------------------------------------
-    # More than one camera exists
+    # More than one camera exists - only checked when
+    # settings["required"] is True
     # ------------------------------------------------------------------
 
-    elif camera_count > 1:
+    elif camera_count > 1 and settings["required"]:
         issues.append(
             (
                 "Failed: {} Camera objects exist in the scene; "
@@ -89,7 +128,8 @@ def main():
             }
 
     # ------------------------------------------------------------------
-    # Exactly one camera exists, but it is not active
+    # Exactly one camera exists, but it is not active - always
+    # checked, regardless of settings
     # ------------------------------------------------------------------
 
     if camera_count == 1 and scene.camera is None:
@@ -116,7 +156,9 @@ def main():
         }
 
     # ------------------------------------------------------------------
-    # Multiple cameras and no active camera
+    # Multiple cameras and no active camera - always checked,
+    # regardless of settings. Even if multiple cameras are allowed,
+    # SOME camera still has to be active for render to work at all.
     # ------------------------------------------------------------------
 
     elif camera_count > 1 and scene.camera is None:
@@ -150,7 +192,7 @@ def main():
     }
 
 
-def fix(result_data=None):
+def fix(result_data=None, preferences=None):
     """
     Assigns the active render camera only when exactly one Camera object
     exists and scene.camera is not already assigned.
@@ -161,9 +203,19 @@ def fix(result_data=None):
         - Delete extra cameras.
         - Guess which camera should be active when several exist.
 
+    Note:
+        Doesn't need "preferences" for its own logic - the only
+        auto-fixable case (single camera, not active) is unconditional
+        and doesn't depend on the "Require Single Camera" setting.
+        Accepted here anyway for QC framework call-signature
+        compatibility, matching cycle_denoising_enabled.py's fix().
+
     Args:
         result_data (dict | None):
             Result returned by main(). Included for QC framework compatibility.
+
+        preferences (dict | None):
+            Unused by this function - see note above.
 
     Returns:
         dict:
