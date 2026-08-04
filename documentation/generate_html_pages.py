@@ -173,7 +173,7 @@ def generate_site(
     )
     index_body = (
         '<div class="eyebrow">Official Documentation</div><h1>QC Checker <b class="hilite-core">Core</b></h1>'
-        f'<p class="lead">Production-focused documentation for the QC Checker interface and the {len(records)} checks included with the <b class="hilite-core">Core</b> edition.</p>'
+        f'<p class="lead">Production-focused documentation for the QC Checker interface and the <b class="hilite-core">{len(records)}</b> checks included with the <b class="hilite-core">Core</b> edition.</p>'
         '<section class="hero-card"><div><h2 style="margin-top:0">Start with the panel</h2>'
         '<p class="lead" style="font-size:1rem">Learn how to run checks, read severity, inspect failures, select affected geometry, apply fixes and edit check settings.</p>'
         '<div class="actions"><a class="button primary" href="panel.html">Open panel guide →</a>'
@@ -209,7 +209,7 @@ def generate_site(
             )
         category_body = (
             '<div class="breadcrumbs"><a href="../index.html">Documentation</a><span>›</span><b class="hilite-core">Core</b> checks</div>'
-            '<div class="eyebrow">Core Category</div>'
+            '<div class="eyebrow">Category</div>'
             f'<h1>{esc(category)}</h1><p class="lead">{len(items)} checks, listed alphabetically. Open a check for purpose, severity, fix availability, settings and selection behavior.</p>'
             '<div class="grid">' + "".join(cards) + '</div>'
         )
