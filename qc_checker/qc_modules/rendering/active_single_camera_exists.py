@@ -197,16 +197,10 @@ def main(preferences=None):
                 },
             )
 
-    can_auto_fix = (
-        camera_count == 1
-        and scene.camera is None
-    )
-
     return {
         "issues": issues,
         "failed_objects": failed_objects,
         "failed_settings": failed_settings,
-        "can_auto_fix": can_auto_fix,
         "camera_status": {
             "camera_count": camera_count,
             "camera_names": status["camera_names"],
