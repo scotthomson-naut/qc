@@ -185,26 +185,23 @@ code { color: var(--orange-light); background: rgba(0,0,0,.24); padding: 2px 6px
 .footer { margin-top: 70px; padding-top: 24px; border-top: 1px solid var(--line); color: #747784; font-size: .84rem; }
 
 /* Documentation */
-.doc-heading{
-    color: var(--orange); 
-    font-size: 1.2rem;
-    font-weight: bold;
+
+hr {
+  border: none;
+  height: 1px;
+  background-color: var(--line);
+  margin: 32px 0;
 }
 
-.doc-text, .doc-note{
-    margin:1.0rem;
-    font-weight: normal;
-}
-
-.doc-heading, .doc-item{
-    color: var(--orange); 
-}
 
 .doc-item{
     color: white; 
 }
 
 .doc-note{
+    margin:1.0rem;
+    font-weight: normal;
+
     font-size: 0.875rem;
     color: #747784;
 }
