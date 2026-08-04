@@ -90,6 +90,14 @@ class SCRIPTRONAUT_QC_CheckItem(PropertyGroup):
         default=False
     )
 
+    can_auto_fix: BoolProperty(
+        name="Can Auto Fix",
+        description=(
+            "Whether the current failure can be fixed automatically"
+        ),
+        default=True,
+    )
+
     issues: StringProperty(
         default=""
     )
@@ -129,6 +137,7 @@ class SCRIPTRONAUT_QC_ObjectCheckItem(PropertyGroup):
     name: StringProperty(default="")
     script_path: StringProperty(default="")
     has_fix: BoolProperty(default=False)
+    can_auto_fix: BoolProperty(default=True)
     has_settings: BoolProperty(default=False)
     check_id: StringProperty(default="")
 

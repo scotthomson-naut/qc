@@ -14,3 +14,5 @@ from .selection import (
     select_mesh_components,
     select_object,
 )
+
+from .results import result_can_auto_fix

@@ -128,6 +128,7 @@ def main(preferences=None):
                     camera_obj == scene.camera
                 ),
                 "camera_count": camera_count,
+                "can_auto_fix": False,
             }
 
     # ------------------------------------------------------------------
@@ -192,13 +193,20 @@ def main(preferences=None):
                     "object_type": camera_obj.type,
                     "is_active_render_camera": False,
                     "camera_count": camera_count,
+                    "can_auto_fix": False,
                 },
             )
+
+    can_auto_fix = (
+        camera_count == 1
+        and scene.camera is None
+    )
 
     return {
         "issues": issues,
         "failed_objects": failed_objects,
         "failed_settings": failed_settings,
+        "can_auto_fix": can_auto_fix,
         "camera_status": {
             "camera_count": camera_count,
             "camera_names": status["camera_names"],

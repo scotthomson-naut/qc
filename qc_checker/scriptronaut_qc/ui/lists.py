@@ -191,13 +191,18 @@ class SCRIPTRONAUT_UL_QC_Checks(UIList):
         if (
             item.status == "FAIL"
             and item.has_fix
+            and item.can_auto_fix
         ):
             fix_operator = action_column.operator(
                 "scriptronaut.qc_fix_check_inline",
                 text="",
                 icon="TOOL_SETTINGS",
             )
-            fix_operator.check_index = index
+
+            fix_operator.check_index = (
+                index
+            )
+
         elif not item.has_settings:
             action_column.label(text="")
 
@@ -387,7 +392,10 @@ class SCRIPTRONAUT_UL_QC_ObjectChecks(UIList):
             settings_operator.check_id = source_check.check_id
             settings_operator.script_path = source_check.script_path
 
-        if item.has_fix:
+        if (
+            item.has_fix
+            and item.can_auto_fix
+        ):
             operator = (
                 action_column.operator(
                     "scriptronaut.qc_fix_object_inline",

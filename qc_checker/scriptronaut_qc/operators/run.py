@@ -12,6 +12,8 @@ from ..core.context import QCContext
 from ..core import *
 from ..properties import SCRIPTRONAUT_PG_CheckSetting
 from ..utils import *
+from ..core.results import result_can_auto_fix
+
 
 class SCRIPTRONAUT_OT_QC_SelectAll(Operator):
     """
@@ -122,6 +124,13 @@ class SCRIPTRONAUT_OT_QC_RunSelected(Operator):
 
                     item.result_data = result_data_to_json(result_data)
                     item.has_fix = callable(getattr(module, "fix", None))
+                    item.can_auto_fix = (
+                        item.has_fix
+                        and result_can_auto_fix(
+                            result_data,
+                            default=True,
+                        )
+                    )
                     item.has_settings = module_has_settings(module)
 
                     if issues:
