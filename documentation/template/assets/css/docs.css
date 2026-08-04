@@ -185,15 +185,48 @@ code { color: var(--orange-light); background: rgba(0,0,0,.24); padding: 2px 6px
 .footer { margin-top: 70px; padding-top: 24px; border-top: 1px solid var(--line); color: #747784; font-size: .84rem; }
 
 /* Documentation */
-.doc_heading{
+.doc-heading{
     color: var(--orange); 
-    font-size: 1.15rem;
+    font-size: 1.2rem;
     font-weight: bold;
 }
 
-.doc_text{
+.doc-text, .doc-note{
     margin:1.0rem;
     font-weight: normal;
+}
+
+.doc-heading, .doc-item{
+    color: var(--orange); 
+}
+
+.doc-item{
+    color: white; 
+}
+
+.doc-note{
+    font-size: 0.875rem;
+    color: #747784;
+}
+
+.doc-critical {
+    color: var(--critical);
+}
+
+.doc-warning {
+    color: var(--warning);
+}
+.doc-info {
+    color: var(--info);
+}
+
+.doc-color{
+    color: var(--muted);
+ }
+
+/* Forces standard solid dots */
+ul {
+  list-style-type: disc; 
 }
 
 /* Media */

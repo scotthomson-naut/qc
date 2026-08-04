@@ -39,57 +39,99 @@
                     Scriptronaut Blender panel. 
                 </p>
 
-                <section class="detail-card">
+                <section class="detail-card doc-color">
                     <img src="assets/images/panel_open.png" alt="Scriptronaut"></a>
 
-                    <p class="doc_heading">
+                    <p class="doc-heading">
                         Mode
                     </p>
-                    <p class="doc_text">
-                        There are 2 modes: <b>Checks</b> and <b>Objects</b>
+                    <p class="doc-text">
+                        The Mode buttons switch between the two primary views of the QC Checker.<br>
+                        <b class="doc-item">Checks</b>: Displays every QC check in the selected category, 
+                        allowing checks to be enabled, run, configured, and fixed.<br>
+                        <b class="doc-item">Object</b>: Displays only objects that currently fail 
+                        one or more QC checks, making it easier to inspect and fix 
+                        problems object-by-object. (see below)
                     </p>
 
 
-                    <p class="doc_heading">
+                    <p class="doc-heading">
                         Status
                     </p>
-                    <p class="doc_text">
-                        The status of the QC Checker.
+                    <p class="doc-text">
+                        The Status section summarizes the current state of the QC run.<br>
+                        <b class="doc-item">Last Run</b> : Shows when the selected category was last executed.<br>
+                        <b class="doc-item">Scene Changed</b> : Indicates whether the scene has been modified since 
+                        the last QC run. If changes are detected, it is recommended to 
+                        run the checks again before relying on previous results.
                     </p>
 
+                    <p class="doc-heading">
+                        Severity Summary
+                    </p>
+                    <p class="doc-text">
+                        The Severity Summary provides an overview of the current 
+                        results for the selected category.<br>
+                        
+                        <b class="doc-critical">Critical</b> : Number of critical issues found. These 
+                        generally should be fixed before moving forward.<br>
 
-                    <p class="doc_heading">
+                        <b class="doc-warning">Warning</b> : Number of recommended fixes that may 
+                        affect quality or consistency.<br>
+
+                        <b class="doc-info">Info</b> : Number of informational messages that do 
+                        not represent errors.<br>
+                    </p>
+
+                    <p class="doc-heading">
                         Category
                     </p>
-                    <p class="doc_text">
+                    <p class="doc-text">
                         The current Category of the checks. 
                         Each Category has a number of checks.<br>
                         There are <b class="hilite-core">7</b> Categories.
                     </p>
 
 
-                    <p class="doc_heading">
+                    <p class="doc-heading">
                         Checks
                     </p>
-                    <p class="doc_text">
+                    <p class="doc-text">
                         The current Checks for the selected category.
                     </p>
 
 
-                    <p class="doc_heading">
+                    <p class="doc-heading">
                         Run
                     </p>
-                    <p class="doc_text">
+                    <p class="doc-text">
                         Click the Run button to Run the currently selected checks.
                     </p>
 
 
-                    <p class="doc_heading">
+                    <p class="doc-heading">
                         Issues
                     </p>
-                    <p class="doc_text">
-                        After running a check the Isssues, if any, can be found here.
+                    <p class="doc-text">
+                        The Issues section lists the individual failures reported 
+                        by the currently selected QC check.<br>
+
+                        Depending on the type of check, this section may display:<br>
+                        <ul class="dot-list">
+                            <li>Failed object</li>
+                            <li>Failed vertices, edges, or faces</li>
+                            <li>Scene settingss</li>
+                            <li>Materials</li>
+                            <li>UV information</li>
+                            <li>Detailed error messages</li>
+                        </ul>
+                        <p class="doc-note">
+                            For geometry-related checks, the Select button automatically 
+                            selects the affected object or mesh components directly in Blender, 
+                            making it easy to locate and correct the issue.
+                        </p>
                     </p>
+
 
                 </section>
                 <!--
