@@ -13,7 +13,7 @@ import bpy
 SEVERITY = "critical"
 LABEL = "Texture Files Exist"
 DESCRIPTION = (
-    "Checks if Image texture references a file that doesn't exist on disk"
+    "Checks if Image texture references a file that doesn't exist on disk."
 )
 
 # -------------------------------------------------------------------------

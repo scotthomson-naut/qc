@@ -12,7 +12,7 @@ import bpy
 SEVERITY = "warning"
 LABEL = "Scale Applied"
 DESCRIPTION = (
-    "Checks if Object's Scale is Applied"
+    "Checks if Object's Scale is Applied."
 )
 
 

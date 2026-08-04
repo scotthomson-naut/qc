@@ -9,7 +9,7 @@ import bpy
 SEVERITY = "critical"
 LABEL = "Valid UV Assigned"
 DESCRIPTION = (
-    "Checks if Object's polygons have UV coordinates"
+    "Checks if Object's polygons have UV coordinates."
 )
 
 # -------------------------------------------------------------------------

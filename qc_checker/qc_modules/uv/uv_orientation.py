@@ -11,7 +11,7 @@ import bpy
 SEVERITY = "critical"
 LABEL = "UV Orientation"
 DESCRIPTION = (
-    "Checks if Object has Flipped UV Faces"
+    "Checks if Object has Flipped UV Faces."
 )
 
 # -------------------------------------------------------------------------

@@ -8,7 +8,7 @@ import bpy
 SEVERITY = "warning"
 LABEL = "Unit System Match"
 DESCRIPTION = (
-    "Checks if metric or imperial specified"
+    "Checks if a metric or imperial system has been specified."
 )
 
 # -------------------------------------------------------------------------

@@ -10,7 +10,7 @@ import bmesh
 SEVERITY = "critical"
 LABEL = "No N-Gons"
 DESCRIPTION = (
-    "Checks if Object has N-Gons"
+    "Checks if Object's mesh have N-Gons."
 )
 
 

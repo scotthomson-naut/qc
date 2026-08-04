@@ -10,7 +10,7 @@ import bpy
 SEVERITY = "warning"
 LABEL = "Location Applied"
 DESCRIPTION = (
-    "Checks if Object's Location is Applied"
+    "Checks if Object's Location is Applied."
 )
 
 

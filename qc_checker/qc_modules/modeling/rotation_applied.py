@@ -12,7 +12,7 @@ import bpy
 SEVERITY = "warning"
 LABEL = "Rotation Applied"
 DESCRIPTION = (
-    "Checks if Object's Rotation is Applied"
+    "Checks if Object's Rotation is Applied."
 )
 
 # -------------------------------------------------------------------------

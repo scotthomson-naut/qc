@@ -8,7 +8,7 @@ import bpy
 SEVERITY = "info"
 LABEL = "UV Area Valid"
 DESCRIPTION = (
-    "Checks if Object has Zero Area UV Faces"
+    "Checks if Object has Zero Area UV Faces."
 )
 
 
