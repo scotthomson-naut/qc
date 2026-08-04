@@ -38,14 +38,12 @@ img { max-width: 100%; }
   background-size: 550px 550px;
   animation: twinkle 4s ease-in-out infinite;
 }
-
 .stars-medium {
   background-image: radial-gradient(white, rgba(255,255,255,.20) 1.5px, transparent 3px);
   background-size: 350px 350px;
   background-position: 20px 30px;
   animation: twinkle 8s ease-in-out infinite;
 }
-
 .stars-faint {
   background-image: radial-gradient(white, rgba(255,255,255,.15) 1px, transparent 2px);
   background-size: 200px 200px;
@@ -61,7 +59,6 @@ img { max-width: 100%; }
 }
 
  /* astronaut */
-
 .astronaut-wrap {
   animation: float 5.8s ease-in-out infinite;
   will-change: transform;
@@ -186,6 +183,18 @@ code { color: var(--orange-light); background: rgba(0,0,0,.24); padding: 2px 6px
 .search-result strong { display: block; margin-bottom: 5px; }
 .search-result span { color: var(--muted); font-size: .87rem; }
 .footer { margin-top: 70px; padding-top: 24px; border-top: 1px solid var(--line); color: #747784; font-size: .84rem; }
+
+/* Documentation */
+.doc_heading{
+    color: var(--orange); 
+    font-size: 1.15rem;
+    font-weight: bold;
+}
+
+.doc_text{
+    margin:1.0rem;
+    font-weight: normal;
+}
 
 /* Media */
 
