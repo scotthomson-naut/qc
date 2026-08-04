@@ -142,7 +142,7 @@ p, li { line-height: 1.75; }
 .grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; }
 .card, .detail-card, .hero-card, .callout {
   border: 1px solid var(--line); border-radius: 16px;
-  background: var(--panel); backdrop-filter: blur(10px);
+  background: var(--panel); backdrop-filter: blur(8px);
 }
 
 /* hilites*/
