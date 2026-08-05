@@ -88,7 +88,7 @@
                     <p>
                         The current Category of the checks. 
                         Each Category has a number of checks.<br>
-                        There are <b class="hilite-core">7</b> Categories.
+                        There are <b class="hilite-core">7</b> Categories included.
                     </p>
 
                     <hr>
@@ -101,7 +101,6 @@
                         <b class="doc-item">Select None</b> : Unselects all Checks.<br>
                     </p>
 
-
                     <hr>
 
                     <h3>Checks List</h3>
@@ -109,36 +108,41 @@
                         The Checks List displays every quality control check available 
                         in the selected category. Each row represents one independent 
                         validation that can be run against the current scene.<br>
-                        
-                        <b class="doc-item">Enable Check</b> : Shows when the selected 
-                        category was last executed.<br>
-                        
-                        <b class="doc-item">Severity</b> : Indicates the importance of 
-                        the check. Critical issues should normally be fixed before 
-                        publishing, Warning highlights recommended fixes, and Info 
-                        provides useful project information.<br>
-                        
-                        <b class="doc-item">Check Name</b> : SDisplays the friendly name 
-                        of the QC check. Selecting a row also displays its failed objects 
-                        or issue messages below after running the checks.<br>
-                        
-                        <b class="doc-item">Information</b> : Opens a tooltip or dialog 
-                        describing what the check validates and why it exists. This is 
-                        useful when learning the QC system or understanding an unfamiliar 
-                        check.<br>
-                        
-                        <b class="doc-item">Status</b> : Shows the current result of the check: 
+
+                        <b class="doc-item"><img src="assets/images/qc_checks_enable.png" alt="Scriptronaut"> Enable Check</b> : 
+                        Enables or Disables the check to be Run.<br>
+
+                        <b class="doc-item"><img src="assets/images/qc_checks_severity.png" alt="Scriptronaut"> Severity</b> : 
+                        Indicates the importance of the check. 
+                        Critical issues should normally be fixed before continuing, 
+                        Warning highlights recommended fixes, and Info provides
+                        useful project information.<br>
+
+                        <b class="doc-item"><img src="assets/images/qc_checks_name.png" alt="Scriptronaut"> Check Name</b> : 
+                        Displays the friendly name of the QC check. 
+                        Selecting a row also displays its failed objects or issue 
+                        messages below after running the checks.<br>
+
+                        <b class="doc-item"><img src="assets/images/qc_checks_info.png" alt="Scriptronaut"> Information</b> : 
+                        Opens a tooltip or dialog describing what the check validates 
+                        and why it exists. This is useful when learning the QC 
+                        system or understanding an unfamiliar check.<br>
+
+                        <b class="doc-item"><img src="assets/images/qc_checks_status.png" alt="Scriptronaut"> Status</b> : 
+                        Shows the current result of the check: 
                         <b>Not Run</b>, <b>Running</b>, <b>Pass</b>, or <b>Fail</b>. 
                         Results are updated each time the check is executed.<br>
-                        
-                        <b class="doc-item"><img src="assets/images/qc_checks_btn_settings.png" alt="Scriptronaut"> Settings</b> : Opens the settings dialog for 
-                        checks that support user-configurable options, allowing 
-                        project-specific thresholds or behavior to be adjusted.<br>
-                        
-                        <b class="doc-item"><img src="assets/images/qc_checks_btn_fix.png" alt="Scriptronaut"> Fix</b> : Runs the automatic fix for the 
-                        failed check when one is available. Some checks require manual 
-                        correction and therefore do not display a Fix button.<br>
-                        
+
+                        <b class="doc-item"><img src="assets/images/qc_checks_btn_settings.png" alt="Scriptronaut"> Settings</b> : 
+                        Opens the settings dialog for checks that support 
+                        user-configurable options, allowing project-specific 
+                        thresholds or behavior to be adjusted.<br>
+
+                        <b class="doc-item"><img src="assets/images/qc_checks_btn_fix.png" alt="Scriptronaut"> Fix</b> : 
+                        Runs the automatic fix for the failed check when one is 
+                        available. Some checks require manual correction and 
+                        therefore do not display a Fix button.<br>
+
                     </p>
 
                     <hr>
