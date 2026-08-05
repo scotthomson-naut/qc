@@ -39,157 +39,176 @@
                     Scriptronaut Blender panel. 
                 </p>
 
-                <section class="card">
-                    <img src="assets/images/qc_checks_panel.png" alt="Scriptronaut"></a>
+                <!-- Checks mode-->
+                <div class="grid-doc">
+                    <section class="card">
+                        <h2 style="margin-top:0" id="checks">In <b class="doc-ancor">Checks</b> Mode</h2>
+                        <img src="assets/images/qc_checks_panel_mode_checks.png" alt="Scriptronaut"></a>
+                    </section>
 
-                    <hr>
-
-                    <h3>Mode</h3>
-                    <p>
-                        The Mode buttons switch between the two primary views of the QC Checker.<br>
-                        <b class="doc-item">Checks</b>: Displays every QC check in the selected category, 
-                        allowing checks to be enabled, run, configured, and fixed.<br>
-                        <b class="doc-item">Object</b>: Displays only objects that currently fail 
-                        one or more QC checks, making it easier to inspect and fix 
-                        problems object-by-object. (see below)
-                    </p>
-
-                    <hr>
-
-                    <h3>Status</h3>
-                    <p>
-                        The Status section summarizes the current state of the QC run.<br>
-                        <b class="doc-item">Last Run</b> : Shows when the selected category was last executed.<br>
-                        <b class="doc-item">Scene Changed</b> : Indicates whether the scene has been modified since 
-                        the last QC run. If changes are detected, it is recommended to 
-                        run the checks again before relying on previous results.
-                    </p>
-
-                    <hr>
-
-                    <h3>Severity Summary</h3>
-                    <p>
-                        The Severity Summary provides an overview of the current 
-                        results for the selected category.<br>
-                        
-                        <b class="doc-critical">Critical</b> : Number of critical issues found. These 
-                        generally should be fixed before moving forward.<br>
-
-                        <b class="doc-warning">Warning</b> : Number of recommended fixes that may 
-                        affect quality or consistency.<br>
-
-                        <b class="doc-info">Info</b> : Number of informational messages that do 
-                        not represent errors.<br>
-                    </p>
-
-                    <hr>
-
-                    <h3>Category</h3>
-                    <p>
-                        The current Category of the checks. 
-                        Each Category has a number of checks.<br>
-                        There are <b class="hilite-core">7</b> Categories included.
-                    </p>
-
-                    <hr>
-
-                    <h3>Selection Presets</h3>
-                    <p>
-                        Group of buttons to help selection of Checks to run.<br>
-                        <b class="doc-item">Select All</b> : Selects all Checks.<br>
-                        <b><img src="assets/images/qc_checks_btn_select_critical.png" alt="Scriptronaut"></a></b> : Selects <b class="doc-critical">critical</b> Checks Only.<br>
-                        <b class="doc-item">Select None</b> : Unselects all Checks.<br>
-                    </p>
-
-                    <hr>
-
-                    <h3>Checks List</h3>
-                    <p>
-                        The Checks List displays every quality control check available 
-                        in the selected category. Each row represents one independent 
-                        validation that can be run against the current scene.<br>
-
-                        <b class="doc-item"><img src="assets/images/qc_checks_enable.png" alt="Scriptronaut"> Enable Check</b> : 
-                        Enables or Disables the check to be Run.<br>
-
-                        <b class="doc-item"><img src="assets/images/qc_checks_severity.png" alt="Scriptronaut"> Severity</b> : 
-                        Indicates the importance of the check. 
-                        Critical issues should normally be fixed before continuing, 
-                        Warning highlights recommended fixes, and Info provides
-                        useful project information.<br>
-
-                        <b class="doc-item"><img src="assets/images/qc_checks_name.png" alt="Scriptronaut"> Check Name</b> : 
-                        Displays the friendly name of the QC check. 
-                        Selecting a row also displays its failed objects or issue 
-                        messages below after running the checks.<br>
-
-                        <b class="doc-item"><img src="assets/images/qc_checks_info.png" alt="Scriptronaut"> Information</b> : 
-                        Opens a tooltip or dialog describing what the check validates 
-                        and why it exists. This is useful when learning the QC 
-                        system or understanding an unfamiliar check.<br>
-
-                        <b class="doc-item"><img src="assets/images/qc_checks_status.png" alt="Scriptronaut"> Status</b> : 
-                        Shows the current result of the check: 
-                        <b>Not Run</b>, <b>Running</b>, <b>Pass</b>, or <b>Fail</b>. 
-                        Results are updated each time the check is executed.<br>
-
-                        <b class="doc-item"><img src="assets/images/qc_checks_btn_settings.png" alt="Scriptronaut"> Settings</b> : 
-                        Opens the settings dialog for checks that support 
-                        user-configurable options, allowing project-specific 
-                        thresholds or behavior to be adjusted.<br>
-
-                        <b class="doc-item"><img src="assets/images/qc_checks_btn_fix.png" alt="Scriptronaut"> Fix</b> : 
-                        Runs the automatic fix for the failed check when one is 
-                        available. Some checks require manual correction and 
-                        therefore do not display a Fix button.<br>
-
-                    </p>
-
-                    <hr>
-
-                    <h3>Run</h3>
-                    <p>
-                        Click the Run button to Run the currently selected checks.
-                    </p>
-
-                    <hr>
-
-                    <h3>Batch Fix</h3>
-                    <p>
-                        Click the Fix [] button to Fix the currently selected check.
-                    </p>
-
-                    <hr>
-
-                    <h3>Issues</h3>
-                    <p>
-                        The Issues section lists the individual failures reported 
-                        by the currently selected QC check.<br>
-
-                        Depending on the type of check, this section may display:<br>
-                        <ul class="dot-list">
-                            <li>Failed object</li>
-                            <li>Failed vertices, edges, or faces</li>
-                            <li>Scene settingss</li>
-                            <li>Materials</li>
-                            <li>UV information</li>
-                            <li>Detailed error messages</li>
-                        </ul>
-                        <p class="doc-note">
-                            For geometry-related checks, the Select button automatically 
-                            selects the affected object or mesh components directly in Blender, 
-                            making it easy to locate and correct the issue.
+                    <section class="card">
+                        <h3>Mode</h3>
+                        <p>
+                            The Mode buttons switch between the two primary views of the QC Checker.<br>
+                            <b class="doc-item">Checks</b>: Displays every QC check in the selected category, 
+                            allowing checks to be enabled, run, configured, and fixed. (see above)<br>
+                            <b class="doc-item"><a href="#object" class="doc-ancor" title="Goto Object Mode">Object</a></b>: Displays only objects that currently fail 
+                            one or more QC checks, making it easier to inspect and fix 
+                            problems object-by-object.
                         </p>
-                    </p>
+                    </section>
 
+                    <section class="card">
+                        <h3>Status</h3>
+                        <p>
+                            The Status section summarizes the current state of the QC run.<br>
+                            <b class="doc-item">Last Run</b> : Shows when the selected category was last executed.<br>
+                            <b class="doc-item">Scene Changed</b> : Indicates whether the scene has been modified since 
+                            the last QC run. If changes are detected, it is recommended to 
+                            run the checks again before relying on previous results.
+                        </p>
+                    </section>
 
-                </section>
-                <!--
-                <section class="detail-card">
-                    <h2 style="margin-top:0">Panel controls</h2>
-                    <p>Document Mode, Status, Severity Summary, Category, Check List, Run controls, Issues, Details, Settings and Fix actions here.</p>
-                </section>
-                -->
+                    <section class="card">
+                        <h3>Severity Summary</h3>
+                        <p>
+                            The Severity Summary provides an overview of the current 
+                            results for the selected category.<br>
+                            
+                            <b class="doc-critical">Critical</b> : Number of critical issues found. These 
+                            generally should be fixed before moving forward.<br>
+
+                            <b class="doc-warning">Warning</b> : Number of recommended fixes that may 
+                            affect quality or consistency.<br>
+
+                            <b class="doc-info">Info</b> : Number of informational messages that do 
+                            not represent errors.<br>
+                        </p>
+                    </section>
+
+                    <section class="card">
+                        <h3>Category</h3>
+                        <p>
+                            The current Category of the checks. 
+                            Each Category has a number of checks.<br>
+                            There are <b class="hilite-core">7</b> Categories included.
+                        </p>
+                    </section>
+
+                    <section class="card">
+                        <h3>Selection Presets</h3>
+                        <p>
+                            Group of buttons to help selection of Checks to run.<br>
+                            <b class="doc-item">Select All</b> : Selects all Checks.<br>
+                            <b><img src="assets/images/qc_checks_btn_select_critical.png" alt="Scriptronaut"></a></b> : Selects <b class="doc-critical">critical</b> Checks Only.<br>
+                            <b class="doc-item">Select None</b> : Unselects all Checks.<br>
+                        </p>
+                    </section>
+
+                    <section class="card">
+                        <h3>Checks List</h3>
+                        <p>
+                            The Checks List displays every quality control check available 
+                            in the selected category. Each row represents one independent 
+                            validation that can be run against the current scene.<br>
+
+                            <b class="doc-item"><img src="assets/images/qc_checks_enable.png" alt="Scriptronaut"> Enable Check</b> : 
+                            Enables or Disables the check to be Run.<br>
+
+                            <b class="doc-item"><img src="assets/images/qc_checks_severity.png" alt="Scriptronaut"> Severity</b> : 
+                            Indicates the importance of the check. 
+                            Critical issues should normally be fixed before continuing, 
+                            Warning highlights recommended fixes, and Info provides
+                            useful project information.<br>
+
+                            <b class="doc-item"><img src="assets/images/qc_checks_name.png" alt="Scriptronaut"> Check Name</b> : 
+                            Displays the friendly name of the QC check. 
+                            Selecting a row also displays its failed objects or issue 
+                            messages below after running the checks.<br>
+
+                            <b class="doc-item"><img src="assets/images/qc_checks_info.png" alt="Scriptronaut"> Information</b> : 
+                            Opens a tooltip or dialog describing what the check validates 
+                            and why it exists. This is useful when learning the QC 
+                            system or understanding an unfamiliar check.<br>
+
+                            <b class="doc-item"><img src="assets/images/qc_checks_status.png" alt="Scriptronaut"> Status</b> : 
+                            Shows the current result of the check: 
+                            <b>Not Run</b>, <b>Running</b>, <b>Pass</b>, or <b>Fail</b>. 
+                            Results are updated each time the check is executed.<br>
+
+                            <b class="doc-item"><img src="assets/images/qc_checks_btn_settings.png" alt="Scriptronaut"> Settings</b> : 
+                            Opens the settings dialog for checks that support 
+                            user-configurable options, allowing project-specific 
+                            thresholds or behavior to be adjusted.<br>
+
+                            <b class="doc-item"><img src="assets/images/qc_checks_btn_fix.png" alt="Scriptronaut"> Fix</b> : 
+                            Runs the automatic fix for the failed check when one is 
+                            available. Some checks require manual correction and 
+                            therefore do not display a Fix button.<br>
+                        </p>
+                    </section>
+
+                    <section class="card">
+                        <h3>Run</h3>
+                        <p>
+                            Click the Run button to Run the currently selected checks.
+                        </p>
+
+                    </section>
+
+                    <section class="card">
+                        <h3>Batch Fix</h3>
+                        <p>
+                            Click the Fix [] button to Fix the currently selected check.
+                        </p>
+                    </section>
+
+                    <section class="card">
+                        <h3>Issues</h3>
+                        <p>
+                            The Issues section lists the individual failures reported 
+                            by the currently selected QC check.<br>
+
+                            Depending on the type of check, this section may display:<br>
+                            <ul class="dot-list">
+                                <li>Failed object</li>
+                                <li>Failed vertices, edges, or faces</li>
+                                <li>Scene settingss</li>
+                                <li>Materials</li>
+                                <li>UV information</li>
+                                <li>Detailed error messages</li>
+                            </ul>
+                            <p class="doc-note">
+                                For geometry-related checks, the Select button automatically 
+                                selects the affected object or mesh components directly in Blender, 
+                                making it easy to locate and correct the issue.
+                            </p>
+                        </p>
+                    </section>
+                </div>
+
+                <hr>
+
+                <!-- Object mode-->
+                <div class="grid-doc">
+                    <section class="card">
+                        <h2 style="margin-top:0" id="object">In <b class="doc-ancor">Object</b> Mode</h2>
+                        <img src="assets/images/qc_checks_panel_mode_object.png" alt="Scriptronaut"></a>
+                    </section>
+
+                    <section class="card">
+                        <h3>Mode</h3>
+                        <p>
+                            The Mode buttons switch between the two primary views of the QC Checker.<br>
+                            <b class="doc-item"><a href="#checks" class="doc-ancor" title="Goto Checks Mode">Checks</a></b>: Displays every QC check in the selected category, 
+                            allowing checks to be enabled, run, configured, and fixed.<br>
+                            <b class="doc-item">Object</b>: Displays only objects that currently fail 
+                            one or more QC checks, making it easier to inspect and fix 
+                            problems object-by-object.
+                        </p>
+                    </section>
+
+                </div>
 
                 <footer class="footer">
                     <b>Scriptronaut</b> | QC Checker <b class="hilite-core">Core</b> documentation.

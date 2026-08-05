@@ -137,6 +137,8 @@ p, li { line-height: 1.75; }
 .breadcrumbs { display: flex; flex-wrap: wrap; gap: 8px; color: var(--muted); font-size: .86rem; margin-bottom: 24px; }
 .breadcrumbs a:hover { color: var(--orange-light); }
 .grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; }
+.grid-doc { display: grid; grid-template-columns: repeat(1,minmax(0,1fr)); gap: 16px; }
+.doc-ancor{ color: var(--orange-light);}
 .card, .detail-card, .hero-card, .callout {
   border: 1px solid var(--line); border-radius: 16px;
   background: var(--panel); backdrop-filter: blur(8px);
