@@ -183,8 +183,8 @@ def generate_site(
         '</div>'
         '</section>'
         '<h2><b class="hilite-core">Core</b> categories</h2><div class="grid">' + category_cards + '</div>'
-        '<h2>Check Packs</h2><div class="callout">Future Packs can use the same generated page system while remaining separate from Core.</div>'
-        '<h2>Pro edition</h2><p class="lead">The same documentation structure can later cover batch reports, studio profiles, pipeline integrations and advanced automation.</p>'
+        '<!--<h2>Check Packs</h2><div class="callout">Future Packs can use the same generated page system while remaining separate from Core.</div>-->'
+        '<!--<h2>Pro edition</h2><p class="lead">The same documentation structure can later cover batch reports, studio profiles, pipeline integrations and advanced automation.</p>-->'
     )
     (output_dir / "index.html").write_text(
         page_shell(title="QC Checker Core", description="Scriptronaut . QC Checker documentation", body=index_body, records=records, version=version),
