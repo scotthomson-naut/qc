@@ -34,7 +34,7 @@
 
             <main class="content">
                 <div class="eyebrow">Interface Guide</div>
-                <h1>QC Checker Panel</h1>
+                <h1><span>QC Checker</span> Panel</h1>
                 <p class="lead">
                     Scriptronaut Blender panel. 
                 </p>
@@ -75,13 +75,13 @@
                             The Severity Summary provides an overview of the current 
                             results for the selected category.<br>
                             
-                            <b class="doc-critical">Critical</b> : Number of critical issues found. These 
+                            <b class="doc-item"><img src="assets/images/qc_checks_severity_critical.png" alt="Scriptronaut"> Critical</b> : Number of critical issues found. These 
                             generally should be fixed before moving forward.<br>
 
-                            <b class="doc-warning">Warning</b> : Number of recommended fixes that may 
+                            <b class="doc-item"><img src="assets/images/qc_checks_severity_warning.png" alt="Scriptronaut"> Warning</b> : Number of recommended fixes that may 
                             affect quality or consistency.<br>
 
-                            <b class="doc-info">Info</b> : Number of informational messages that do 
+                            <b class="doc-item"><img src="assets/images/qc_checks_severity_info.png" alt="Scriptronaut"> Info</b> : Number of informational messages that do 
                             not represent errors.<br>
                         </p>
                     </section>
@@ -116,10 +116,10 @@
                             Enables or Disables the check to be Run.<br>
 
                             <b class="doc-item"><img src="assets/images/qc_checks_severity.png" alt="Scriptronaut"> Severity</b> : 
-                            Indicates the importance of the check. 
-                            Critical issues should normally be fixed before continuing, 
-                            Warning highlights recommended fixes, and Info provides
-                            useful project information.<br>
+                            Indicates the importance of the check. <br>
+                            <b class="doc-critical">Critical</b> issues should normally be fixed before continuing, <br>
+                            <b class="doc-warning">Warning</b> highlights recommended fixes, and <br>
+                            <b class="doc-info">Info</b> provides useful information.<br>
 
                             <b class="doc-item"><img src="assets/images/qc_checks_name.png" alt="Scriptronaut"> Check Name</b> : 
                             Displays the friendly name of the QC check. 
@@ -127,9 +127,9 @@
                             messages below after running the checks.<br>
 
                             <b class="doc-item"><img src="assets/images/qc_checks_info.png" alt="Scriptronaut"> Information</b> : 
-                            Opens a tooltip or dialog describing what the check validates 
-                            and why it exists. This is useful when learning the QC 
-                            system or understanding an unfamiliar check.<br>
+                            Tooltip describing what the check validates and why it 
+                            exists. This is useful when learning the QC system or 
+                            understanding an unfamiliar check.<br>
 
                             <b class="doc-item"><img src="assets/images/qc_checks_status.png" alt="Scriptronaut"> Status</b> : 
                             Shows the current result of the check: 
@@ -178,7 +178,7 @@
                                 <li>UV information</li>
                                 <li>Detailed error messages</li>
                             </ul>
-                            <p class="doc-note">
+                            <p>
                                 For geometry-related checks, the Select button automatically 
                                 selects the affected object or mesh components directly in Blender, 
                                 making it easy to locate and correct the issue.
@@ -204,7 +204,8 @@
                             allowing checks to be enabled, run, configured, and fixed.<br>
                             <b class="doc-item">Object</b>: Displays only objects that currently fail 
                             one or more QC checks, making it easier to inspect and fix 
-                            problems object-by-object.
+                            problems object-by-object.<br>
+                            <img src="assets/images/qc_checks_failure_details.png" alt="Scriptronaut"> Failure Details.
                         </p>
                     </section>
 

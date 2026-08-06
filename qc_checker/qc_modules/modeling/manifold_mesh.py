@@ -10,7 +10,7 @@ import bmesh
 SEVERITY = "critical"
 LABEL = "Manifold Mesh"
 DESCRIPTION = (
-    "Checks if Object has Manifold Edges"
+    "Checks if Object has Manifold Edges."
 )
 
 

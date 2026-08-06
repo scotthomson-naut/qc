@@ -128,11 +128,14 @@ img { max-width: 100%; margin-right: 4px;}
   color: #d8d8df; background: var(--panel); font-size: .76rem; letter-spacing: .09em; text-transform: uppercase;
 }
 .eyebrow::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--orange); box-shadow: 0 0 12px var(--orange); }
+
 h1, h2, h3 { font-family: "Space Grotesk", Inter, sans-serif; }
 h1 { margin: 20px 0 16px; font-size: clamp(2.5rem,5vw,4.7rem); line-height: 1; letter-spacing: -.045em; }
+h1 span { color: var(--orange); }
 h2 { margin: 46px 0 17px; font-size: 1.65rem; }
 h3 { margin: 0 0 10px; font-size: 1.08rem; }
 p, li { line-height: 1.75; }
+
 .lead { max-width: 780px; color: var(--muted); font-size: 1.1rem; }
 .breadcrumbs { display: flex; flex-wrap: wrap; gap: 8px; color: var(--muted); font-size: .86rem; margin-bottom: 24px; }
 .breadcrumbs a:hover { color: var(--orange-light); }
@@ -195,33 +198,19 @@ hr {
   margin: 32px 0;
 }
 
-
 .doc-item{
-    color: white; 
-}
-
-.doc-note{
-    margin:1.0rem;
-    font-weight: normal;
-
-    font-size: 0.875rem;
-    color: #747784;
+    color: white;
 }
 
 .doc-critical {
     color: var(--critical);
 }
-
 .doc-warning {
     color: var(--warning);
 }
 .doc-info {
     color: var(--info);
 }
-
-.doc-color{
-    color: var(--muted);
- }
 
 /* Forces standard solid dots */
 ul {
