@@ -8,7 +8,9 @@ import bpy
 SEVERITY = "info"
 LABEL = "UV Within Bounds"
 DESCRIPTION = (
-    "Checks if Object has UVs Outside of the Tile Area."
+    "Checks if Object has UVs Outside of the Tile Area. "
+    "Stops textures from repeating in weird ways. It also keeps pixel "
+    "quality high and stops seams from looking bad on your 3D mode."
 )
 
 # -------------------------------------------------------------------------
