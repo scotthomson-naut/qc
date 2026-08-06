@@ -10,8 +10,7 @@ SEVERITY = "warning"
 LABEL = "Auto Save Enabled"
 DESCRIPTION = (
     "Checks if Blender's 'Auto Save Temporary Files' preference is "
-    "enabled, to protect against losing work after a crash or a "
-    "forgotten manual save."
+    "enabled."
 )
 
 # -------------------------------------------------------------------------

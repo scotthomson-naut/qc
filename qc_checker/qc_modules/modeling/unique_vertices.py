@@ -14,9 +14,7 @@ LABEL = "Unique Vertices"
 DESCRIPTION = (
     "Checks for overlapping/duplicate vertices (multiple vertices "
     "sharing nearly the same position within a configurable "
-    "tolerance). Note: overlapping vertices are also a normal, "
-    "intentional result of hard-edge and UV seam splits - this flags "
-    "candidates for review rather than confirmed mistakes."
+    "tolerance)."
 )
 
 # -------------------------------------------------------------------------
@@ -29,8 +27,7 @@ SETTINGS = {
         "label": "Distance Tolerance",
         "description": (
             "Vertices within this distance of each other are "
-            "considered overlapping/duplicate. Defaults to Blender's "
-            "own 'Merge by Distance' default value."
+            "considered overlapping/duplicate."
         ),
         "default": 0.0001,
         "min": 0.0000001,
@@ -170,7 +167,7 @@ def get_objects_with_duplicate_vertices(objects=None, settings=None):
                 "duplicate_vertex_count": len(duplicate_indices),
 
                 "selection": {
-                    "mode": "VERTEX",
+                    "mode": "VERT",
                     "indices": duplicate_indices,
                 },
             }
