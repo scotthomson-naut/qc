@@ -11,11 +11,7 @@ SEVERITY = "warning"
 LABEL = "Objects in Collections"
 DESCRIPTION = (
     "Checks if objects are linked directly to the Scene Collection "
-    "root, bypassing every named collection. Distinct from an object "
-    "sitting inside a collection that still has Blender's default "
-    "'Collection' name - that's still organized, just possibly "
-    "poorly named. This check is about objects with no organization "
-    "at all."
+    "root, bypassing every named collection."
 )
 
 # -------------------------------------------------------------------------
