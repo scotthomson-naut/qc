@@ -170,7 +170,7 @@ def get_objects_with_duplicate_vertices(objects=None, settings=None):
                 "duplicate_vertex_count": len(duplicate_indices),
 
                 "selection": {
-                    "mode": "VERTEX",
+                    "mode": "VERT",
                     "indices": duplicate_indices,
                 },
             }
