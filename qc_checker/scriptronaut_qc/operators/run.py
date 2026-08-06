@@ -1,6 +1,7 @@
 """Scriptronaut QC Checks internal module."""
 
 import os
+import time
 import traceback
 
 import bpy
@@ -13,6 +14,7 @@ from ..core import *
 from ..properties import SCRIPTRONAUT_PG_CheckSetting
 from ..utils import *
 from ..core.results import result_can_auto_fix
+from ..utils.time_utils import format_elapsed_time
 
 
 class SCRIPTRONAUT_OT_QC_SelectAll(Operator):
@@ -28,6 +30,7 @@ class SCRIPTRONAUT_OT_QC_SelectAll(Operator):
 
         return {"FINISHED"}
 
+
 class SCRIPTRONAUT_OT_QC_SelectNone(Operator):
     """
     Deselects all QC checks.
@@ -40,6 +43,7 @@ class SCRIPTRONAUT_OT_QC_SelectNone(Operator):
             item.selected = False
 
         return {"FINISHED"}
+
 
 class SCRIPTRONAUT_OT_QC_SelectCritical(Operator):
     """
@@ -60,6 +64,7 @@ class SCRIPTRONAUT_OT_QC_SelectCritical(Operator):
 
         return {"FINISHED"}
 
+
 class SCRIPTRONAUT_OT_QC_RunSelected(Operator):
     """
     Executes all selected QC scripts and stores the results.
@@ -68,7 +73,11 @@ class SCRIPTRONAUT_OT_QC_RunSelected(Operator):
     bl_label = "Run Selected Checks"
 
     def execute(self, context):
-        
+
+        # Time executing
+        run_start_time = time.perf_counter()
+        executed_check_count = 0
+
         scene = context.scene
         checks = scene.scriptronaut_qc_checks
         ran_any = False
@@ -150,8 +159,30 @@ class SCRIPTRONAUT_OT_QC_RunSelected(Operator):
                     item.issues = "\n".join(result_data["issues"])
                     item.result_data = result_data_to_json(result_data)
 
+                # Time executing
+                executed_check_count += 1
+
         finally:
             constants.QC_IS_RUNNING = False
+
+        # Time executing
+        total_elapsed = (
+            time.perf_counter()
+            - run_start_time
+        )
+
+
+        print("")
+        print(
+            "QC Run Complete: {} check{} in {}".format(
+                executed_check_count,
+                ""
+                if executed_check_count == 1
+                else "s",
+                format_elapsed_time(total_elapsed),
+            )
+        )
+        print("")
 
         if not ran_any:
             self.report({"WARNING"}, "No checks selected.")

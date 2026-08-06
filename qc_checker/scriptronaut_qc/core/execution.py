@@ -2,6 +2,7 @@
 
 import inspect
 import os
+import time
 import traceback
 from typing import Any
 
@@ -9,23 +10,72 @@ from .preferences import get_check_id_for_item, get_check_preferences, module_ha
 from .results import normalize_check_result, get_issues_from_result
 from ..utils.json_io import result_data_to_json
 from ..utils.module_loader import load_module_from_path
+from ..utils.time_utils import format_elapsed_time
 
-def call_check_main(module, check_id):
+
+def call_check_main(
+        module,
+        check_id,
+    ):
     """
-    Runs a check's main() and injects preferences when supported.
+    Runs a check's main(), injects preferences when supported,
+    and prints its execution time.
+
+    Returns:
+        Any:
+            Raw result returned by the check.
     """
-    main_function = getattr(module, "main", None)
+    main_function = getattr(
+        module,
+        "main",
+        None,
+    )
 
     if not callable(main_function):
-        raise AttributeError("QC module has no callable main() function.")
+        raise AttributeError(
+            "QC module has no callable main() function."
+        )
 
-    parameters = inspect.signature(main_function).parameters
-    preferences = get_check_preferences(check_id, module)
+    parameters = inspect.signature(
+        main_function
+    ).parameters
 
-    if "preferences" in parameters:
-        return main_function(preferences=preferences)
+    preferences = get_check_preferences(
+        check_id,
+        module,
+    )
 
-    return main_function()
+    start_time = time.perf_counter()
+
+    try:
+        if "preferences" in parameters:
+            result = main_function(
+                preferences=preferences
+            )
+        else:
+            result = main_function()
+
+    finally:
+        elapsed = (
+            time.perf_counter()
+            - start_time
+        )
+
+        check_name = getattr(
+            module,
+            "LABEL",
+            check_id,
+        )
+
+        print(
+            "{:<40} {:>15}".format(
+                str(check_name),
+                format_elapsed_time(elapsed),
+            )
+        )
+
+    return result
+
 
 def call_check_fix(
         module,
@@ -78,6 +128,7 @@ def call_check_fix(
         kwargs["preferences"] = preferences
 
     return fix_function(*args, **kwargs)
+
 
 def rerun_qc_check_item(item):
     """
