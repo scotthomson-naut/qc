@@ -10,11 +10,7 @@ SEVERITY = "warning"
 LABEL = "Unique Edges"
 DESCRIPTION = (
     "Checks for duplicate edges - two or more edges connecting the "
-    "exact same pair of vertices. Unlike overlapping vertices, this "
-    "has no legitimate modeling-technique justification (hard-edge "
-    "and UV seam splits work by splitting vertices, not duplicating "
-    "edges), so this is treated as an actual mistake rather than a "
-    "candidate for review."
+    "exact same pair of vertices."
 )
 
 
