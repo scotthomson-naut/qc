@@ -210,7 +210,7 @@ def generate_site(
         category_body = (
             '<div class="breadcrumbs"><a href="../index.html">Documentation</a><span>›</span><b class="hilite-core">Core</b> checks</div>'
             '<div class="eyebrow">Category</div>'
-            f'<h1>{esc(category)}</h1><p class="lead">{len(items)} checks, listed alphabetically. Open a check for purpose, severity, fix availability, settings and selection behavior.</p>'
+            f'<h1>{esc(category)}</h1><p class="lead"><span class="hilite-core">{len(items)}</span> checks, listed alphabetically. Open a check for purpose, severity, fix availability, settings and selection behavior.</p>'
             '<div class="grid">' + "".join(cards) + '</div>'
         )
         (output_dir / "categories" / f"{category_slug(category)}.html").write_text(
