@@ -12,7 +12,9 @@ import bpy
 SEVERITY = "critical"
 LABEL = "UV Map Exists"
 DESCRIPTION = (
-    "Checks if Object has at least one UV map."
+    "Checks if Object has at least one UV map. "
+    "Without a UV layer, texture nodes look for coordinates that do not "
+    "exist, causing Blender or external engines to fail."
 )
 
 # -------------------------------------------------------------------------

@@ -11,8 +11,7 @@ SEVERITY = "warning"
 LABEL = "Location Applied"
 DESCRIPTION = (
     "Checks if Object's Location is Applied. "
-    "Applying translation in Blender resets an object's location "
-    "delta's data to zero (X: 0, Y: 0, Z: 0)."
+    "Resets an object's location delta's data to zero (X: 0, Y: 0, Z: 0)."
 )
 
 
