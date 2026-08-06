@@ -12,7 +12,10 @@ import bpy
 SEVERITY = "warning"
 LABEL = "Rotation Applied"
 DESCRIPTION = (
-    "Checks if Object's Rotation is Applied."
+    "Checks if Object's Rotation is Applied. "
+    "Resets an object's rotation values in Object Mode back to zero "
+    "(X=0, Y=0, Z=0) while permanently baking its current physical "
+    "orientation into the mesh data."
 )
 
 # -------------------------------------------------------------------------

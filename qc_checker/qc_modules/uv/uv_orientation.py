@@ -12,6 +12,10 @@ SEVERITY = "critical"
 LABEL = "UV Orientation"
 DESCRIPTION = (
     "Checks if Object has Flipped UV Faces."
+    "Face direction dictates how 3D software calculates light reflection, "
+    "texture placement, physics collisions, and rendering. Inverted faces "
+    "cause dark spots, invisible geometry in game engines, "
+    "and broken 3D prints."
 )
 
 # -------------------------------------------------------------------------

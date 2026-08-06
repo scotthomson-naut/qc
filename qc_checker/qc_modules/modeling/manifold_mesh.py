@@ -10,7 +10,13 @@ import bmesh
 SEVERITY = "critical"
 LABEL = "Manifold Mesh"
 DESCRIPTION = (
-    "Checks if Object has Manifold Edges."
+    "Checks if Object has Manifold Edges. "
+    "Ensures a 3D model is 'watertight', meaning every edge connects "
+    "to a maximum of two faces, and there are no holes, loose vertices, "
+    "or impossible geometry. "
+    "A manifold mesh is required for successful 3D printing, "
+    "accurate Physics and Fluid simulations, Proper UV unwrapping, "
+    "and reliable Boolean operation."
 )
 
 

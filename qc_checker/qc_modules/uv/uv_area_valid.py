@@ -8,7 +8,10 @@ import bpy
 SEVERITY = "info"
 LABEL = "UV Area Valid"
 DESCRIPTION = (
-    "Checks if Object has Zero Area UV Faces."
+    "Checks if Object has Zero Area UV Faces. "
+    "Helps find unmapped faces, overlapping artifacts, or collapsed UV "
+    "coordinates that cause texture stretching, baking errors, "
+    "or game engine import warnings."
 )
 
 

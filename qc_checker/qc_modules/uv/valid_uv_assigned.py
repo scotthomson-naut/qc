@@ -9,7 +9,10 @@ import bpy
 SEVERITY = "critical"
 LABEL = "Valid UV Assigned"
 DESCRIPTION = (
-    "Checks if Object's polygons have UV coordinates."
+    "Checks if Object's polygons have UV coordinates. "
+    "Ensures every face on your 3D mesh links correctly to a 2D texture "
+    "coordinate and prevents visual bugs like Stretched textures, "
+    "Invisible faces, or errors during Painting and Baking."
 )
 
 # -------------------------------------------------------------------------

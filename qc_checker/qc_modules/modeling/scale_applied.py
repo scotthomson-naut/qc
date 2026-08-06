@@ -12,7 +12,9 @@ import bpy
 SEVERITY = "warning"
 LABEL = "Scale Applied"
 DESCRIPTION = (
-    "Checks if Object's Scale is Applied."
+    "Checks if Object's Scale is Applied. "
+    "Resets an object's transformation values in the sidebar to 1.0 "
+    "on all axes while keeping its current visual size."
 )
 
 
