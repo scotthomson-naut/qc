@@ -21,21 +21,33 @@ DESCRIPTION = (
 
 def main():
     """
-    Checks for issue.
-    
-    Returns:
-        dict: {issues (list(str)), failed_objects(dict)}
+    Checks all UV maps for zero-area UV faces.
     """
-    failed_objects = get_objects_with_zero_area_uv_faces()
+    failed_objects = (
+        get_objects_with_zero_area_uv_faces()
+    )
+
     issues = []
 
-    for object_name, data in failed_objects.items():
-        issues.append(
-            "Failed object: {} - {} zero-area UV face(s)".format(
-                object_name,
-                data["zero_area_face_count"],
+    for object_name, data in (
+        failed_objects.items()
+    ):
+
+        for uv_map_name, uv_data in (
+            data["failed_uv_maps"].items()
+        ):
+            issues.append(
+                (
+                    "Failed object: {} - UV map '{}' "
+                    "has {} zero-area UV face(s)"
+                ).format(
+                    object_name,
+                    uv_map_name,
+                    uv_data[
+                        "zero_area_face_count"
+                    ],
+                )
             )
-        )
 
     return {
         "issues": issues,
@@ -113,48 +125,74 @@ def get_objects_with_zero_area_uv_faces(
         if not mesh.uv_layers:
             continue
 
-        uv_layer = mesh.uv_layers.active
+        failed_uv_maps = {}
 
-        if uv_layer is None:
-            continue
+        for uv_layer in mesh.uv_layers:
 
-        uv_data = uv_layer.data
+            uv_data = uv_layer.data
+            zero_area_faces = []
 
-        zero_area_faces = []
+            for polygon in mesh.polygons:
 
-        for polygon in mesh.polygons:
+                uvs = [
+                    uv_data[
+                        loop_index
+                    ].uv
+                    for loop_index
+                    in polygon.loop_indices
+                ]
 
-            uvs = [
-                uv_data[loop_index].uv
-                for loop_index in polygon.loop_indices
-            ]
+                uv_area = get_uv_polygon_area(
+                    uvs
+                )
 
-            uv_area = get_uv_polygon_area(uvs)
+                if uv_area > tolerance:
+                    continue
 
-            if uv_area > tolerance:
+                zero_area_faces.append({
+                    "polygon_index":
+                        polygon.index,
+
+                    "uv_area":
+                        uv_area,
+                })
+
+            if not zero_area_faces:
                 continue
 
-            zero_area_faces.append({
-                "polygon_index": polygon.index,
-                "uv_area": uv_area,
-            })
+            failed_uv_maps[
+                uv_layer.name
+            ] = {
+                "zero_area_face_count":
+                    len(zero_area_faces),
 
-        if not zero_area_faces:
+                "polygon_indices": [
+                    face["polygon_index"]
+                    for face in zero_area_faces
+                ],
+
+                "faces":
+                    zero_area_faces,
+            }
+
+        if not failed_uv_maps:
             continue
 
-        failed_objects[obj.name] = {
-            "uv_map": uv_layer.name,
+        failed_objects[
+            obj.name
+        ] = {
+            "failed_uv_maps":
+                failed_uv_maps,
+
+            "failed_uv_map_count":
+                len(failed_uv_maps),
 
             "zero_area_face_count":
-                len(zero_area_faces),
-
-            "polygon_indices": [
-                face["polygon_index"]
-                for face in zero_area_faces
-            ],
-
-            "faces":
-                zero_area_faces,
+                sum(
+                    data["zero_area_face_count"]
+                    for data
+                    in failed_uv_maps.values()
+                ),
         }
 
     return failed_objects
