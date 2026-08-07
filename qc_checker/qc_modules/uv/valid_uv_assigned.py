@@ -9,11 +9,11 @@ import bpy
 SEVERITY = "critical"
 LABEL = "Valid UV Assigned"
 DESCRIPTION = (
-    "Checks if Object's polygons have UV coordinates. "
-    "Ensures every face on your 3D mesh links correctly to a 2D texture "
-    "coordinate and prevents visual bugs like Stretched textures, "
-    "Invisible faces, or errors during Painting and Baking."
+    "Checks that every polygon has meaningful UV coordinates across all "
+    "UV maps. Missing or collapsed UVs can cause stretched textures, "
+    "painting and baking errors, and invalid texture mapping."
 )
+
 
 # -------------------------------------------------------------------------
 # Main
@@ -21,14 +21,29 @@ DESCRIPTION = (
 
 def main():
     """
-    Checks that every animated channel has a key at the start
-    and end of the timeline.
+    Checks all UV maps for polygons without valid UV coordinates.
+
+    Returns:
+        dict:
+        {
+            "issues": list[str],
+            "failed_objects": dict,
+        }
     """
-    failed_objects = get_meshes_with_unmapped_polygons()
+    failed_objects = (
+        get_meshes_with_unmapped_polygons()
+    )
+
     issues = []
 
-    for object_name, data in failed_objects.items():
-        reason = data.get("reason")
+    for object_name, object_data in (
+        failed_objects.items()
+    ):
+
+        reason = object_data.get(
+            "reason"
+        )
+
         if reason:
             issues.append(
                 "Failed object: {} - {}".format(
@@ -36,13 +51,30 @@ def main():
                     reason,
                 )
             )
-        else:
+
+            continue
+
+        failed_uv_maps = object_data.get(
+            "failed_uv_maps",
+            {},
+        )
+
+        for uv_map_name, uv_map_data in (
+            failed_uv_maps.items()
+        ):
             issues.append(
-                "Failed object: {} - {} of {} polygons "
-                "do not have valid UV coordinates".format(
+                (
+                    "Failed object: {} - UV map '{}' has "
+                    "{} of {} polygon(s) without valid UV coordinates"
+                ).format(
                     object_name,
-                    data["unmapped_count"],
-                    data["polygon_count"],
+                    uv_map_name,
+                    uv_map_data[
+                        "unmapped_count"
+                    ],
+                    uv_map_data[
+                        "polygon_count"
+                    ],
                 )
             )
 
@@ -61,11 +93,11 @@ def get_meshes_with_unmapped_polygons(
         tolerance=1e-6,
     ):
     """
-    Finds mesh objects containing polygons without meaningful UV coordinates.
+    Finds mesh objects containing polygons without meaningful UV
+    coordinates across all UV maps.
 
     A polygon is considered invalid when:
         - The mesh has no UV map.
-        - There is no active UV map.
         - The polygon has no UV loop data.
         - All UV coordinates for the polygon are effectively identical.
 
@@ -81,10 +113,22 @@ def get_meshes_with_unmapped_polygons(
         dict:
         {
             "MeshObject": {
-                "uv_map": "UVMap",
-                "polygon_count": 100,
+                "failed_uv_maps": {
+                    "UVMap": {
+                        "polygon_count": 100,
+                        "unmapped_count": 2,
+                        "unmapped_polygons": [14, 27],
+                    }
+                },
+
+                "failed_uv_map_count": 1,
                 "unmapped_count": 2,
-                "unmapped_polygons": [14, 27],
+                "polygon_indices": [14, 27],
+
+                "selection": {
+                    "mode": "FACE",
+                    "indices": [14, 27],
+                },
             }
         }
     """
@@ -93,9 +137,14 @@ def get_meshes_with_unmapped_polygons(
 
     failed_objects = {}
 
-    # If in edit mode change to Object mode
-    if bpy.context.object and bpy.context.object.mode == 'EDIT':
-        bpy.ops.object.mode_set(mode='OBJECT')
+    # Keep mesh datablocks synchronized with Edit Mode.
+    if (
+        bpy.context.object
+        and bpy.context.object.mode == "EDIT"
+    ):
+        bpy.ops.object.mode_set(
+            mode="OBJECT"
+        )
 
     for obj in objects:
 
@@ -104,113 +153,211 @@ def get_meshes_with_unmapped_polygons(
 
         mesh = obj.data
 
+        if mesh is None:
+            continue
+
         if not mesh.polygons:
             continue
 
-        # ---------------------------------------------------------
+        polygon_count = len(
+            mesh.polygons
+        )
+
+        # -----------------------------------------------------
         # No UV maps
-        # ---------------------------------------------------------
+        # -----------------------------------------------------
 
         if not mesh.uv_layers:
 
-            failed_objects[obj.name] = {
-                "uv_map": None,
-                "polygon_count": len(mesh.polygons),
-                "unmapped_count": len(mesh.polygons),
-                "unmapped_polygons": [
-                    polygon.index
-                    for polygon in mesh.polygons
-                ],
-                "reason": "Mesh has no UV map",
+            polygon_indices = [
+                polygon.index
+                for polygon in mesh.polygons
+            ]
+
+            failed_objects[
+                obj.name
+            ] = {
+                "failed_uv_maps": {},
+                "failed_uv_map_count": 0,
+
+                "polygon_count":
+                    polygon_count,
+
+                "unmapped_count":
+                    polygon_count,
+
+                "polygon_indices":
+                    polygon_indices,
+
+                "reason":
+                    "Mesh has no UV map",
+
+                "selection": {
+                    "mode": "FACE",
+                    "indices":
+                        polygon_indices,
+                },
             }
 
             continue
 
-        # ---------------------------------------------------------
-        # Active UV map
-        # ---------------------------------------------------------
+        # -----------------------------------------------------
+        # Check every UV map
+        # -----------------------------------------------------
 
-        uv_layer = mesh.uv_layers.active
+        failed_uv_maps = {}
 
-        if uv_layer is None:
+        all_failed_polygon_indices = set()
 
-            failed_objects[obj.name] = {
-                "uv_map": None,
-                "polygon_count": len(mesh.polygons),
-                "unmapped_count": len(mesh.polygons),
-                "unmapped_polygons": [
-                    polygon.index
-                    for polygon in mesh.polygons
-                ],
-                "reason": "Mesh has no active UV map",
-            }
+        total_unmapped_count = 0
 
-            continue
+        for uv_layer in mesh.uv_layers:
 
-        uv_data = uv_layer.data
+            uv_data = uv_layer.data
 
-        unmapped_polygons = []
+            unmapped_polygons = []
 
-        # ---------------------------------------------------------
-        # Inspect every polygon
-        # ---------------------------------------------------------
+            for polygon in mesh.polygons:
 
-        for polygon in mesh.polygons:
+                polygon_uvs = []
 
-            polygon_uvs = []
+                for loop_index in (
+                    polygon.loop_indices
+                ):
 
-            for loop_index in polygon.loop_indices:
+                    if loop_index >= len(
+                        uv_data
+                    ):
+                        continue
 
-                if loop_index >= len(uv_data):
+                    uv = uv_data[
+                        loop_index
+                    ].uv
+
+                    polygon_uvs.append(
+                        (
+                            uv.x,
+                            uv.y,
+                        )
+                    )
+
+                # ---------------------------------------------
+                # No UV data
+                # ---------------------------------------------
+
+                if not polygon_uvs:
+                    unmapped_polygons.append(
+                        polygon.index
+                    )
+
+                    all_failed_polygon_indices.add(
+                        polygon.index
+                    )
+
                     continue
 
-                uv = uv_data[loop_index].uv
+                # ---------------------------------------------
+                # All corners collapsed to same coordinate
+                # ---------------------------------------------
 
-                polygon_uvs.append(
-                    (uv.x, uv.y)
+                first_u, first_v = (
+                    polygon_uvs[0]
                 )
 
-            # No UV data found for polygon.
-            if not polygon_uvs:
+                has_uv_spread = False
+
+                for u, v in polygon_uvs[1:]:
+
+                    if (
+                        abs(
+                            u - first_u
+                        ) > tolerance
+                        or
+                        abs(
+                            v - first_v
+                        ) > tolerance
+                    ):
+                        has_uv_spread = True
+                        break
+
+                if has_uv_spread:
+                    continue
+
                 unmapped_polygons.append(
                     polygon.index
                 )
+
+                all_failed_polygon_indices.add(
+                    polygon.index
+                )
+
+            # -------------------------------------------------
+            # Store UV-map failure
+            # -------------------------------------------------
+
+            if not unmapped_polygons:
                 continue
 
-            # Check whether all corners have effectively
-            # the same UV coordinate.
-            first_u, first_v = polygon_uvs[0]
+            failed_uv_maps[
+                uv_layer.name
+            ] = {
+                "polygon_count":
+                    polygon_count,
 
-            has_uv_area = False
+                "unmapped_count":
+                    len(
+                        unmapped_polygons
+                    ),
 
-            for u, v in polygon_uvs[1:]:
-
-                if (
-                    abs(u - first_u) > tolerance
-                    or abs(v - first_v) > tolerance
-                ):
-                    has_uv_area = True
-                    break
-
-            if not has_uv_area:
-                unmapped_polygons.append(
-                    polygon.index
-                )
-
-        # ---------------------------------------------------------
-        # Store failures
-        # ---------------------------------------------------------
-
-        if unmapped_polygons:
-
-            failed_objects[obj.name] = {
-                "uv_map": uv_layer.name,
-                "polygon_count": len(mesh.polygons),
-                "unmapped_count": len(
-                    unmapped_polygons
-                ),
                 "unmapped_polygons":
                     unmapped_polygons,
             }
+
+            total_unmapped_count += (
+                len(
+                    unmapped_polygons
+                )
+            )
+
+        # -----------------------------------------------------
+        # Object passes every UV map
+        # -----------------------------------------------------
+
+        if not failed_uv_maps:
+            continue
+
+        combined_polygon_indices = sorted(
+            all_failed_polygon_indices
+        )
+
+        failed_objects[
+            obj.name
+        ] = {
+            "failed_uv_maps":
+                failed_uv_maps,
+
+            "failed_uv_map_count":
+                len(
+                    failed_uv_maps
+                ),
+
+            "polygon_count":
+                polygon_count,
+
+            # Total failures across UV maps.
+            "unmapped_count":
+                total_unmapped_count,
+
+            # Unique geometry faces affected in any UV map.
+            "polygon_indices":
+                combined_polygon_indices,
+
+            # Works with your component-selection framework.
+            "selection": {
+                "mode": "FACE",
+                "indices":
+                    combined_polygon_indices,
+            },
+        }
 
     return failed_objects
