@@ -8,7 +8,8 @@ import bpy
 SEVERITY = "critical"
 LABEL = "World Assigned"
 DESCRIPTION = (
-    "Checks if a World datablock exists."
+    "Checks if a World datablock exists. "
+    "Crucial because a scene does not always have one assigned."
 )
 
 # -------------------------------------------------------------------------

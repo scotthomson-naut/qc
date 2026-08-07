@@ -8,7 +8,9 @@ import bpy
 SEVERITY = "warning"
 LABEL = "Unit System Match"
 DESCRIPTION = (
-    "Checks if a metric or imperial system has been specified."
+    "Checks if a metric or imperial system has been specified. "
+    "Ensures precise real-world dimensions, accurate physics simulations, "
+    "and correct exports for 3D printing or game engine."
 )
 
 # -------------------------------------------------------------------------
