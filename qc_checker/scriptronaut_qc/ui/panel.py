@@ -318,12 +318,14 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
 
         if settings.is_running:
             progress_row = layout.row()
-            progress_row.scale_y = 0.3
-            progress_row.prop(
-                settings,
-                "run_progress",
-                text="",
-                slider=True,
+            progress_row.scale_y = 0.5
+
+            progress_row.progress(
+                factor=settings.run_progress,
+                type="BAR",
+                text="{:.0f}%".format(
+                    settings.run_progress * 100
+                ),
             )
 
         # ---------------------------------------------------------

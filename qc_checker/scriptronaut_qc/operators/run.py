@@ -219,15 +219,12 @@ class SCRIPTRONAUT_OT_QC_RunSelected(Operator):
         )
 
         executed_check_count = 0
-
         constants.QC_IS_RUNNING = True
 
         settings.is_running = True
         settings.run_progress = 0.0
 
-        force_qc_redraw(
-            context
-        )
+        force_qc_redraw(context)
 
         try:
 
@@ -492,7 +489,6 @@ class SCRIPTRONAUT_OT_QC_RunSelected(Operator):
                 finally:
 
                     executed_check_count += 1
-
                     settings.run_progress = (
                         executed_check_count
                         / total_check_count
@@ -506,7 +502,6 @@ class SCRIPTRONAUT_OT_QC_RunSelected(Operator):
         finally:
 
             constants.QC_IS_RUNNING = False
-
             settings.is_running = False
 
             # Leave at 100%. Since the panel only shows the progress
