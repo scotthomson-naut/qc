@@ -375,6 +375,7 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
             if (
                 item.status == "FAIL"
                 and item.has_fix
+                and item.can_auto_fix
             )
         )
 
