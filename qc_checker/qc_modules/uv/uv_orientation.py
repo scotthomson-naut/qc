@@ -4,6 +4,7 @@ from mathutils import Vector
 # Blender imports
 import bpy
 
+
 # -------------------------------------------------------------------------
 # Metadata
 # -------------------------------------------------------------------------
@@ -11,12 +12,11 @@ import bpy
 SEVERITY = "critical"
 LABEL = "UV Orientation"
 DESCRIPTION = (
-    "Checks if Object has Flipped UV Faces."
-    "Face direction dictates how 3D software calculates light reflection, "
-    "texture placement, physics collisions, and rendering. Inverted faces "
-    "cause dark spots, invisible geometry in game engines, "
-    "and broken 3D prints."
+    "Checks all UV maps for flipped or mirrored UV faces. "
+    "Incorrect UV orientation can cause mirrored textures, baking issues, "
+    "unexpected shading, and export problems."
 )
+
 
 # -------------------------------------------------------------------------
 # Main
@@ -24,21 +24,44 @@ DESCRIPTION = (
 
 def main():
     """
-    Checks for issue.
-    
+    Checks all UV maps for flipped UV faces.
+
     Returns:
-        dict: {issues (list(str)), failed_objects(dict)}
+        dict:
+        {
+            "issues": list[str],
+            "failed_objects": dict,
+        }
     """
-    failed_objects = get_objects_with_flipped_uv_faces()
+    failed_objects = (
+        get_objects_with_flipped_uv_faces()
+    )
+
     issues = []
 
-    for object_name, data in failed_objects.items():
-        issues.append(
-            "Failed object: {} - {} flipped UV face(s)".format(
-                object_name,
-                data["flipped_face_count"],
-            )
+    for object_name, object_data in (
+        failed_objects.items()
+    ):
+        failed_uv_maps = object_data.get(
+            "failed_uv_maps",
+            {},
         )
+
+        for uv_map_name, uv_map_data in (
+            failed_uv_maps.items()
+        ):
+            issues.append(
+                (
+                    "Failed object: {} - UV map '{}' has "
+                    "{} flipped UV face(s)"
+                ).format(
+                    object_name,
+                    uv_map_name,
+                    uv_map_data[
+                        "flipped_face_count"
+                    ],
+                )
+            )
 
     return {
         "issues": issues,
@@ -55,17 +78,15 @@ def get_objects_with_flipped_uv_faces(
         tolerance=1e-10,
     ):
     """
-    Finds mesh objects containing UV faces whose UV orientation
-    is mirrored relative to the corresponding 3D polygon.
+    Finds mesh objects containing flipped UV faces across all UV maps.
 
-    The 3D polygon is projected into a local 2D coordinate system
-    built from the polygon itself. This avoids false positives caused
-    by projecting different cube faces onto different world planes.
+    A UV face fails when its UV winding is opposite to the winding of
+    the corresponding 3D polygon.
 
     Args:
         objects (iterable[bpy.types.Object] | None):
             Mesh objects to inspect.
-            Defaults to all objects in the current scene.
+            Defaults to all scene objects.
 
         tolerance (float):
             Signed areas with an absolute value below this threshold
@@ -75,10 +96,19 @@ def get_objects_with_flipped_uv_faces(
         dict:
         {
             "ObjectName": {
-                "uv_map": "UVMap",
+                "failed_uv_maps": {
+                    "UVMap": {
+                        "flipped_face_count": 2,
+                        "polygon_indices": [5, 12],
+                        "flipped_faces": [...],
+                    }
+                },
+                "failed_uv_map_count": 1,
                 "flipped_face_count": 2,
-                "polygon_indices": [5, 12],
-                "flipped_faces": [...]
+                "selection": {
+                    "mode": "FACE",
+                    "indices": [5, 12],
+                },
             }
         }
     """
@@ -87,111 +117,190 @@ def get_objects_with_flipped_uv_faces(
 
     failed_objects = {}
 
-    # If in edit mode change to Object mode
-    if bpy.context.object and bpy.context.object.mode == 'EDIT':
-        bpy.ops.object.mode_set(mode='OBJECT')
+    # If in Edit Mode, switch to Object Mode so mesh data is current.
+    if (
+        bpy.context.object
+        and bpy.context.object.mode == "EDIT"
+    ):
+        bpy.ops.object.mode_set(
+            mode="OBJECT"
+        )
 
     for obj in objects:
+
         if obj.type != "MESH":
             continue
 
         mesh = obj.data
 
-        if mesh is None or not mesh.polygons:
+        if (
+            mesh is None
+            or not mesh.polygons
+        ):
             continue
 
+        # Missing UV maps should be handled by the UV Map Exists check.
         if not mesh.uv_layers:
             continue
 
-        uv_layer = mesh.uv_layers.active
+        failed_uv_maps = {}
+        all_failed_polygon_indices = set()
 
-        if uv_layer is None:
-            continue
+        # -----------------------------------------------------
+        # Check every UV map
+        # -----------------------------------------------------
 
-        uv_data = uv_layer.data
+        for uv_layer in mesh.uv_layers:
 
-        flipped_faces = []
+            uv_data = uv_layer.data
 
-        for polygon in mesh.polygons:
-            loop_indices = list(
-                polygon.loop_indices
-            )
+            flipped_faces = []
 
-            if len(loop_indices) < 3:
-                continue
+            for polygon in mesh.polygons:
 
-            # -----------------------------------------------------
-            # UV winding
-            # -----------------------------------------------------
-
-            uvs = [
-                uv_data[loop_index].uv.copy()
-                for loop_index in loop_indices
-            ]
-
-            uv_signed_area = get_signed_2d_area(
-                uvs
-            )
-
-            # Ignore collapsed UV faces.
-            if abs(uv_signed_area) <= tolerance:
-                continue
-
-            # -----------------------------------------------------
-            # Mesh winding in polygon-local 2D coordinates
-            # -----------------------------------------------------
-
-            mesh_points_2d = (
-                project_polygon_to_local_2d(
-                    mesh,
-                    polygon,
+                loop_indices = list(
+                    polygon.loop_indices
                 )
-            )
 
-            if not mesh_points_2d:
+                if len(loop_indices) < 3:
+                    continue
+
+                # -------------------------------------------------
+                # UV winding
+                # -------------------------------------------------
+
+                uvs = [
+                    uv_data[
+                        loop_index
+                    ].uv.copy()
+
+                    for loop_index
+                    in loop_indices
+                ]
+
+                uv_signed_area = (
+                    get_signed_2d_area(
+                        uvs
+                    )
+                )
+
+                # Collapsed UV faces are handled by the UV Area check.
+                if (
+                    abs(uv_signed_area)
+                    <= tolerance
+                ):
+                    continue
+
+                # -------------------------------------------------
+                # Mesh winding
+                # -------------------------------------------------
+
+                mesh_points_2d = (
+                    project_polygon_to_local_2d(
+                        mesh,
+                        polygon,
+                    )
+                )
+
+                if not mesh_points_2d:
+                    continue
+
+                mesh_signed_area = (
+                    get_signed_2d_area(
+                        mesh_points_2d
+                    )
+                )
+
+                if (
+                    abs(mesh_signed_area)
+                    <= tolerance
+                ):
+                    continue
+
+                # -------------------------------------------------
+                # Opposite winding = flipped UV orientation
+                # -------------------------------------------------
+
+                if (
+                    mesh_signed_area
+                    * uv_signed_area
+                    < 0.0
+                ):
+                    flipped_faces.append({
+                        "polygon_index":
+                            polygon.index,
+
+                        "uv_signed_area":
+                            uv_signed_area,
+
+                        "mesh_signed_area":
+                            mesh_signed_area,
+                    })
+
+                    all_failed_polygon_indices.add(
+                        polygon.index
+                    )
+
+            if not flipped_faces:
                 continue
 
-            mesh_signed_area = get_signed_2d_area(
-                mesh_points_2d
-            )
+            failed_uv_maps[
+                uv_layer.name
+            ] = {
+                "flipped_face_count":
+                    len(flipped_faces),
 
-            if abs(mesh_signed_area) <= tolerance:
-                continue
+                "polygon_indices": [
+                    item["polygon_index"]
+                    for item in flipped_faces
+                ],
 
-            # Opposite winding means mirrored UV orientation.
-            if (
-                mesh_signed_area
-                * uv_signed_area
-                < 0.0
-            ):
-                flipped_faces.append({
-                    "polygon_index":
-                        polygon.index,
+                "flipped_faces":
+                    flipped_faces,
+            }
 
-                    "uv_signed_area":
-                        uv_signed_area,
+        # -----------------------------------------------------
+        # Object passes all UV maps
+        # -----------------------------------------------------
 
-                    "mesh_signed_area":
-                        mesh_signed_area,
-                })
-
-        if not flipped_faces:
+        if not failed_uv_maps:
             continue
 
-        failed_objects[obj.name] = {
-            "uv_map":
-                uv_layer.name,
+        # Combined unique failed polygon indices.
+        combined_polygon_indices = sorted(
+            all_failed_polygon_indices
+        )
 
+        failed_objects[
+            obj.name
+        ] = {
+            "failed_uv_maps":
+                failed_uv_maps,
+
+            "failed_uv_map_count":
+                len(failed_uv_maps),
+
+            # Total failures across UV maps. A polygon appearing in two
+            # UV maps counts twice here because both UV maps failed.
             "flipped_face_count":
-                len(flipped_faces),
+                sum(
+                    uv_map_data[
+                        "flipped_face_count"
+                    ]
+                    for uv_map_data
+                    in failed_uv_maps.values()
+                ),
 
-            "polygon_indices": [
-                item["polygon_index"]
-                for item in flipped_faces
-            ],
+            # Unique geometry polygons affected anywhere.
+            "polygon_indices":
+                combined_polygon_indices,
 
-            "flipped_faces":
-                flipped_faces,
+            # Works with your Select Failed Components framework.
+            "selection": {
+                "mode": "FACE",
+                "indices":
+                    combined_polygon_indices,
+            },
         }
 
     return failed_objects
@@ -212,16 +321,17 @@ def project_polygon_to_local_2d(
         X axis = first valid polygon edge
         Y axis = polygon normal cross X axis
 
-    This preserves the polygon's own winding consistently,
-    regardless of its world-space orientation.
-
     Returns:
         list[Vector]:
             2D projected polygon coordinates.
     """
     vertices = [
-        mesh.vertices[index].co.copy()
-        for index in polygon.vertices
+        mesh.vertices[
+            index
+        ].co.copy()
+
+        for index
+        in polygon.vertices
     ]
 
     if len(vertices) < 3:
@@ -229,12 +339,13 @@ def project_polygon_to_local_2d(
 
     origin = vertices[0]
 
-    # Find a usable first edge.
     tangent = None
 
     for point in vertices[1:]:
+
         edge = (
-            point - origin
+            point
+            - origin
         )
 
         if edge.length_squared > 1e-20:
@@ -249,7 +360,6 @@ def project_polygon_to_local_2d(
     if normal.length_squared <= 1e-20:
         return []
 
-    # Local Y axis.
     bitangent = normal.cross(
         tangent
     )
@@ -262,33 +372,33 @@ def project_polygon_to_local_2d(
     projected = []
 
     for point in vertices:
+
         relative = (
-            point - origin
+            point
+            - origin
         )
 
         projected.append(
             Vector((
-                relative.dot(tangent),
-                relative.dot(bitangent),
+                relative.dot(
+                    tangent
+                ),
+                relative.dot(
+                    bitangent
+                ),
             ))
         )
 
     return projected
 
 
-def get_signed_2d_area(points):
+def get_signed_2d_area(
+        points,
+    ):
     """
     Calculates signed 2D polygon area.
 
     Positive and negative values represent opposite winding directions.
-
-    Args:
-        points (iterable):
-            Points exposing x and y components.
-
-    Returns:
-        float:
-            Signed polygon area.
     """
     if len(points) < 3:
         return 0.0
@@ -299,12 +409,15 @@ def get_signed_2d_area(points):
         points
     ):
         point_b = points[
-            (index + 1) % len(points)
+            (index + 1)
+            % len(points)
         ]
 
         area += (
-            point_a.x * point_b.y
-            - point_b.x * point_a.y
+            point_a.x
+            * point_b.y
+            - point_b.x
+            * point_a.y
         )
 
     return area * 0.5
