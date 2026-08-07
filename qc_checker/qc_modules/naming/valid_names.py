@@ -12,7 +12,8 @@ import bpy
 SEVERITY = "critical"
 LABEL = "Valid Names"
 DESCRIPTION = (
-    "Checks if Object's Name has no Special Charcaters. "
+    "Checks if Object's Name has no Special Charcaters like 'Fried_Ham_$%,' "
+    "Me@TheBusStop .. "
     "Special characters can corrupt file paths, break code parsing, "
     "and violate external software naming rules."
 )

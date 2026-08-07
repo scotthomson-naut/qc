@@ -9,6 +9,7 @@ SEVERITY = "warning"
 LABEL = "Object/Data Name Match"
 DESCRIPTION = (
     "Checks that single-user mesh datablock names match their object names. "
+    "Like BoxRed -> Cube.001 "
     "Shared mesh datablocks are allowed and ignored. "
     "An object holds position and rotation data, while its internal datablock "
     "holds the actual geometry or properties. When they mismatch, "

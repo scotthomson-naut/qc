@@ -11,7 +11,7 @@ import bpy
 SEVERITY = "info"
 LABEL = "No Auto Suffixes"
 DESCRIPTION = (
-    "Checks if Object's Name is a Duplicate. Prevents naming conflicts."
+    "Checks if Object's Name is a Duplicate name like Hat.001, Apple.003 .."
 )
 
 
