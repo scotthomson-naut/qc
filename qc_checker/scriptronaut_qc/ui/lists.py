@@ -47,7 +47,7 @@ class SCRIPTRONAUT_UL_QC_Checks(UIList):
             row.alert = True
 
         elif item.status == "RUNNING":
-            icon_name = "TIME"
+            icon_name = "SOLO_ON"
             status_text = "Running"
 
         else:

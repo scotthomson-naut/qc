@@ -104,6 +104,20 @@ class SCRIPTRONAUT_QC_Settings(PropertyGroup):
         default="",
     )
 
+    is_running: BoolProperty(
+        name="QC Is Running",
+        default=False,
+    )
+
+    run_progress: FloatProperty(
+        name="QC Run Progress",
+        default=0.0,
+        min=0.0,
+        max=1.0,
+        subtype="FACTOR",
+    )
+
+
 class SCRIPTRONAUT_PG_CheckSetting(
         PropertyGroup
     ):

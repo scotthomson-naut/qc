@@ -313,6 +313,20 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
         )
 
         # ---------------------------------------------------------
+        # Run Progress
+        # ---------------------------------------------------------
+
+        if settings.is_running:
+            progress_row = layout.row()
+            progress_row.scale_y = 0.3
+            progress_row.prop(
+                settings,
+                "run_progress",
+                text="",
+                slider=True,
+            )
+
+        # ---------------------------------------------------------
         # Run selected
         # ---------------------------------------------------------
 

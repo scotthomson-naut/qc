@@ -5,7 +5,13 @@ import time
 import traceback
 
 import bpy
-from bpy.props import BoolProperty, CollectionProperty, IntProperty, StringProperty
+
+from bpy.props import (
+    BoolProperty,
+    CollectionProperty,
+    IntProperty,
+    StringProperty,
+)
 from bpy.types import Operator
 
 from .. import constants
@@ -13,185 +19,551 @@ from ..core.context import QCContext
 from ..core import *
 from ..properties import SCRIPTRONAUT_PG_CheckSetting
 from ..utils import *
-from ..core.results import result_can_auto_fix
-from ..utils.time_utils import format_elapsed_time
 
+from ..core.results import (
+    result_can_auto_fix,
+)
+
+from ..utils.time_utils import (
+    format_elapsed_time,
+)
+
+
+# -------------------------------------------------------------------------
+# Helpers
+# -------------------------------------------------------------------------
+
+def force_qc_redraw(
+        context,
+    ):
+    """
+    Forces Blender to redraw the UI so QC status and progress changes
+    become visible during a synchronous QC run.
+
+    Note:
+        Blender can redraw between checks, but not while an individual
+        check is blocking the main thread.
+    """
+    if context.screen is not None:
+        for area in context.screen.areas:
+            area.tag_redraw()
+
+    try:
+        bpy.ops.wm.redraw_timer(
+            type="DRAW_WIN_SWAP",
+            iterations=1,
+        )
+
+    except RuntimeError:
+        pass
+
+
+# -------------------------------------------------------------------------
+# Select All
+# -------------------------------------------------------------------------
 
 class SCRIPTRONAUT_OT_QC_SelectAll(Operator):
     """
     Selects all QC checks.
     """
-    bl_idname = "scriptronaut.qc_select_all"
-    bl_label = "Select All Checks"
 
-    def execute(self, context):
-        for item in context.scene.scriptronaut_qc_checks:
+    bl_idname = (
+        "scriptronaut.qc_select_all"
+    )
+
+    bl_label = (
+        "Select All Checks"
+    )
+
+    def execute(
+        self,
+        context,
+    ):
+        for item in (
+            context.scene
+            .scriptronaut_qc_checks
+        ):
             item.selected = True
 
         return {"FINISHED"}
 
 
+# -------------------------------------------------------------------------
+# Select None
+# -------------------------------------------------------------------------
+
 class SCRIPTRONAUT_OT_QC_SelectNone(Operator):
     """
     Deselects all QC checks.
     """
-    bl_idname = "scriptronaut.qc_select_none"
-    bl_label = "Select None"
 
-    def execute(self, context):
-        for item in context.scene.scriptronaut_qc_checks:
+    bl_idname = (
+        "scriptronaut.qc_select_none"
+    )
+
+    bl_label = (
+        "Select None"
+    )
+
+    def execute(
+        self,
+        context,
+    ):
+        for item in (
+            context.scene
+            .scriptronaut_qc_checks
+        ):
             item.selected = False
 
         return {"FINISHED"}
 
 
+# -------------------------------------------------------------------------
+# Select Critical
+# -------------------------------------------------------------------------
+
 class SCRIPTRONAUT_OT_QC_SelectCritical(Operator):
     """
     Select only Critical QC checks.
     """
-    bl_idname = "scriptronaut.qc_select_critical"
-    bl_label = "Select Critical Checks"
-    bl_description = "Select only Critical QC checks"
 
-    def execute(self, context):
+    bl_idname = (
+        "scriptronaut.qc_select_critical"
+    )
 
-        checks = context.scene.scriptronaut_qc_checks
+    bl_label = (
+        "Select Critical Checks"
+    )
+
+    bl_description = (
+        "Select only Critical QC checks"
+    )
+
+    def execute(
+        self,
+        context,
+    ):
+        checks = (
+            context.scene
+            .scriptronaut_qc_checks
+        )
 
         for item in checks:
             item.selected = (
-                item.severity == "critical"
+                item.severity
+                == "critical"
             )
 
         return {"FINISHED"}
 
 
+# -------------------------------------------------------------------------
+# Run Selected
+# -------------------------------------------------------------------------
+
 class SCRIPTRONAUT_OT_QC_RunSelected(Operator):
     """
     Executes all selected QC scripts and stores the results.
     """
-    bl_idname = "scriptronaut.qc_run_selected"
-    bl_label = "Run Selected Checks"
 
-    def execute(self, context):
+    bl_idname = (
+        "scriptronaut.qc_run_selected"
+    )
 
-        # Time executing
-        run_start_time = time.perf_counter()
-        executed_check_count = 0
+    bl_label = (
+        "Run Selected Checks"
+    )
 
+    def execute(
+        self,
+        context,
+    ):
         scene = context.scene
-        checks = scene.scriptronaut_qc_checks
-        ran_any = False
+
+        settings = (
+            scene.scriptronaut_qc_settings
+        )
+
+        checks = (
+            scene.scriptronaut_qc_checks
+        )
+
+        # ---------------------------------------------------------
+        # Collect selected checks
+        # ---------------------------------------------------------
+
+        selected_items = [
+            item
+            for item in checks
+            if item.selected
+        ]
+
+        total_check_count = len(
+            selected_items
+        )
+
+        if total_check_count == 0:
+            self.report(
+                {"WARNING"},
+                "No checks selected.",
+            )
+
+            return {"CANCELLED"}
+
+        # ---------------------------------------------------------
+        # Start run
+        # ---------------------------------------------------------
+
+        run_start_time = (
+            time.perf_counter()
+        )
+
+        executed_check_count = 0
 
         constants.QC_IS_RUNNING = True
 
+        settings.is_running = True
+        settings.run_progress = 0.0
+
+        force_qc_redraw(
+            context
+        )
+
         try:
-            for item in checks:
-                if not item.selected:
-                    continue
 
-                ran_any = True
+            # -----------------------------------------------------
+            # Run checks from top to bottom
+            # -----------------------------------------------------
+
+            for item in selected_items:
+
+                # -------------------------------------------------
+                # Mark current check as running
+                # -------------------------------------------------
+
                 item.status = "RUNNING"
-                item.issues = "Running..."
-                item.result_data = "{}"
-                script_path = item.script_path
 
-                if not os.path.isfile(script_path):
-                    result_data = {
-                        "issues": ["Script does not exist:\n{}".format(script_path)],
-                        "script_path": script_path,
-                    }
-                    item.status = "FAIL"
-                    item.issues = "\n".join(result_data["issues"])
-                    item.result_data = result_data_to_json(result_data)
-                    continue
+                item.issues = (
+                    "Running..."
+                )
+
+                item.result_data = "{}"
+
+                # Force the panel to redraw BEFORE the check begins.
+                # This is where the RUNNING/star icon becomes visible.
+                force_qc_redraw(
+                    context
+                )
+
+                script_path = (
+                    item.script_path
+                )
 
                 try:
-                    module = load_module_from_path(
-                        "qc_{}".format(item.name),
-                        script_path,
-                    )
 
-                    main_function = getattr(module, "main", None)
-                    if not callable(main_function):
+                    # ---------------------------------------------
+                    # Script missing
+                    # ---------------------------------------------
+
+                    if not os.path.isfile(
+                        script_path
+                    ):
                         result_data = {
-                            "issues": ["Missing main() function."],
-                            "script_path": script_path,
+                            "issues": [
+                                (
+                                    "Script does not exist:\n{}"
+                                ).format(
+                                    script_path
+                                )
+                            ],
+
+                            "script_path":
+                                script_path,
                         }
+
                         item.status = "FAIL"
-                        item.issues = "\n".join(result_data["issues"])
-                        item.result_data = result_data_to_json(result_data)
-                        continue
 
-                    raw_result = call_check_main(
-                        module,
-                        get_check_id_for_item(item),
-                    )
-                    result_data = normalize_check_result(raw_result)
-                    result_data["check_name"] = item.name
-                    result_data["script_path"] = script_path
-                    issues = get_issues_from_result(result_data)
-
-                    item.result_data = result_data_to_json(result_data)
-                    item.has_fix = callable(getattr(module, "fix", None))
-                    item.can_auto_fix = (
-                        item.has_fix
-                        and result_can_auto_fix(
-                            result_data,
-                            default=True,
+                        item.issues = "\n".join(
+                            result_data[
+                                "issues"
+                            ]
                         )
-                    )
-                    item.has_settings = module_has_settings(module)
 
-                    if issues:
-                        item.status = "FAIL"
-                        item.issues = "\n".join(str(issue) for issue in issues)
+                        item.result_data = (
+                            result_data_to_json(
+                                result_data
+                            )
+                        )
+
+                        item.has_fix = False
+                        item.can_auto_fix = False
+
                     else:
-                        item.status = "PASS"
-                        item.issues = "No issues found."
+
+                        # -----------------------------------------
+                        # Load module
+                        # -----------------------------------------
+
+                        module = (
+                            load_module_from_path(
+                                "qc_{}".format(
+                                    item.name
+                                ),
+                                script_path,
+                            )
+                        )
+
+                        main_function = getattr(
+                            module,
+                            "main",
+                            None,
+                        )
+
+                        # -----------------------------------------
+                        # Missing main()
+                        # -----------------------------------------
+
+                        if not callable(
+                            main_function
+                        ):
+                            result_data = {
+                                "issues": [
+                                    "Missing main() function."
+                                ],
+
+                                "script_path":
+                                    script_path,
+                            }
+
+                            item.status = "FAIL"
+
+                            item.issues = "\n".join(
+                                result_data[
+                                    "issues"
+                                ]
+                            )
+
+                            item.result_data = (
+                                result_data_to_json(
+                                    result_data
+                                )
+                            )
+
+                            item.has_fix = False
+                            item.can_auto_fix = False
+
+                        else:
+
+                            # -------------------------------------
+                            # Execute QC check
+                            # -------------------------------------
+
+                            raw_result = (
+                                call_check_main(
+                                    module,
+                                    get_check_id_for_item(
+                                        item
+                                    ),
+                                )
+                            )
+
+                            result_data = (
+                                normalize_check_result(
+                                    raw_result
+                                )
+                            )
+
+                            result_data[
+                                "check_name"
+                            ] = item.name
+
+                            result_data[
+                                "script_path"
+                            ] = script_path
+
+                            issues = (
+                                get_issues_from_result(
+                                    result_data
+                                )
+                            )
+
+                            item.result_data = (
+                                result_data_to_json(
+                                    result_data
+                                )
+                            )
+
+                            # -------------------------------------
+                            # Fix availability
+                            # -------------------------------------
+
+                            item.has_fix = callable(
+                                getattr(
+                                    module,
+                                    "fix",
+                                    None,
+                                )
+                            )
+
+                            item.can_auto_fix = (
+                                item.has_fix
+                                and result_can_auto_fix(
+                                    result_data,
+                                    default=True,
+                                )
+                            )
+
+                            # -------------------------------------
+                            # Settings availability
+                            # -------------------------------------
+
+                            item.has_settings = (
+                                module_has_settings(
+                                    module
+                                )
+                            )
+
+                            # -------------------------------------
+                            # Result
+                            # -------------------------------------
+
+                            if issues:
+
+                                item.status = (
+                                    "FAIL"
+                                )
+
+                                item.issues = (
+                                    "\n".join(
+                                        str(issue)
+                                        for issue
+                                        in issues
+                                    )
+                                )
+
+                            else:
+
+                                item.status = (
+                                    "PASS"
+                                )
+
+                                item.issues = (
+                                    "No issues found."
+                                )
+
+                # -------------------------------------------------
+                # Check execution error
+                # -------------------------------------------------
 
                 except Exception:
-                    result_data = {
-                        "issues": [traceback.format_exc()],
-                        "check_name": item.name,
-                        "script_path": script_path,
-                    }
-                    item.status = "FAIL"
-                    item.issues = "\n".join(result_data["issues"])
-                    item.result_data = result_data_to_json(result_data)
 
-                # Time executing
-                executed_check_count += 1
+                    result_data = {
+                        "issues": [
+                            traceback.format_exc()
+                        ],
+
+                        "check_name":
+                            item.name,
+
+                        "script_path":
+                            script_path,
+                    }
+
+                    item.status = "FAIL"
+
+                    item.issues = "\n".join(
+                        result_data[
+                            "issues"
+                        ]
+                    )
+
+                    item.result_data = (
+                        result_data_to_json(
+                            result_data
+                        )
+                    )
+
+                    item.can_auto_fix = False
+
+                # -------------------------------------------------
+                # Check completed
+                # -------------------------------------------------
+
+                finally:
+
+                    executed_check_count += 1
+
+                    settings.run_progress = (
+                        executed_check_count
+                        / total_check_count
+                    )
+
+                    # Redraw again after PASS/FAIL and progress change.
+                    force_qc_redraw(
+                        context
+                    )
 
         finally:
+
             constants.QC_IS_RUNNING = False
 
-        # Time executing
+            settings.is_running = False
+
+            # Leave at 100%. Since the panel only shows the progress
+            # bar while is_running is True, it disappears afterward.
+            if executed_check_count:
+                settings.run_progress = (
+                    executed_check_count
+                    / total_check_count
+                )
+
+            force_qc_redraw(
+                context
+            )
+
+        # ---------------------------------------------------------
+        # Total execution time
+        # ---------------------------------------------------------
+
         total_elapsed = (
             time.perf_counter()
             - run_start_time
         )
 
-
         print("")
+
         print(
             "QC Run Complete: {} check{} in {}".format(
                 executed_check_count,
                 ""
                 if executed_check_count == 1
                 else "s",
-                format_elapsed_time(total_elapsed),
+                format_elapsed_time(
+                    total_elapsed
+                ),
             )
         )
+
         print("")
 
-        if not ran_any:
-            self.report({"WARNING"}, "No checks selected.")
-            return {"CANCELLED"}
+        # ---------------------------------------------------------
+        # Refresh QC results
+        # ---------------------------------------------------------
 
-        set_qc_run_timestamp(context)
-        refresh_issues_display(context)
-        rebuild_failed_objects(context)
+        set_qc_run_timestamp(
+            context
+        )
+
+        refresh_issues_display(
+            context
+        )
+
+        rebuild_failed_objects(
+            context
+        )
+
         return {"FINISHED"}
+
 
 CLASSES = (
     SCRIPTRONAUT_OT_QC_SelectAll,
