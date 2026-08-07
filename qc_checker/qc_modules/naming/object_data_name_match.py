@@ -9,7 +9,10 @@ SEVERITY = "warning"
 LABEL = "Object/Data Name Match"
 DESCRIPTION = (
     "Checks that single-user mesh datablock names match their object names. "
-    "Shared mesh datablocks are allowed and ignored."
+    "Shared mesh datablocks are allowed and ignored. "
+    "An object holds position and rotation data, while its internal datablock "
+    "holds the actual geometry or properties. When they mismatch, "
+    "identifying assets becomes difficult."
 )
 
 # -------------------------------------------------------------------------

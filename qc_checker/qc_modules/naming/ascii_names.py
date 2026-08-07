@@ -8,7 +8,9 @@ import bpy
 SEVERITY = "critical"
 LABEL = "ASCII Names"
 DESCRIPTION = (
-    "Checks if Object's Name is ASCII."
+    "Checks if Object's Name is ASCII. "
+    "Can break file exports, crash game engines, cause scripting errors, and "
+    "corrupt data paths."
 )
 
 # -------------------------------------------------------------------------

@@ -9,7 +9,8 @@ import bpy
 SEVERITY = "warning"
 LABEL = "Final Names"
 DESCRIPTION = (
-    "Checks if Object's Name has a valid Prefix."
+    "Checks if Object's Name has a valid Prefix. "
+    "Help organize and prevent confusion when working with complex scenes."
 )
 
 

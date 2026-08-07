@@ -13,6 +13,7 @@ SEVERITY = "info"
 LABEL = "Descriptive Names"
 DESCRIPTION = (
     "Checks if objects have default names like Cube, Sphere .."
+    "Prevents confusion when working with complex scenes."
 )
 
 
