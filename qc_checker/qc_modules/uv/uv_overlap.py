@@ -110,6 +110,10 @@ def get_objects_with_overlapping_uv_faces(
 
     failed_objects = {}
 
+    # If in edit mode change to Object mode
+    if bpy.context.object and bpy.context.object.mode == 'EDIT':
+        bpy.ops.object.mode_set(mode='OBJECT')
+
     for obj in objects:
         if obj.type != "MESH":
             continue

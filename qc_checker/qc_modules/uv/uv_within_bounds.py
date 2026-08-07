@@ -81,6 +81,10 @@ def get_objects_with_uvs_outside_01(
 
     failed_objects = {}
 
+    # If in edit mode change to Object mode
+    if bpy.context.object and bpy.context.object.mode == 'EDIT':
+        bpy.ops.object.mode_set(mode='OBJECT')
+
     for obj in objects:
         if obj.type != "MESH":
             continue

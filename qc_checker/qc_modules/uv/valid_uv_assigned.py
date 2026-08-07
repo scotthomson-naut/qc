@@ -93,6 +93,10 @@ def get_meshes_with_unmapped_polygons(
 
     failed_objects = {}
 
+    # If in edit mode change to Object mode
+    if bpy.context.object and bpy.context.object.mode == 'EDIT':
+        bpy.ops.object.mode_set(mode='OBJECT')
+
     for obj in objects:
 
         if obj.type != "MESH":

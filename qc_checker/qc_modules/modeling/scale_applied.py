@@ -9,7 +9,7 @@ import bpy
 # Metadata
 # -------------------------------------------------------------------------
 
-SEVERITY = "warning"
+SEVERITY = "critical"
 LABEL = "Scale Applied"
 DESCRIPTION = (
     "Checks if Object's Scale is Applied. "
