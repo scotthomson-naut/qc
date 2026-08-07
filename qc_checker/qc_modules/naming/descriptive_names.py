@@ -41,9 +41,10 @@ DEFAULT_OBJECT_NAMES = {
     "Metaball",
     "Volume",
     "GreasePencil",
+    "Camera",
+    "Light",
 }
-# "Camera",
-# "Light",
+
 
 
 # -------------------------------------------------------------------------
