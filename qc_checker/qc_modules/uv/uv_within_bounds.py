@@ -1,6 +1,7 @@
 # Blender imports
 import bpy
 
+
 # -------------------------------------------------------------------------
 # Metadata
 # -------------------------------------------------------------------------
@@ -8,10 +9,11 @@ import bpy
 SEVERITY = "info"
 LABEL = "UV Within Bounds"
 DESCRIPTION = (
-    "Checks if Object has UVs Outside of the Tile Area. "
-    "Stops textures from repeating in weird ways. It also keeps pixel "
-    "quality high and stops seams from looking bad on your 3D mode."
+    "Checks all UV maps for UV coordinates outside the 0-1 tile. "
+    "Out-of-bounds UVs can cause unintended texture repetition, "
+    "baking issues, seams, and inconsistent texel density."
 )
+
 
 # -------------------------------------------------------------------------
 # Main
@@ -19,21 +21,44 @@ DESCRIPTION = (
 
 def main():
     """
-    Checks for issue.
-    
+    Checks all UV maps for UV coordinates outside the 0-1 range.
+
     Returns:
-        dict: {issues (list(str)), failed_objects(dict)}
+        dict:
+        {
+            "issues": list[str],
+            "failed_objects": dict,
+        }
     """
-    failed_objects = get_objects_with_uvs_outside_01()
+    failed_objects = (
+        get_objects_with_uvs_outside_01()
+    )
+
     issues = []
 
-    for object_name, data in failed_objects.items():
-        issues.append(
-            "Failed object: {} - {} UV(s) outside 0-1 range".format(
-                object_name,
-                data["outside_uv_count"],
-            )
+    for object_name, object_data in (
+        failed_objects.items()
+    ):
+        failed_uv_maps = object_data.get(
+            "failed_uv_maps",
+            {},
         )
+
+        for uv_map_name, uv_map_data in (
+            failed_uv_maps.items()
+        ):
+            issues.append(
+                (
+                    "Failed object: {} - UV map '{}' has "
+                    "{} UV(s) outside 0-1 range"
+                ).format(
+                    object_name,
+                    uv_map_name,
+                    uv_map_data[
+                        "outside_uv_count"
+                    ],
+                )
+            )
 
     return {
         "issues": issues,
@@ -50,7 +75,8 @@ def get_objects_with_uvs_outside_01(
         tolerance=1e-6,
     ):
     """
-    Finds mesh objects containing UV coordinates outside the 0-1 tile.
+    Finds mesh objects containing UV coordinates outside the 0-1 tile
+    across all UV maps.
 
     Valid UV range:
         0 <= U <= 1
@@ -68,11 +94,21 @@ def get_objects_with_uvs_outside_01(
         dict:
         {
             "Cube": {
-                "uv_map": "UVMap",
+                "failed_uv_maps": {
+                    "UVMap": {
+                        "outside_uv_count": 4,
+                        "below_zero_count": 2,
+                        "above_one_count": 3,
+                        "polygon_indices": [2, 5],
+                    }
+                },
+                "failed_uv_map_count": 1,
                 "outside_uv_count": 4,
-                "below_zero_count": 2,
-                "above_one_count": 3,
                 "polygon_indices": [2, 5],
+                "selection": {
+                    "mode": "FACE",
+                    "indices": [2, 5],
+                },
             }
         }
     """
@@ -81,11 +117,17 @@ def get_objects_with_uvs_outside_01(
 
     failed_objects = {}
 
-    # If in edit mode change to Object mode
-    if bpy.context.object and bpy.context.object.mode == 'EDIT':
-        bpy.ops.object.mode_set(mode='OBJECT')
+    # Keep mesh data synchronized with what is visible in Edit Mode.
+    if (
+        bpy.context.object
+        and bpy.context.object.mode == "EDIT"
+    ):
+        bpy.ops.object.mode_set(
+            mode="OBJECT"
+        )
 
     for obj in objects:
+
         if obj.type != "MESH":
             continue
 
@@ -94,72 +136,155 @@ def get_objects_with_uvs_outside_01(
         if mesh is None:
             continue
 
-        # Missing UV maps should be handled by a separate QC check.
+        # Missing UV maps are handled by another check.
         if not mesh.uv_layers:
             continue
 
-        uv_layer = mesh.uv_layers.active
+        failed_uv_maps = {}
 
-        if uv_layer is None:
-            continue
+        all_failed_polygon_indices = set()
 
-        uv_data = uv_layer.data
+        total_outside_uv_count = 0
+        total_below_zero_count = 0
+        total_above_one_count = 0
 
-        outside_uv_count = 0
-        below_zero_count = 0
-        above_one_count = 0
+        # -----------------------------------------------------
+        # Check every UV map
+        # -----------------------------------------------------
 
-        polygon_indices = set()
+        for uv_layer in mesh.uv_layers:
 
-        # ---------------------------------------------------------
-        # Check polygons and their UV loops
-        # ---------------------------------------------------------
+            uv_data = uv_layer.data
 
-        for polygon in mesh.polygons:
-            polygon_failed = False
-            for loop_index in polygon.loop_indices:
-                uv = uv_data[loop_index].uv
+            outside_uv_count = 0
+            below_zero_count = 0
+            above_one_count = 0
 
-                below_zero = (
-                    uv.x < -tolerance
-                    or uv.y < -tolerance
-                )
+            polygon_indices = set()
 
-                above_one = (
-                    uv.x > 1.0 + tolerance
-                    or uv.y > 1.0 + tolerance
-                )
+            # -------------------------------------------------
+            # Check polygon UV loops
+            # -------------------------------------------------
 
-                if below_zero:
-                    below_zero_count += 1
+            for polygon in mesh.polygons:
 
-                if above_one:
-                    above_one_count += 1
+                polygon_failed = False
 
-                if below_zero or above_one:
-                    outside_uv_count += 1
-                    polygon_failed = True
+                for loop_index in polygon.loop_indices:
 
-            if polygon_failed:
-                polygon_indices.add(
-                    polygon.index
-                )
+                    uv = uv_data[
+                        loop_index
+                    ].uv
 
-        # ---------------------------------------------------------
-        # Store failure
-        # ---------------------------------------------------------
+                    below_zero = (
+                        uv.x < -tolerance
+                        or uv.y < -tolerance
+                    )
 
-        if outside_uv_count:
-            failed_objects[obj.name] = {
-                "uv_map": uv_layer.name,
+                    above_one = (
+                        uv.x > 1.0 + tolerance
+                        or uv.y > 1.0 + tolerance
+                    )
+
+                    if below_zero:
+                        below_zero_count += 1
+
+                    if above_one:
+                        above_one_count += 1
+
+                    if (
+                        below_zero
+                        or above_one
+                    ):
+                        outside_uv_count += 1
+                        polygon_failed = True
+
+                if polygon_failed:
+                    polygon_indices.add(
+                        polygon.index
+                    )
+
+                    all_failed_polygon_indices.add(
+                        polygon.index
+                    )
+
+            # -------------------------------------------------
+            # Store UV-map failure
+            # -------------------------------------------------
+
+            if not outside_uv_count:
+                continue
+
+            failed_uv_maps[
+                uv_layer.name
+            ] = {
                 "outside_uv_count":
                     outside_uv_count,
+
                 "below_zero_count":
                     below_zero_count,
+
                 "above_one_count":
                     above_one_count,
+
                 "polygon_indices":
-                    sorted(polygon_indices),
+                    sorted(
+                        polygon_indices
+                    ),
             }
+
+            total_outside_uv_count += (
+                outside_uv_count
+            )
+
+            total_below_zero_count += (
+                below_zero_count
+            )
+
+            total_above_one_count += (
+                above_one_count
+            )
+
+        # -----------------------------------------------------
+        # Object passes all UV maps
+        # -----------------------------------------------------
+
+        if not failed_uv_maps:
+            continue
+
+        combined_polygon_indices = sorted(
+            all_failed_polygon_indices
+        )
+
+        failed_objects[
+            obj.name
+        ] = {
+            "failed_uv_maps":
+                failed_uv_maps,
+
+            "failed_uv_map_count":
+                len(failed_uv_maps),
+
+            # Total UV-loop failures across all UV maps.
+            "outside_uv_count":
+                total_outside_uv_count,
+
+            "below_zero_count":
+                total_below_zero_count,
+
+            "above_one_count":
+                total_above_one_count,
+
+            # Unique geometry faces affected in any UV map.
+            "polygon_indices":
+                combined_polygon_indices,
+
+            # Works with your Select Failed Components button.
+            "selection": {
+                "mode": "FACE",
+                "indices":
+                    combined_polygon_indices,
+            },
+        }
 
     return failed_objects
