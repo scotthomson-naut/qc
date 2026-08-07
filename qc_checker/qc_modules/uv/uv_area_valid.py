@@ -5,7 +5,7 @@ import bpy
 # Metadata
 # -------------------------------------------------------------------------
 
-SEVERITY = "info"
+SEVERITY = "critical"
 LABEL = "UV Area Valid"
 DESCRIPTION = (
     "Checks if Object has Zero Area UV Faces. "
