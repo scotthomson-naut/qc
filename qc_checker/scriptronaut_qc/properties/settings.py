@@ -123,7 +123,10 @@ class SCRIPTRONAUT_PG_CheckSetting(
     )
     bool_value: BoolProperty()
     int_value: IntProperty()
-    float_value: FloatProperty()
+    float_value: FloatProperty(
+        default=0.0,
+        precision=6,
+    )
     string_value: StringProperty()
     enum_value: StringProperty()
     default_bool: BoolProperty()
@@ -138,6 +141,11 @@ class SCRIPTRONAUT_PG_CheckSetting(
     maximum: FloatProperty(
         default=1000000000.0,
     )
+
+    precision: IntProperty(
+        default=6,
+    )
+
 
 CLASSES = (
     SCRIPTRONAUT_QC_Settings,
