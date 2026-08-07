@@ -1,6 +1,7 @@
 # Blender imports
 import bpy
 
+
 # -------------------------------------------------------------------------
 # Metadata
 # -------------------------------------------------------------------------
@@ -8,10 +9,11 @@ import bpy
 SEVERITY = "critical"
 LABEL = "ASCII Names"
 DESCRIPTION = (
-    "Checks if Object's Name is ASCII. "
-    "Can break file exports, crash game engines, cause scripting errors, and "
-    "corrupt data paths."
+    "Checks that Object and Datablock names contain only ASCII characters. "
+    "Names such as 'Café', '椅子', or emoji can cause export, scripting, "
+    "game-engine, and pipeline compatibility problems."
 )
+
 
 # -------------------------------------------------------------------------
 # Main
@@ -19,28 +21,83 @@ DESCRIPTION = (
 
 def main():
     """
-    Checks that every animated channel has a key at the start
-    and end of the timeline.
+    Checks object names and datablock names for non-ASCII characters.
+
+    Returns:
+        dict:
+        {
+            "issues": list[str],
+            "failed_objects": dict,
+        }
     """
-    failed_objects = get_objects_with_unicode_characters()
+    failed_objects = (
+        get_objects_with_unicode_characters()
+    )
+
     issues = []
 
     for object_name, data in failed_objects.items():
-        character_info = ", ".join(
-            "{} ({})".format(
-                item["character"],
-                item["codepoint"],
-            )
-            for item in data["unicode_details"]
+
+        # -----------------------------------------------------
+        # Object name
+        # -----------------------------------------------------
+
+        object_name_data = data.get(
+            "object_name",
         )
 
-        issues.append(
-            "Failed object: {!r} - Contains Unicode "
-            "character(s): {}".format(
-                object_name,
-                character_info,
+        if object_name_data:
+            character_info = ", ".join(
+                "{} ({})".format(
+                    item["character"],
+                    item["codepoint"],
+                )
+                for item in object_name_data[
+                    "unicode_details"
+                ]
             )
+
+            issues.append(
+                (
+                    "Failed object: {!r} - Object name contains "
+                    "Unicode character(s): {}"
+                ).format(
+                    object_name,
+                    character_info,
+                )
+            )
+
+        # -----------------------------------------------------
+        # Datablock name
+        # -----------------------------------------------------
+
+        datablock_data = data.get(
+            "datablock_name",
         )
+
+        if datablock_data:
+            character_info = ", ".join(
+                "{} ({})".format(
+                    item["character"],
+                    item["codepoint"],
+                )
+                for item in datablock_data[
+                    "unicode_details"
+                ]
+            )
+
+            issues.append(
+                (
+                    "Failed object: {!r} - Datablock {!r} contains "
+                    "Unicode character(s): {}"
+                ).format(
+                    object_name,
+                    datablock_data[
+                        "name"
+                    ],
+                    character_info,
+                )
+            )
 
     return {
         "issues": issues,
@@ -52,24 +109,26 @@ def main():
 # Find
 # -------------------------------------------------------------------------
 
-def get_objects_with_unicode_characters(objects=None):
+def get_objects_with_unicode_characters(
+        objects=None,
+    ):
     """
-    Finds objects whose names contain non-ASCII / Unicode characters.
+    Finds objects whose object name or datablock name contains
+    non-ASCII characters.
 
     ASCII characters 0-127 are considered valid.
 
     Examples that fail:
-        "Café"
-        "Crâne"
-        "椅子"
-        "Character_😀"
-        "Prop–Chair"   # en dash instead of normal hyphen
+        Object:
+            "Café"
+            "Crâne"
+            "椅子"
+            "Character_😀"
+            "Prop–Chair"
 
-    Examples that pass:
-        "Cafe"
-        "Character_Body"
-        "Prop-Chair"
-        "Cube.001"
+        Datablock:
+            Object name: "Chair"
+            Mesh name:   "ChaîrMesh"
 
     Args:
         objects (iterable[bpy.types.Object] | None):
@@ -79,14 +138,28 @@ def get_objects_with_unicode_characters(objects=None):
     Returns:
         dict:
         {
-            "Café": {
-                "unicode_characters": ["é"],
-                "unicode_details": [
-                    {
-                        "character": "é",
-                        "codepoint": "U+00E9",
-                    }
-                ],
+            "Chair": {
+                "object_name": {
+                    "name": "Chaîr",
+                    "unicode_characters": ["î"],
+                    "unicode_details": [
+                        {
+                            "character": "î",
+                            "codepoint": "U+00EE",
+                        }
+                    ],
+                },
+
+                "datablock_name": {
+                    "name": "Mësh",
+                    "unicode_characters": ["ë"],
+                    "unicode_details": [
+                        {
+                            "character": "ë",
+                            "codepoint": "U+00EB",
+                        }
+                    ],
+                },
             }
         }
     """
@@ -96,30 +169,114 @@ def get_objects_with_unicode_characters(objects=None):
     failed_objects = {}
 
     for obj in objects:
-        unicode_characters = []
-        unicode_details = []
+        object_result = get_unicode_name_data(
+            obj.name
+        )
 
-        for character in obj.name:
-            # ASCII range is 0-127.
-            if ord(character) <= 127:
-                continue
+        datablock_result = None
+        data = getattr(
+            obj,
+            "data",
+            None,
+        )
 
-            if character not in unicode_characters:
-                unicode_characters.append(character)
+        if (
+            data is not None
+            and hasattr(
+                data,
+                "name",
+            )
+        ):
+            datablock_result = (
+                get_unicode_name_data(
+                    data.name
+                )
+            )
 
-                unicode_details.append({
-                    "character": character,
-                    "codepoint": "U+{:04X}".format(
-                        ord(character)
-                    ),
-                })
-
-        if not unicode_characters:
+        # Neither object nor datablock failed.
+        if (
+            object_result is None
+            and datablock_result is None
+        ):
             continue
 
-        failed_objects[obj.name] = {
-            "unicode_characters": unicode_characters,
-            "unicode_details": unicode_details,
-        }
+        result = {}
+
+        if object_result is not None:
+            result[
+                "object_name"
+            ] = object_result
+
+        if datablock_result is not None:
+            result[
+                "datablock_name"
+            ] = datablock_result
+
+        failed_objects[
+            obj.name
+        ] = result
 
     return failed_objects
+
+
+# -------------------------------------------------------------------------
+# Helpers
+# -------------------------------------------------------------------------
+
+def get_unicode_name_data(name):
+    """
+    Returns Unicode-character information for a name.
+
+    Args:
+        name (str):
+            Name to inspect.
+
+    Returns:
+        dict | None:
+            None when the name is valid ASCII.
+
+            Otherwise:
+            {
+                "name": str,
+                "unicode_characters": list[str],
+                "unicode_details": list[dict],
+            }
+    """
+    if not isinstance(
+        name,
+        str,
+    ):
+        return None
+
+    unicode_characters = []
+    unicode_details = []
+
+    for character in name:
+        # ASCII range is 0-127.
+        if ord(character) <= 127:
+            continue
+
+        if character in unicode_characters:
+            continue
+
+        unicode_characters.append(
+            character
+        )
+
+        unicode_details.append({
+            "character": character,
+            "codepoint": "U+{:04X}".format(
+                ord(character)
+            ),
+        })
+
+    if not unicode_characters:
+        return None
+
+    return {
+        "name": name,
+        "unicode_characters":
+            unicode_characters,
+        "unicode_details":
+            unicode_details,
+    }
