@@ -6,7 +6,7 @@ import bpy
 # Metadata
 # -------------------------------------------------------------------------
 
-SEVERITY = "warning"
+SEVERITY = "critical"
 LABEL = "Color Space Valid"
 DESCRIPTION = (
     "Checks image textures used as normal, roughness, metallic, height, "
