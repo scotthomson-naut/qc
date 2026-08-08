@@ -7,7 +7,7 @@ import bpy
 # -------------------------------------------------------------------------
 
 SEVERITY = "warning"
-LABEL = "Poly Count Above Limit"
+LABEL = "Polygon Budget"
 DESCRIPTION = (
     "Checks whether the scene and individual mesh objects "
     "are below configurable polygon limits."

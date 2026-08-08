@@ -10,7 +10,7 @@ import bpy
 # -------------------------------------------------------------------------
 
 SEVERITY = "critical"
-LABEL = "Render Frame Range Mismatch"
+LABEL = "Output Frame Range"
 DESCRIPTION = (
     "Checks whether the scene render frame range matches the frame range "
     "used by object Actions and NLA strips."

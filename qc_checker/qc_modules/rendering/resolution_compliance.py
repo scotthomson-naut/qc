@@ -6,7 +6,7 @@ import bpy
 # -------------------------------------------------------------------------
 
 SEVERITY = "warning"
-LABEL = "Render Resolution Percentage"
+LABEL = "Resolution Compliance"
 DESCRIPTION = (
     "Checks that the scene render resolution percentage is set to 100%."
 )

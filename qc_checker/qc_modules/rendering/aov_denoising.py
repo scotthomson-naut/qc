@@ -7,7 +7,7 @@ import bpy
 # -------------------------------------------------------------------------
 
 SEVERITY = "warning"
-LABEL = "Cycles Denoising Enabled"
+LABEL = "AOV Denoising"
 DESCRIPTION = (
     "Checks whether Cycles render denoising is enabled."
 )

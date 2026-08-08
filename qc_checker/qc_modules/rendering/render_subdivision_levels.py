@@ -7,7 +7,7 @@ import bpy
 # -------------------------------------------------------------------------
 
 SEVERITY = "warning"
-LABEL = "Excessive Render Subdivision"
+LABEL = "Render Subdivision Levels"
 DESCRIPTION = (
     "Checks for Subdivision Surface modifiers whose render subdivision "
     "level is significantly higher than the configured maximum or the "

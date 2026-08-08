@@ -7,7 +7,7 @@ import bpy
 # -------------------------------------------------------------------------
 
 SEVERITY = "critical"
-LABEL = "Render Border Enabled"
+LABEL = "Full Frame Render"
 DESCRIPTION = (
     "Checks if Render Border or Crop to Render Region is enabled."
 )

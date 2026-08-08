@@ -7,7 +7,7 @@ import bpy
 # -------------------------------------------------------------------------
 
 SEVERITY = "warning"
-LABEL = "Render Samples Too High"
+LABEL = "Sample Count Limit"
 DESCRIPTION = (
     "Checks whether Cycles render samples are higher than "
     "recommended for the current output resolution."
