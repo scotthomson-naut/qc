@@ -42,7 +42,7 @@ def reset_check_settings_dialog(self, context):
 def draw_wrapped_text(
         layout,
         text,
-        width=60,
+        width=80,
         icon="INFO",
     ):
     """
