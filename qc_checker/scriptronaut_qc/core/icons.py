@@ -2,6 +2,7 @@
 
 from typing import Any
 
+
 def get_severity_icon(severity):
     """
     Returns the Blender icon for a QC severity.

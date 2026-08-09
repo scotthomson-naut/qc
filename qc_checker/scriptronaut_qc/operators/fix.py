@@ -13,6 +13,7 @@ from ..core import *
 from ..properties import SCRIPTRONAUT_PG_CheckSetting
 from ..utils import *
 
+
 class SCRIPTRONAUT_OT_QC_FixAll(Operator):
     """
     Runs fix() for every failed QC check that provides an automatic fix.
@@ -155,6 +156,7 @@ class SCRIPTRONAUT_OT_QC_FixAll(Operator):
 
         return {"FINISHED"}
 
+
 class SCRIPTRONAUT_OT_QC_FixCheckInline(Operator):
     """
     Fixes one specific QC check directly from its UIList row.
@@ -265,6 +267,7 @@ class SCRIPTRONAUT_OT_QC_FixCheckInline(Operator):
             return {"CANCELLED"}
 
         return {"FINISHED"}
+
 
 class SCRIPTRONAUT_OT_QC_FixObjectInline(Operator):
     """
@@ -454,6 +457,7 @@ class SCRIPTRONAUT_OT_QC_FixObjectInline(Operator):
         )
 
         return {"FINISHED"}
+
 
 class SCRIPTRONAUT_OT_QC_FixAllObjectChecks(Operator):
     """

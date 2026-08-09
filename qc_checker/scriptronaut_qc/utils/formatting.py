@@ -5,6 +5,7 @@ from typing import Any
 
 from ..core.results import get_issues_from_result
 
+
 def get_matching_object_issues(
         result_data,
         object_name,
@@ -39,6 +40,7 @@ def get_matching_object_issues(
 
     return matching_issues
 
+
 def format_qc_detail_label(key):
     """
     Converts dictionary keys into readable UI labels.
@@ -52,6 +54,7 @@ def format_qc_detail_label(key):
         .strip()
         .title()
     )
+
 
 def format_qc_detail_value(
         value,
@@ -99,6 +102,7 @@ def format_qc_detail_value(
         return text
 
     return str(value)
+
 
 def draw_wrapped_qc_text(
         layout,
@@ -149,6 +153,7 @@ def draw_wrapped_qc_text(
             )
 
             first_line = False
+
 
 def draw_qc_result_dictionary(
         layout,

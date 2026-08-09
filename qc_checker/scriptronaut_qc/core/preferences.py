@@ -9,8 +9,10 @@ from ..utils.naming import sanitize_category_name
 def load_all_check_preferences():
     return json_io.load_all_check_preferences()
 
+
 def save_all_check_preferences(data):
     return json_io.save_all_check_preferences(data)
+
 
 def get_check_preference_id(category_name, module_name):
     """
@@ -35,6 +37,7 @@ def get_check_preference_id(category_name, module_name):
         category_name,
         module_name,
     )
+
 
 def get_check_preferences(
         check_id,
@@ -87,6 +90,7 @@ def get_check_preferences(
 
     return resolved
 
+
 def get_check_id_for_item(item):
     """
     Returns the stable preference identifier stored on a check item.
@@ -98,6 +102,7 @@ def get_check_id_for_item(item):
         getattr(item, "source_category", ""),
         getattr(item, "name", ""),
     )
+
 
 def module_has_settings(module):
     """

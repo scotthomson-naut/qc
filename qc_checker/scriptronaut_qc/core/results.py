@@ -87,6 +87,7 @@ def result_can_auto_fix(
         explicit_values
     )
 
+
 def normalize_check_result(result):
     """
     Converts a QC check result into a standard dictionary format.
@@ -117,6 +118,7 @@ def normalize_check_result(result):
 
     return {"issues": [str(result)]}
 
+
 def get_issues_from_result(result_data):
     """
     Extracts the issues list from normalized result data.
@@ -139,6 +141,7 @@ def get_issues_from_result(result_data):
         return list(issues)
 
     return [str(issues)]
+
 
 def get_filtered_result_for_object(
         result_data,

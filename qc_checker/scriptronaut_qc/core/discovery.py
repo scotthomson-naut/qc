@@ -8,6 +8,7 @@ from typing import Any
 from ..constants import CHECK_SETTINGS_FILE, COMMON_CATEGORY
 from ..utils.json_io import load_check_list
 
+
 def get_categories(folder_path, use_json=False):
     """
     Returns available QC categories.
@@ -48,6 +49,7 @@ def get_categories(folder_path, use_json=False):
             and glob.glob(os.path.join(folder, "*.py"))
         )
     ])
+
 
 def get_scripts(folder_path, category, use_json=False):
     """
@@ -162,6 +164,7 @@ def get_scripts(folder_path, category, use_json=False):
         ),
     )
 
+
 def validate_check_configuration(folder_path, use_json=False):
     """
     Validates discovered QC scripts and the optional JSON configuration.
@@ -243,6 +246,7 @@ def validate_check_configuration(folder_path, use_json=False):
         "errors": errors,
         "warnings": warnings,
     }
+
 
 def discover_check_scripts(folder_path):
     """

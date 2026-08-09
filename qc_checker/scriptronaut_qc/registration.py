@@ -22,6 +22,7 @@ CLASS_MODULES = (
     fix, info, settings_ops, panel,
 )
 
+
 def _all_classes():
     classes = []
     for module in CLASS_MODULES:
@@ -34,6 +35,7 @@ SCENE_PROPERTIES = (
     "scriptronaut_qc_editor_items", "scriptronaut_qc_failed_objects",
     "scriptronaut_qc_object_checks",
 )
+
 
 def register():
     for cls in CLASSES:
@@ -51,6 +53,7 @@ def register():
         bpy.app.timers.register(initialize_qc_checks_timer, first_interval=0.1)
     if not bpy.app.timers.is_registered(redraw_qc_status_timer):
         bpy.app.timers.register(redraw_qc_status_timer, first_interval=30.0, persistent=True)
+
 
 def unregister():
     if initialize_qc_checks_after_load in bpy.app.handlers.load_post:

@@ -14,6 +14,7 @@ from ..core import *
 from ..properties import SCRIPTRONAUT_PG_CheckSetting
 from ..utils import *
 
+
 def reset_check_settings_dialog(self, context):
     """Restore the settings shown in the dialog to module defaults."""
     if not self.reset_to_defaults:

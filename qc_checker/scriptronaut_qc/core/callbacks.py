@@ -5,6 +5,7 @@ from typing import Any
 from .categories import load_qc_category, refresh_issues_display
 from .discovery import get_categories
 
+
 def update_use_check_settings(self, context):
     """
     Reloads categories when JSON assignment mode changes.
@@ -33,6 +34,7 @@ def update_use_check_settings(self, context):
     else:
         load_qc_category(context)
 
+
 def update_qc_folder_path(self, context):
     """
     Callback executed when the QC folder path changes.
@@ -55,6 +57,7 @@ def update_qc_folder_path(self, context):
         self.category = "NONE"
         self.issues_display = ""
 
+
 def update_qc_category(self, context):
     """
     Callback executed when the selected QC category changes.
@@ -65,6 +68,7 @@ def update_qc_category(self, context):
     """
     if self.category != "NONE":
         load_qc_category(context)
+
 
 def update_qc_check_index(self, context):
     """

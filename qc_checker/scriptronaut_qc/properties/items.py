@@ -7,6 +7,7 @@ from ..constants import QC_MODULES_DIR
 from ..core.callbacks import update_qc_category, update_qc_check_index, update_use_check_settings
 from ..core.categories import qc_category_items, qc_editor_category_items, refresh_object_failed_checks
 
+
 class SCRIPTRONAUT_QC_CheckItem(PropertyGroup):
     """
     """
@@ -114,6 +115,7 @@ class SCRIPTRONAUT_QC_CheckItem(PropertyGroup):
         default=False
     )
 
+
 class SCRIPTRONAUT_QC_EditorItem(PropertyGroup):
     """
     Represents one available QC script in the JSON editor.
@@ -123,12 +125,14 @@ class SCRIPTRONAUT_QC_EditorItem(PropertyGroup):
     source_category: StringProperty(name="Source Folder", default="")
     selected: BoolProperty(name="Enabled", default=False)
 
+
 class SCRIPTRONAUT_QC_FailedObjectItem(PropertyGroup):
     """
     Represents an object that failed one or more QC checks.
     """
     name: StringProperty(default="")
     failed_check_count: IntProperty(default=0)
+
 
 class SCRIPTRONAUT_QC_ObjectCheckItem(PropertyGroup):
     """

@@ -6,6 +6,7 @@ from ..constants import COMMON_CATEGORY, TIER
 from ..core import get_qc_elapsed_text, get_severity_icon
 from ..utils.json_io import result_data_from_json
 
+
 class SCRIPTRONAUT_UL_QC_Checks(UIList):
     """
     Displays QC checks with:
@@ -206,6 +207,7 @@ class SCRIPTRONAUT_UL_QC_Checks(UIList):
         elif not item.has_settings:
             action_column.label(text="")
 
+
 class SCRIPTRONAUT_UL_QC_EditorScripts(UIList):
     """
     Displays discovered QC scripts with selection checkboxes.
@@ -227,6 +229,7 @@ class SCRIPTRONAUT_UL_QC_EditorScripts(UIList):
         split = row.split(factor=0.65, align=True)
         split.label(text=item.name, icon="FILE_SCRIPT")
         split.label(text=item.source_category)
+
 
 class SCRIPTRONAUT_UL_QC_FailedObjects(UIList):
     """
@@ -266,6 +269,7 @@ class SCRIPTRONAUT_UL_QC_FailedObjects(UIList):
                 else "s",
             )
         )
+
 
 class SCRIPTRONAUT_UL_QC_ObjectChecks(UIList):
     """

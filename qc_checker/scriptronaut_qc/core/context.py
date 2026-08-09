@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from typing import Any
 
+
 @dataclass(slots=True)
 class QCContext:
     """Convenient access to the collections used by QC operators and UI."""

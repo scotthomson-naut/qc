@@ -25,6 +25,7 @@ from ..utils.formatting import (
     get_matching_object_issues,
 )
 
+
 class SCRIPTRONAUT_OT_QC_CheckInfo(Operator):
     """
     UI-only operator used to provide a tooltip
@@ -53,6 +54,7 @@ class SCRIPTRONAUT_OT_QC_CheckInfo(Operator):
         context,
     ):
         return {"FINISHED"}
+
 
 class SCRIPTRONAUT_OT_QC_ObjectDetails(
     Operator

@@ -2,6 +2,7 @@
 
 from typing import Any
 
+
 def sanitize_category_name(category_name):
     """
     Converts a user-entered category into a safe JSON key.

@@ -10,6 +10,7 @@ from .. import constants
 from .categories import load_qc_category
 from .discovery import get_categories
 
+
 def set_qc_run_timestamp(context):
     """
     Records the current time as the most recent full QC run.
@@ -34,6 +35,7 @@ def set_qc_run_timestamp(context):
     constants.QC_IGNORE_CHANGES_UNTIL = (
         time.time() + 1.0
     )
+
 
 def get_qc_elapsed_text(settings):
     """
@@ -65,6 +67,7 @@ def get_qc_elapsed_text(settings):
 
     elapsed_days = elapsed_hours // 24
     return "1 day ago" if elapsed_days == 1 else "{} days ago".format(elapsed_days)
+
 
 def mark_scene_modified_after_qc(
         scene,
@@ -138,6 +141,7 @@ def mark_scene_modified_after_qc(
             settings.scene_modified_since_qc = True
             break
 
+
 def redraw_qc_status_timer():
     """
     Redraws View3D areas so elapsed QC time updates while idle.
@@ -154,6 +158,7 @@ def redraw_qc_status_timer():
         pass
 
     return 30.0
+
 
 def initialize_qc_checks_timer():
     """
@@ -172,6 +177,7 @@ def initialize_qc_checks_timer():
         return 0.25
 
     return None
+
 
 @persistent
 def initialize_qc_checks_after_load(_dummy=None):

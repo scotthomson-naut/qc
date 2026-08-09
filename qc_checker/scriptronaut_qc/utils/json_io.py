@@ -6,6 +6,7 @@ from typing import Any
 
 from ..constants import CHECK_PREFERENCES_FILE, CHECK_SETTINGS_FILE
 
+
 def load_all_check_preferences():
     """
     Loads the complete check-preferences JSON file.
@@ -39,6 +40,7 @@ def load_all_check_preferences():
         return {}
 
     return data
+
 
 def save_all_check_preferences(preferences):
     """
@@ -76,6 +78,7 @@ def save_all_check_preferences(preferences):
         CHECK_PREFERENCES_FILE,
     )
 
+
 def load_check_list(folder_path):
     """
     Loads the optional CHECK_SETTINGS_FILE configuration.
@@ -104,6 +107,7 @@ def load_check_list(folder_path):
         print(traceback.format_exc())
         return {}
 
+
 def save_check_list(folder_path, check_list):
     """
     Saves the QC category configuration to CHECK_SETTINGS_FILE.
@@ -127,6 +131,7 @@ def save_check_list(folder_path, check_list):
     except Exception:
         return False, traceback.format_exc()
 
+
 def result_data_to_json(result_data):
     """
     Serializes QC result data into JSON.
@@ -144,6 +149,7 @@ def result_data_to_json(result_data):
             "issues": ["Result data could not be converted to JSON."],
             "raw_result": str(result_data),
         }, indent=4)
+
 
 def result_data_from_json(json_text):
     """

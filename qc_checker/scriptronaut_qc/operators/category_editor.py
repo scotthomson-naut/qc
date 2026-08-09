@@ -13,6 +13,7 @@ from ..core import *
 from ..properties import SCRIPTRONAUT_PG_CheckSetting
 from ..utils import *
 
+
 class SCRIPTRONAUT_OT_QC_OpenJsonEditor(Operator):
     """
     Opens the QC JSON category editor.
@@ -145,6 +146,7 @@ class SCRIPTRONAUT_OT_QC_OpenJsonEditor(Operator):
         )
         return {"FINISHED"}
 
+
 class SCRIPTRONAUT_OT_QC_EditorLoadCategory(Operator):
     bl_idname = "scriptronaut.qc_editor_load_category"
     bl_label = "Load Category"
@@ -161,6 +163,7 @@ class SCRIPTRONAUT_OT_QC_EditorLoadCategory(Operator):
         settings.editor_new_category = ""
         return {"FINISHED"}
 
+
 class SCRIPTRONAUT_OT_QC_EditorSelectAll(Operator):
     bl_idname = "scriptronaut.qc_editor_select_all"
     bl_label = "Select All Editor Scripts"
@@ -170,6 +173,7 @@ class SCRIPTRONAUT_OT_QC_EditorSelectAll(Operator):
             item.selected = True
         return {"FINISHED"}
 
+
 class SCRIPTRONAUT_OT_QC_EditorSelectNone(Operator):
     bl_idname = "scriptronaut.qc_editor_select_none"
     bl_label = "Select No Editor Scripts"
@@ -178,6 +182,7 @@ class SCRIPTRONAUT_OT_QC_EditorSelectNone(Operator):
         for item in context.scene.scriptronaut_qc_editor_items:
             item.selected = False
         return {"FINISHED"}
+
 
 class SCRIPTRONAUT_OT_QC_EditorDeleteCategory(Operator):
     bl_idname = "scriptronaut.qc_editor_delete_category"
@@ -214,6 +219,7 @@ class SCRIPTRONAUT_OT_QC_EditorDeleteCategory(Operator):
 
         self.report({"INFO"}, 'Deleted category "{}".'.format(category))
         return {"FINISHED"}
+
 
 class SCRIPTRONAUT_OT_QC_RefreshCategories(Operator):
     """

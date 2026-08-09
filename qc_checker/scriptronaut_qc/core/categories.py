@@ -14,6 +14,7 @@ from .results import normalize_check_result, get_issues_from_result
 from ..utils.json_io import load_check_list, result_data_from_json, result_data_to_json
 from ..utils.module_loader import load_module_from_path
 
+
 def refresh_issues_display(context):
     """
     Updates the Issues display based on the currently selected QC check.
@@ -35,6 +36,7 @@ def refresh_issues_display(context):
         settings.issues_display = item.issues
     else:
         settings.issues_display = "No issues found."
+
 
 def load_qc_category(context):
     """
@@ -193,6 +195,7 @@ def load_qc_category(context):
 
     return True, ""
 
+
 def qc_category_items(self, context):
     """
     Returns the EnumProperty items for the QC category dropdown.
@@ -212,6 +215,7 @@ def qc_category_items(self, context):
         return [("NONE", "No Categories Found", "")]
 
     return [(category, category, "") for category in categories]
+
 
 def qc_editor_category_items(self, context):
     """
@@ -235,6 +239,7 @@ def qc_editor_category_items(self, context):
         (category, category.replace("_", " ").title(), "")
         for category in categories
     ]
+
 
 def populate_qc_editor(context, category=None):
     """
@@ -272,6 +277,7 @@ def populate_qc_editor(context, category=None):
 
     settings.editor_index = 0
     return True, ""
+
 
 def rebuild_failed_objects(context):
     """
@@ -354,6 +360,7 @@ def rebuild_failed_objects(context):
     refresh_object_failed_checks(
         context
     )
+
 
 def refresh_object_failed_checks(context):
     """

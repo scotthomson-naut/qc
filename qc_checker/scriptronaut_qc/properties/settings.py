@@ -7,6 +7,7 @@ from ..constants import QC_MODULES_DIR
 from ..core.callbacks import update_qc_category, update_qc_check_index, update_use_check_settings
 from ..core.categories import qc_category_items, qc_editor_category_items, refresh_object_failed_checks
 
+
 class SCRIPTRONAUT_QC_Settings(PropertyGroup):
     """
     Stores addon settings shared across the QC panel.
