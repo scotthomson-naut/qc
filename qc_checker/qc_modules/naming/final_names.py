@@ -13,6 +13,9 @@ DESCRIPTION = (
     "or debug prefixes such as tmp_, temp_, debug_, or test_. "
     "Final production assets should use descriptive production-ready names."
 )
+WHY = (
+    "Helps with finding and identifying objects better."
+)
 
 
 # -------------------------------------------------------------------------

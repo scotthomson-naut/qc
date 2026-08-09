@@ -10,10 +10,14 @@ SEVERITY = "warning"
 LABEL = "NLA Playback Enabled"
 DESCRIPTION = (
     "Checks for objects that contain muted NLA tracks "
-    "or muted NLA strips. They can secretly disable parts of an animation, "
+    "or muted NLA strips."
+)
+WHY = (
+    "They can secretly disable parts of an animation, "
     "corrupt game engine exports, or cause confusion when stacking and "
     "blending motions."
 )
+
 
 # -------------------------------------------------------------------------
 # Main

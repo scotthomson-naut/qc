@@ -17,6 +17,11 @@ DESCRIPTION = (
     "(X=0, Y=0, Z=0) while permanently baking its current physical "
     "orientation into the mesh data."
 )
+WHY = (
+    "This aligns the local axes with the global axes, ensuring that "
+    "modifiers, physics, UV unwrapping, and animations behave predictably."
+)
+
 
 # -------------------------------------------------------------------------
 # Constants

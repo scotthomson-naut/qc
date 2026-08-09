@@ -11,10 +11,13 @@ LABEL = "Range Boundry Keys"
 DESCRIPTION = (
     "Checks if Animated Objects have Keyframes "
     "at Start and End of the Timeline. "
+)
+WHY = (
     "Ensures seamless animation loops, prevents unwanted snapping or popping "
     "during rendering, and maintains predictable interpolation behavior "
     "across sequence boundaries."
 )
+
 
 # -------------------------------------------------------------------------
 # Main

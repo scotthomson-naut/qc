@@ -9,6 +9,8 @@ SEVERITY = "critical"
 LABEL = "UV Area Valid"
 DESCRIPTION = (
     "Checks if Object has Zero Area UV Faces. "
+)
+WHY = (
     "Helps find unmapped faces, overlapping artifacts, or collapsed UV "
     "coordinates that cause texture stretching, baking errors, "
     "or game engine import warnings."

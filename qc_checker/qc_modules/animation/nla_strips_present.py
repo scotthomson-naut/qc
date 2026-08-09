@@ -10,10 +10,13 @@ SEVERITY = "warning"
 LABEL = "NLA Strips Present"
 DESCRIPTION = (
     "Checks for objects that contain NLA tracks with no strips. "
+)
+WHY = (
     "Leftover animation data-blocks can bloat file sizes, corrupt game engine "
     "exports, and cause evaluation conflicts where invisible tracks override "
     "your active keyframes."
 )
+
 
 # -------------------------------------------------------------------------
 # Main

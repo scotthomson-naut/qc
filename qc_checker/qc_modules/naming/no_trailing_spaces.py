@@ -9,7 +9,9 @@ import bpy
 SEVERITY = "critical"
 LABEL = "No Trailing Spaces"
 DESCRIPTION = (
-    "Checks if Object or Datablock names contain trailing spaces. "
+    "Checks if Object or Datablock names contain trailing spaces."
+)
+WHY = (
     "Trailing spaces can cause invisible string mismatches in scripts, "
     "exports, file paths, and production tools."
 )

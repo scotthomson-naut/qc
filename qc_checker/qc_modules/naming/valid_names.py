@@ -13,7 +13,10 @@ SEVERITY = "critical"
 LABEL = "Valid Names"
 DESCRIPTION = (
     "Checks that Object and Datablock names contain only supported "
-    "characters. Special characters can corrupt file paths, break code "
+    "characters."
+)
+WHY = (
+    "Special characters can corrupt file paths, break code "
     "parsing, and violate external software naming rules."
 )
 

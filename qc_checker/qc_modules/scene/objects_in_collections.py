@@ -13,6 +13,12 @@ DESCRIPTION = (
     "Checks if objects are linked directly to the Scene Collection "
     "root, bypassing every named collection."
 )
+WHY = (
+    "Helps you keep your scene organized. It lets you manage large projects, "
+    "hide or show groups of items at once, and apply changes to "
+    "many objects easily."
+)
+
 
 # -------------------------------------------------------------------------
 # Main

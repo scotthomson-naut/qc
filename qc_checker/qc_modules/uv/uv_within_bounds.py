@@ -10,6 +10,8 @@ SEVERITY = "info"
 LABEL = "UV Within Bounds"
 DESCRIPTION = (
     "Checks all UV maps for UV coordinates outside the 0-1 tile. "
+)
+WHY = (
     "Out-of-bounds UVs can cause unintended texture repetition, "
     "baking issues, seams, and inconsistent texel density."
 )

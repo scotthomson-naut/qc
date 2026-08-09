@@ -10,7 +10,10 @@ SEVERITY = "info"
 LABEL = "Keyframes in Range"
 DESCRIPTION = (
     "Checks for objects with keyframes before scene start frame "
-    "or after the scene end frame. Prevents unexpected object snapping, "
+    "or after the scene end frame."
+)
+WHY = (
+    "Prevents unexpected object snapping, "
     "broken render loops, and export errors."
 )
 

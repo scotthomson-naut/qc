@@ -10,7 +10,10 @@ import bmesh
 SEVERITY = "critical"
 LABEL = "No N-Gons"
 DESCRIPTION = (
-    "Checks if Object's mesh have N-Gons (polygons with 5 or more sides). "
+    "Checks if Object's mesh have N-Gons (polygons with 5 or more sides)."
+
+)
+WHY = (
     "Helps prevent rendering glitches, deformation failures during animation, "
     "and unpredictable results when exporting models to game engines "
     "or other software."

@@ -12,6 +12,12 @@ DESCRIPTION = (
     "Checks for duplicate edges - two or more edges connecting the "
     "exact same pair of vertices."
 )
+WHY = (
+    "They create overlapping geometry that confuses rendering, ruins "
+    "subdivision surfaces, breaks UV unwrapping, and causes lighting "
+    "errors in game engines. These hidden extra lines waste memory "
+    "and make models hard to edit."
+)
 
 
 # -------------------------------------------------------------------------

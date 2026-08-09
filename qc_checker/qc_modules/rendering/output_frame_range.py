@@ -15,6 +15,10 @@ DESCRIPTION = (
     "Checks whether the scene render frame range matches the frame range "
     "used by object Actions and NLA strips."
 )
+WHY = (
+    "Ensures that your final animation renders completely without cutting "
+    "off early or wasting time rendering empty static frames."
+)
 
 
 # -------------------------------------------------------------------------

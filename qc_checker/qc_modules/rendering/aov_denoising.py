@@ -11,6 +11,11 @@ LABEL = "AOV Denoising"
 DESCRIPTION = (
     "Checks whether Cycles render denoising is enabled."
 )
+WHY = (
+    "Drastically cuts down render times, cleans up grain at low sample counts, "
+    "and prevents wasting hours rendering an overly noisy image."
+)
+
 
 # -------------------------------------------------------------------------
 # Settings

@@ -14,6 +14,8 @@ LABEL = "UV Overlap"
 DESCRIPTION = (
     "Checks if Object has UV faces that overlap "
     "with other UV faces. "
+)
+WHY = (
     "Overlapping coordinates cause different parts of a 3D model to share "
     "the same exact space on a 2D texture map. While intentional overlap "
     "works well for symmetrical or repeating elements like bricks or wood "

@@ -16,6 +16,11 @@ DESCRIPTION = (
     "on disk. Objects using materials containing missing textures are "
     "reported so they can be selected directly in the scene."
 )
+WHY = (
+    "Prevents broken renders, avoid the dreaded bright pink, missing texture "
+    "error, and ensure your project files remain portable when shared across "
+    "different computers."
+)
 
 
 # -------------------------------------------------------------------------

@@ -12,6 +12,9 @@ DESCRIPTION = (
     "Checks whether the scene and individual mesh objects "
     "are below configurable polygon limits."
 )
+WHY = (
+    "Help keep a constant flow of assets in scenes."
+)
 
 
 # -------------------------------------------------------------------------

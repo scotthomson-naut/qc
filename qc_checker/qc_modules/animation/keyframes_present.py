@@ -10,7 +10,10 @@ SEVERITY = "warning"
 LABEL = "Keyframes Present"
 DESCRIPTION = (
     "Checks for objects that have animation data and an assigned Action, "
-    "but the Action contains no keyframes. Helps clean up orphan data blocks, "
+    "but the Action contains no keyframes."
+)
+WHY = (
+    "Helps clean up orphan data blocks, "
     "prevent file bloat, and avoid unexpected evaluation overhead or "
     "confusion during rigging and non-linear animation mixing."
 )

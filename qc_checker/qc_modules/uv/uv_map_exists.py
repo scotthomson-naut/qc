@@ -13,9 +13,12 @@ SEVERITY = "critical"
 LABEL = "UV Map Exists"
 DESCRIPTION = (
     "Checks if Object has at least one UV map. "
+)
+WHY = (
     "Without a UV layer, texture nodes look for coordinates that do not "
     "exist, causing Blender or external engines to fail."
 )
+
 
 # -------------------------------------------------------------------------
 # Main

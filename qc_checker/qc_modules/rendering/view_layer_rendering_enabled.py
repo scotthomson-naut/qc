@@ -14,6 +14,12 @@ DESCRIPTION = (
     "compositor or has otherwise valid settings - nothing about it "
     "ever gets computed at all."
 )
+WHY = (
+    "Tells which specific scene layers to include when you "
+    "hit render. If this box is unchecked, Blender skips that entire layer. "
+    "This saves render time, avoids clutter, and lets you work on "
+    "complex scenes step by step."
+)
 
 # -------------------------------------------------------------------------
 # Main

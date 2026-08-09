@@ -11,6 +11,11 @@ LABEL = "Full Frame Render"
 DESCRIPTION = (
     "Checks if Render Border or Crop to Render Region is enabled."
 )
+WHY = (
+    "Leaving them enabled by accident can cause your final image to be "
+    "unexpectedly cropped or missing large parts of your scene."
+)
+
 
 # -------------------------------------------------------------------------
 # Main

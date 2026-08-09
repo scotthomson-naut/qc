@@ -11,6 +11,8 @@ SEVERITY = "critical"
 LABEL = "Manifold Mesh"
 DESCRIPTION = (
     "Checks if Object has Manifold Edges. "
+)
+WHY = (
     "Ensures a 3D model is 'watertight', meaning every edge connects "
     "to a maximum of two faces, and there are no holes, loose vertices, "
     "or impossible geometry. "

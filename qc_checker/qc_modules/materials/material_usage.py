@@ -12,6 +12,9 @@ DESCRIPTION = (
     "Checks for unused material datablocks, excluding protected, "
     "linked, asset, and Blender-managed materials."
 )
+WHY = (
+    "Cleans up your file, reduce memory use, and remove clutter."
+)
 
 
 # -------------------------------------------------------------------------

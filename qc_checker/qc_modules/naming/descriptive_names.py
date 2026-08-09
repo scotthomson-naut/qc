@@ -13,8 +13,11 @@ SEVERITY = "info"
 LABEL = "Descriptive Names"
 DESCRIPTION = (
     "Checks if Object or Datablock names use default Blender names like "
-    "Cube, Sphere, Camera, Light, etc. Descriptive names help prevent "
-    "confusion in complex scenes and production pipelines."
+    "Cube, Sphere, Camera, Light, etc."
+)
+WHY = (
+    "Descriptive names help prevent confusion in complex scenes "
+    "and production pipelines."
 )
 
 

@@ -10,8 +10,11 @@ SEVERITY = "critical"
 LABEL = "ASCII Names"
 DESCRIPTION = (
     "Checks that Object and Datablock names contain only ASCII characters. "
-    "Names such as 'Café', '椅子', or emoji can cause export, scripting, "
-    "game-engine, and pipeline compatibility problems."
+    "Names such as 'Café', '椅子', or emoji.
+)
+WHY = (
+    "Causes export, scripting, game-engine, and pipeline compatibility "
+    "problems."
 )
 
 

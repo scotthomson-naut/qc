@@ -13,6 +13,10 @@ DESCRIPTION = (
     "Checks if Object's Location is Applied. "
     "Resets an object's location delta's data to zero (X: 0, Y: 0, Z: 0)."
 )
+WHY = (
+    "This prevents unexpected jumps or offsets when using physics, "
+    "simulations, modifiers, or constraints."
+)
 
 
 # -------------------------------------------------------------------------

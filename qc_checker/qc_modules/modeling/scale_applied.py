@@ -16,6 +16,11 @@ DESCRIPTION = (
     "Resets an object's transformation values in the sidebar to 1.0 "
     "on all axes while keeping its current visual size."
 )
+WHY = (
+    "This prevents distorted textures, broken modifiers, incorrect physics, "
+    "and uneven bevels by ensuring Blender calculates 3D math and "
+    "effects uniformly."
+)
 
 
 # -------------------------------------------------------------------------

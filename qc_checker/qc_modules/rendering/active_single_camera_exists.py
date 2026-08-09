@@ -14,6 +14,12 @@ DESCRIPTION = (
     "'Require Single Camera' setting is on) that exactly one Camera "
     "object exists."
 )
+WHY = (
+    "Knows exactly which viewpoint to use for rendering and viewport "
+    "framing. Without a designated active camera, rendering fails or "
+    "captures the wrong angle."
+)
+
 
 # -------------------------------------------------------------------------
 # Settings

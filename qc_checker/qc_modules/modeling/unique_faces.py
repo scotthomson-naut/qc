@@ -12,6 +12,12 @@ DESCRIPTION = (
     "Checks for duplicate faces - two or more faces sharing the same "
     "vertices."
 )
+WHY = (
+    "Create 'z-fighting' visual flicker, break lighting calculations, "
+    "mess up physics and weight painting, and cause issues when "
+    "3D printing or exporting assets."
+)
+
 
 # -------------------------------------------------------------------------
 # Settings

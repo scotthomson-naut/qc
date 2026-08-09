@@ -13,8 +13,11 @@ SEVERITY = "info"
 LABEL = "No Auto Suffixes"
 DESCRIPTION = (
     "Checks if Object or Datablock names use Blender's automatic numeric "
-    "suffixes such as .001, .002, etc. These names usually indicate copied "
-    "or duplicated data that has not been given a deliberate production name."
+    "suffixes such as .001, .002, etc."
+)
+WHY = (
+    "These names usually indicate copied or duplicated data that has "
+    "not been given a deliberate production name."
 )
 
 

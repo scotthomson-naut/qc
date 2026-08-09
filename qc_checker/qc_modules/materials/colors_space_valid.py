@@ -13,6 +13,10 @@ DESCRIPTION = (
     "displacement, masks, or other non-color data and verifies that their "
     "image color space is set to Non-Color."
 )
+WHY = (
+    "Stops the software from applying gamma correction (sRGB) to "
+    "mathematical values."
+)
 
 
 # -------------------------------------------------------------------------

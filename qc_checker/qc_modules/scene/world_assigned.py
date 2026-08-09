@@ -11,6 +11,11 @@ DESCRIPTION = (
     "Checks if a World datablock exists. "
     "Crucial because a scene does not always have one assigned."
 )
+WHY = (
+    "Provides the global background lighting, ambient environment color, "
+    "and image-based HDRI data required to realistically "
+    "illuminate your 3D scene."
+)
 
 # -------------------------------------------------------------------------
 # Main

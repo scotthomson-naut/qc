@@ -11,6 +11,10 @@ LABEL = "Material Slot Usage"
 DESCRIPTION = (
     "Checks for material slots that are not assigned to any face."
 )
+WHY = (
+    "Helps you keep your project clean, prevents export errors, and saves"
+    "computer memory. Unused slots add extra data that you do not need."
+)
 
 
 # -------------------------------------------------------------------------

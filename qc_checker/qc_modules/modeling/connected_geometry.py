@@ -13,6 +13,11 @@ DESCRIPTION = (
     "Checks mesh objects for vertices, edges, or faces that are not "
     "connected to the object's main mesh body."
 )
+WHY = (
+    "Stray elements cause unexpected render glitches, break physics "
+    "simulations, ruin rigging deformations, and make 3D printing "
+    "or game export."
+)
 
 
 # -------------------------------------------------------------------------

@@ -12,6 +12,13 @@ DESCRIPTION = (
     "Checks mesh objects for faces whose normals are flipped "
     "relative to Blender's recalculated face orientation."
 )
+WHY = (
+    "Face normals determine which direction a polygon faces. "
+    "Inward-facing or inconsistent normals break lighting calculations, "
+    "cause black patches or weird shading artifacts, hide faces in game "
+    "engines via backface culling, and disrupt modifiers, "
+    "texture maps, and physics."
+)
 
 
 # -------------------------------------------------------------------------

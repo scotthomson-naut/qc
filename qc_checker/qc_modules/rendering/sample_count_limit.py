@@ -12,6 +12,13 @@ DESCRIPTION = (
     "Checks whether Cycles render samples are higher than "
     "recommended for the current output resolution."
 )
+WHY = (
+    "Helps prevent wasted render time. Higher resolutions pack "
+    "more pixels into a smaller area, meaning noise is less noticeable. "
+    "Matching lower sample counts to high resolutions speeds up exports "
+    "without losing visual quality."
+)
+
 
 # -------------------------------------------------------------------------
 # Settings

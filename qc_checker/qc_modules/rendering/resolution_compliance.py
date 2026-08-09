@@ -10,6 +10,10 @@ LABEL = "Resolution Compliance"
 DESCRIPTION = (
     "Checks that the scene render resolution percentage is set to 100%."
 )
+WHY = (
+    "Leaving it unadjusted means your final output will render at "
+    "a different size instead of your target size."
+)
 
 
 # -------------------------------------------------------------------------

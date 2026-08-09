@@ -15,6 +15,12 @@ DESCRIPTION = (
     "accidentally after fast-iterating on one layer. With only one "
     "view layer in the scene, this setting is inert and not flagged."
 )
+WHY = (
+    "Without this checked, Blender defaults to rendering every single "
+    "view layer in your scene sequentially, which wastes time if you only "
+    "want to test or output one specific layer."
+)
+
 
 # -------------------------------------------------------------------------
 # Main

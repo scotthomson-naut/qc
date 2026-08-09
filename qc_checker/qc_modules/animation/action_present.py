@@ -10,7 +10,9 @@ SEVERITY = "warning"
 LABEL = "Action Present"
 DESCRIPTION = (
     "Checks for objects that contain empty animation data. "
-    "Objects using an Action, NLA strips, or drivers are considered valid. "
+    "Objects using an Action, NLA strips, or drivers are considered valid."
+)
+WHY = (
     "Unused animation channels or empty action slots can linger in data blocks, "
     "wasting processing cycles evaluating transforms that do nothing."
 )

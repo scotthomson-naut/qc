@@ -10,6 +10,8 @@ SEVERITY = "critical"
 LABEL = "Valid UV Assigned"
 DESCRIPTION = (
     "Checks that every polygon has meaningful UV coordinates across all "
+)
+WHY = (
     "UV maps. Missing or collapsed UVs can cause stretched textures, "
     "painting and baking errors, and invalid texture mapping."
 )

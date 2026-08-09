@@ -16,6 +16,12 @@ DESCRIPTION = (
     "sharing nearly the same position within a configurable "
     "tolerance)."
 )
+WHY = (
+    "Extra or stacked points break tools, create ugly shadows, ruin "
+    "animations, and cause errors when exporting your model to "
+    "game engines or 3D printers."
+)
+
 
 # -------------------------------------------------------------------------
 # Settings

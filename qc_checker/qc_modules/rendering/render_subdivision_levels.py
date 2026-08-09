@@ -13,6 +13,12 @@ DESCRIPTION = (
     "level is significantly higher than the configured maximum or the "
     "modifier's viewport subdivision level."
 )
+WHY = (
+    "Prevents sudden system memory exhaustion, long render freezes, "
+    "and application crashes. Each extra subdivision level multiplies "
+    "face counts exponentially, meaning a high render level can silently "
+    "turn a light scene into a gigabyte-heavy monster during final export."
+)
 
 
 # -------------------------------------------------------------------------

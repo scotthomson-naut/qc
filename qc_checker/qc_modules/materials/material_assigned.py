@@ -12,6 +12,10 @@ DESCRIPTION = (
     "Checks for objects that have missing materials, empty material slots, "
     "or faces assigned to invalid or empty material slots."
 )
+WHY = (
+    "Prevents rendering errors, export failures, and game engine crashes. "
+    "It cleans up your project data before sharing or rendering."
+)
 
 
 # -------------------------------------------------------------------------

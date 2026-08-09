@@ -11,6 +11,8 @@ LABEL = "Animated Values"
 DESCRIPTION = (
     "Checks for objects with keyed transform channels where none of "
     "the keyed transform values actually change. "
+)
+WHY = (
     "Unchanged keys often occur when using aggressive auto-keyframing or "
     "bulk keying sets, creating static F-curves that complicate future editing."
 )

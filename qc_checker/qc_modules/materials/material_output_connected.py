@@ -12,6 +12,12 @@ DESCRIPTION = (
     "Checks materials for shader nodes that are not connected, directly "
     "or indirectly, to an active Material Output node."
 )
+WHY = (
+    "Unconnected shader nodes helps you clean up unused data, "
+    "prevent clutter in your node trees, and save render time. Unlinked "
+    "nodes do not affect how your object looks, but they can confuse you "
+    "later or cause mistakes when you export your 3D mode."
+)
 
 
 # -------------------------------------------------------------------------
