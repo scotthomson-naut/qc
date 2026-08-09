@@ -115,7 +115,7 @@ def get_scene_timeline_range():
 # Collections
 # -------------------------------------------------------------------------
 
- def get_scene_root_collections():
+def get_scene_root_collections():
     """
     Returns list: Of root-level collections in current scene.
     """
@@ -128,7 +128,7 @@ def get_scene_timeline_range():
     return list(master_collection.children)
 
 
-  def get_scene_root_collection_count():
+def get_scene_root_collection_count():
     """
     Returns int: Number of root-level collections in current scene.
     """
@@ -161,7 +161,7 @@ def get_scene_lights():
 
 def get_scene_light_count():
     """
-    Returns int: Of light in the current scene.
+    Returns int: Number of lights in the current scene.
     """
-    return len(get_scene_lights)
+    return len(get_scene_lights())
 

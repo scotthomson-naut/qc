@@ -11,6 +11,7 @@ from .discovery import discover_check_scripts, get_categories, get_scripts
 from .preferences import get_check_preference_id, module_has_settings
 from .execution import call_check_main
 from .results import normalize_check_result, get_issues_from_result
+from .availability import evaluate_check_availability
 from ..utils.json_io import load_check_list, result_data_from_json, result_data_to_json
 from ..utils.module_loader import load_module_from_path
 
@@ -104,6 +105,9 @@ def load_qc_category(context):
         )
         item.has_settings = False
 
+        item.is_available = True
+        item.unavailable_reason = ""
+
         # -----------------------------------------------------
         # Load optional module metadata
         # -----------------------------------------------------
@@ -158,6 +162,15 @@ def load_qc_category(context):
             item.has_settings = module_has_settings(
                 module
             )
+
+            item.is_available, item.unavailable_reason = (
+                evaluate_check_availability(
+                    module
+                )
+            )
+
+            if not item.is_available:
+                item.selected = False
 
         except Exception:
             print(

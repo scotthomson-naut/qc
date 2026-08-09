@@ -16,3 +16,7 @@ from .selection import (
 )
 
 from .results import result_can_auto_fix
+
+from .availability import (
+    evaluate_check_availability,
+)

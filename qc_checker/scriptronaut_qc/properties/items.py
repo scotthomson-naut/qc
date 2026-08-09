@@ -115,6 +115,16 @@ class SCRIPTRONAUT_QC_CheckItem(PropertyGroup):
         default=False
     )
 
+    # alpha
+    is_available: BoolProperty(
+        name="Available",
+        default=True,
+    )
+    unavailable_reason: StringProperty(
+        name="Unavailable Reason",
+        default="",
+    )
+
 
 class SCRIPTRONAUT_QC_EditorItem(PropertyGroup):
     """

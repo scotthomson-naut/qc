@@ -83,7 +83,9 @@ class SCRIPTRONAUT_OT_QC_SelectAll(Operator):
             context.scene
             .scriptronaut_qc_checks
         ):
-            item.selected = True
+            item.selected = (
+                item.is_available
+            )
 
         return {"FINISHED"}
 
@@ -150,8 +152,8 @@ class SCRIPTRONAUT_OT_QC_SelectCritical(Operator):
 
         for item in checks:
             item.selected = (
-                item.severity
-                == "critical"
+                item.is_available
+                and item.severity == "critical"
             )
 
         return {"FINISHED"}
@@ -195,7 +197,10 @@ class SCRIPTRONAUT_OT_QC_RunSelected(Operator):
         selected_items = [
             item
             for item in checks
-            if item.selected
+            if (
+                item.selected
+                and item.is_available
+            )
         ]
 
         total_check_count = len(
@@ -309,6 +314,48 @@ class SCRIPTRONAUT_OT_QC_RunSelected(Operator):
                                 script_path,
                             )
                         )
+
+                        # -----------------------------------------
+                        # Check availability BEFORE execution
+                        # -----------------------------------------
+
+                        is_available, unavailable_reason = (
+                            evaluate_check_availability(
+                                module
+                            )
+                        )
+
+                        item.is_available = (
+                            is_available
+                        )
+
+                        item.unavailable_reason = (
+                            unavailable_reason
+                        )
+
+                        if not is_available:
+                            item.selected = False
+                            item.status = "NOT_RUN"
+                            item.issues = (
+                                unavailable_reason
+                            )
+
+                            item.result_data = (
+                                result_data_to_json({
+                                    "issues": [
+                                        unavailable_reason
+                                    ],
+                                    "script_path":
+                                        script_path,
+                                    "skipped": True,
+                                })
+                            )
+
+                            continue
+
+                        # -----------------------------------------
+                        # main()
+                        # -----------------------------------------
 
                         main_function = getattr(
                             module,

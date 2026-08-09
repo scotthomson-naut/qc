@@ -37,14 +37,17 @@ class SCRIPTRONAUT_UL_QC_Checks(UIList):
         # Status
         # ---------------------------------------------------------
 
-        if item.status == "PASS":
+        if not item.is_available:
+            icon_name = "LOCKED"
+            status_text = "Disabled"
+
+        elif item.status == "PASS":
             icon_name = "CHECKMARK"
             status_text = "Pass"
 
         elif item.status == "FAIL":
             icon_name = "CANCEL"
             status_text = "Fail"
-
             row.alert = True
 
         elif item.status == "RUNNING":
@@ -59,7 +62,19 @@ class SCRIPTRONAUT_UL_QC_Checks(UIList):
         # Enabled checkbox
         # ---------------------------------------------------------
 
-        row.prop(item, "selected", text="")
+        select_row = row.row(
+            align=True
+        )
+
+        select_row.enabled = (
+            item.is_available
+        )
+
+        select_row.prop(
+            item,
+            "selected",
+            text="",
+        )
 
         # ---------------------------------------------------------
         # Severity icon
@@ -164,8 +179,22 @@ class SCRIPTRONAUT_UL_QC_Checks(UIList):
                 )
             )
 
-            info_operator.tooltip_text = (
+            description = (
                 item.description
+            )
+
+            if not item.is_available:
+                description = (
+                    "{}\n\n{}".format(
+                        description,
+                        item.unavailable_reason,
+                    )
+                    if description
+                    else item.unavailable_reason
+                )
+
+            info_operator.tooltip_text = (
+                description
             )
 
         # ---------------------------------------------------------
@@ -225,7 +254,14 @@ class SCRIPTRONAUT_UL_QC_EditorScripts(UIList):
         index,
     ):
         row = layout.row(align=True)
-        row.prop(item, "selected", text="")
+        selection_row = row.row(
+            align=True
+        )
+
+        selection_row.enabled = (
+            item.is_available
+        )
+
         split = row.split(factor=0.65, align=True)
         split.label(text=item.name, icon="FILE_SCRIPT")
         split.label(text=item.source_category)
