@@ -415,7 +415,7 @@ class SCRIPTRONAUT_UL_QC_ObjectChecks(UIList):
         if source_check is not None:
 
             if source_check.status == "FIXING":
-                status_icon = "MOD_SMOOTH"
+                status_icon = "TOOL_SETTINGS"
 
             elif source_check.status == "RUNNING":
                 status_icon = "SOLO_ON"
