@@ -101,7 +101,10 @@ def main(preferences=None):
         preferences
     )
 
-    failed = get_render_sample_issue(settings)
+    failed = get_render_sample_issue(
+        settings
+    )
+
     issues = []
 
     if failed:
@@ -115,10 +118,21 @@ def main(preferences=None):
             )
         )
 
+    # Automatic fixing is only allowed when:
+    # 1. The check actually failed.
+    # 2. The user enabled Allow Automatic Fix.
+    can_auto_fix = bool(
+        failed
+        and settings[
+            "allow_auto_fix"
+        ]
+    )
+
     return {
         "issues": issues,
         "failed_settings": failed,
         "settings": settings,
+        "can_auto_fix": can_auto_fix,
     }
 
 
