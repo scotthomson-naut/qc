@@ -246,6 +246,33 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
             )
 
     # ---------------------------------------------------------------------
+    # Progress
+    # ---------------------------------------------------------------------
+
+    def draw_progress_bar(
+        self,
+        layout,
+        settings,
+    ):
+        """
+        Draws the shared progress bar used by check runs and bulk fixes.
+        """
+        if not settings.is_running:
+            return
+
+        progress_row = layout.row()
+        progress_row.scale_y = 0.5
+
+        progress_row.progress(
+            factor=settings.run_progress,
+            type="BAR",
+            text="{:.0f}%".format(
+                settings.run_progress * 100
+            ),
+        )
+
+
+    # ---------------------------------------------------------------------
     # CHECK MODE
     # ---------------------------------------------------------------------
 
@@ -314,20 +341,13 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
         )
 
         # ---------------------------------------------------------
-        # Run Progress
+        # Run / Fix Progress
         # ---------------------------------------------------------
 
-        if settings.is_running:
-            progress_row = layout.row()
-            progress_row.scale_y = 0.5
-
-            progress_row.progress(
-                factor=settings.run_progress,
-                type="BAR",
-                text="{:.0f}%".format(
-                    settings.run_progress * 100
-                ),
-            )
+        self.draw_progress_bar(
+            layout,
+            settings,
+        )
 
         # ---------------------------------------------------------
         # Run selected
@@ -696,6 +716,15 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
         )
 
         # ---------------------------------------------------------
+        # Fix Progress
+        # ---------------------------------------------------------
+
+        self.draw_progress_bar(
+            layout,
+            settings,
+        )
+
+        # ---------------------------------------------------------
         # Current failed check
         # ---------------------------------------------------------
 
@@ -722,7 +751,10 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
         fixable_object_check_count = sum(
             1
             for item in object_checks
-            if item.has_fix
+            if (
+                item.has_fix
+                and item.can_auto_fix
+            )
         )
 
         fix_all_object_row = layout.row()

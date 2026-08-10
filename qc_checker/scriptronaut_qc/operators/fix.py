@@ -23,6 +23,29 @@ from ..utils import *
 # Helpers
 # -------------------------------------------------------------------------
 
+def force_qc_redraw(
+        context,
+    ):
+    """
+    Forces Blender to redraw the UI so progress changes are visible
+    during synchronous fix operations.
+
+    Blender can redraw between fixes, but not while an individual fix
+    is blocking the main thread.
+    """
+    if context.screen is not None:
+        for area in context.screen.areas:
+            area.tag_redraw()
+
+    try:
+        bpy.ops.wm.redraw_timer(
+            type="DRAW_WIN_SWAP",
+            iterations=1,
+        )
+    except RuntimeError:
+        pass
+
+
 def get_post_fix_status(
         context,
         item,
@@ -237,148 +260,189 @@ class SCRIPTRONAUT_OT_QC_FixAll(
             scene.scriptronaut_qc_checks
         )
 
+        # ---------------------------------------------------------
+        # Collect fixable and manual checks
+        # ---------------------------------------------------------
+
+        fixable_items = [
+            item
+            for item in checks
+            if (
+                item.status == "FAIL"
+                and item.has_fix
+                and item.can_auto_fix
+            )
+        ]
+
+        skipped_manual = [
+            item.display_name or item.name
+            for item in checks
+            if (
+                item.status == "FAIL"
+                and (
+                    not item.has_fix
+                    or not item.can_auto_fix
+                )
+            )
+        ]
+
+        total_fix_count = len(
+            fixable_items
+        )
+
+        if total_fix_count == 0:
+            self.report(
+                {"INFO"},
+                "No automatic fixes are currently available.",
+            )
+            return {"FINISHED"}
+
         fixed_any = False
-        skipped_manual = []
         failed_fixes = []
         unresolved_checks = []
 
-        for item in checks:
+        # ---------------------------------------------------------
+        # Start progress
+        # ---------------------------------------------------------
 
-            # -----------------------------------------------------
-            # Only failed checks
-            # -----------------------------------------------------
+        constants.QC_IS_RUNNING = True
+        settings.is_running = True
+        settings.run_progress = 0.0
 
-            if item.status != "FAIL":
-                continue
+        force_qc_redraw(
+            context
+        )
 
-            # -----------------------------------------------------
-            # Skip checks without automatic fix
-            # -----------------------------------------------------
-
-            if (
-                not item.has_fix
-                or not item.can_auto_fix
+        try:
+            for fix_index, item in enumerate(
+                fixable_items,
+                start=1,
             ):
-                skipped_manual.append(
-                    item.display_name
-                    or item.name
-                )
+                try:
+                    if not os.path.isfile(
+                        item.script_path
+                    ):
+                        failed_fixes.append(
+                            "{}: script not found".format(
+                                item.display_name
+                                or item.name
+                            )
+                        )
+                        continue
 
-                continue
-
-            if not os.path.isfile(
-                item.script_path
-            ):
-                failed_fixes.append(
-                    "{}: script not found".format(
-                        item.display_name
-                        or item.name
-                    )
-                )
-
-                continue
-
-            try:
-
-                module = load_module_from_path(
-                    "qc_fix_all_{}".format(
-                        item.name
-                    ),
-                    item.script_path,
-                )
-
-                fix_function = getattr(
-                    module,
-                    "fix",
-                    None,
-                )
-
-                if not callable(
-                    fix_function
-                ):
-                    item.has_fix = False
-
-                    skipped_manual.append(
-                        item.display_name
-                        or item.name
+                    module = load_module_from_path(
+                        "qc_fix_all_{}".format(
+                            item.name
+                        ),
+                        item.script_path,
                     )
 
-                    continue
-
-                result_data = (
-                    result_data_from_json(
-                        item.result_data
+                    fix_function = getattr(
+                        module,
+                        "fix",
+                        None,
                     )
-                )
 
-                call_check_fix(
-                    module,
-                    get_check_id_for_item(
-                        item
-                    ),
-                    result_data=result_data,
-                )
+                    if not callable(
+                        fix_function
+                    ):
+                        item.has_fix = False
+                        continue
 
-                fixed_any = True
-
-                # -------------------------------------------------
-                # Re-run after fix
-                # -------------------------------------------------
-
-                rerun_success = (
-                    rerun_qc_check_item(
-                        item
-                    )
-                )
-
-                if not rerun_success:
-
-                    failed_fixes.append(
-                        (
-                            "{}: fix ran but the check "
-                            "could not be rerun"
-                        ).format(
-                            item.display_name
-                            or item.name
+                    result_data = (
+                        result_data_from_json(
+                            item.result_data
                         )
                     )
 
-                    continue
-
-                # -------------------------------------------------
-                # Check whether anything remains
-                # -------------------------------------------------
-
-                post_status = (
-                    get_post_fix_status(
-                        context,
-                        item,
-                    )
-                )
-
-                if post_status[
-                    "remaining_count"
-                ]:
-                    unresolved_checks.append(
-                        item.display_name
-                        or item.name
+                    call_check_fix(
+                        module,
+                        get_check_id_for_item(
+                            item
+                        ),
+                        result_data=result_data,
                     )
 
-                    report_post_fix_status(
-                        self,
-                        context,
-                        item,
+                    fixed_any = True
+
+                    # ---------------------------------------------
+                    # Re-run after fix so the row immediately
+                    # reflects PASS/FAIL.
+                    # ---------------------------------------------
+
+                    rerun_success = (
+                        rerun_qc_check_item(
+                            item
+                        )
                     )
 
-            except Exception:
+                    if not rerun_success:
+                        failed_fixes.append(
+                            (
+                                "{}: fix ran but the check "
+                                "could not be rerun"
+                            ).format(
+                                item.display_name
+                                or item.name
+                            )
+                        )
+                        continue
 
-                failed_fixes.append(
-                    "{}:\n{}".format(
-                        item.display_name
-                        or item.name,
-                        traceback.format_exc(),
+                    post_status = (
+                        get_post_fix_status(
+                            context,
+                            item,
+                        )
                     )
-                )
+
+                    if post_status[
+                        "remaining_count"
+                    ]:
+                        unresolved_checks.append(
+                            item.display_name
+                            or item.name
+                        )
+
+                        report_post_fix_status(
+                            self,
+                            context,
+                            item,
+                        )
+
+                except Exception:
+                    failed_fixes.append(
+                        "{}:\n{}".format(
+                            item.display_name
+                            or item.name,
+                            traceback.format_exc(),
+                        )
+                    )
+
+                finally:
+                    # ---------------------------------------------
+                    # Advance progress after each complete
+                    # fix + rerun cycle.
+                    # ---------------------------------------------
+
+                    settings.run_progress = (
+                        fix_index
+                        / total_fix_count
+                    )
+
+                    force_qc_redraw(
+                        context
+                    )
+
+        finally:
+            constants.QC_IS_RUNNING = False
+            settings.is_running = False
+
+            if total_fix_count:
+                settings.run_progress = 1.0
+
+            force_qc_redraw(
+                context
+            )
 
         # ---------------------------------------------------------
         # Scene state
@@ -409,7 +473,6 @@ class SCRIPTRONAUT_OT_QC_FixAll(
         # ---------------------------------------------------------
 
         if failed_fixes:
-
             for error in failed_fixes:
                 print(
                     "QC Fix All error:\n{}".format(
@@ -426,7 +489,6 @@ class SCRIPTRONAUT_OT_QC_FixAll(
             )
 
         elif unresolved_checks:
-
             self.report(
                 {"WARNING"},
                 (
@@ -441,9 +503,7 @@ class SCRIPTRONAUT_OT_QC_FixAll(
             )
 
         elif fixed_any:
-
             if skipped_manual:
-
                 self.report(
                     {"INFO"},
                     (
@@ -453,22 +513,16 @@ class SCRIPTRONAUT_OT_QC_FixAll(
                         len(skipped_manual)
                     ),
                 )
-
             else:
-
                 self.report(
                     {"INFO"},
                     "All available fixes completed.",
                 )
 
         else:
-
             self.report(
                 {"INFO"},
-                (
-                    "No automatic fixes are currently "
-                    "available."
-                ),
+                "No automatic fixes are currently available.",
             )
 
         return {"FINISHED"}
@@ -1001,8 +1055,7 @@ class SCRIPTRONAUT_OT_QC_FixAllObjectChecks(
 
         if (
             settings.failed_object_index < 0
-            or
-            settings.failed_object_index
+            or settings.failed_object_index
             >= len(failed_objects)
         ):
             return False
@@ -1043,15 +1096,13 @@ class SCRIPTRONAUT_OT_QC_FixAllObjectChecks(
 
         if (
             settings.failed_object_index < 0
-            or
-            settings.failed_object_index
+            or settings.failed_object_index
             >= len(failed_objects)
         ):
             self.report(
                 {"WARNING"},
                 "No failed object selected.",
             )
-
             return {"CANCELLED"}
 
         object_name = failed_objects[
@@ -1074,7 +1125,6 @@ class SCRIPTRONAUT_OT_QC_FixAllObjectChecks(
         ]
 
         if not check_indices:
-
             self.report(
                 {"INFO"},
                 (
@@ -1082,57 +1132,60 @@ class SCRIPTRONAUT_OT_QC_FixAllObjectChecks(
                     "for this object."
                 ),
             )
-
             return {"CANCELLED"}
 
         fixed_checks = []
         failed_fixes = []
-        skipped_checks = []
         unresolved_checks = []
 
+        # Two phases are included in progress:
+        #   1. applying each fix
+        #   2. rerunning each affected check
+        total_steps = len(
+            check_indices
+        ) * 2
+        completed_steps = 0
+
         constants.QC_IS_RUNNING = True
+        settings.is_running = True
+        settings.run_progress = 0.0
+
+        force_qc_redraw(
+            context
+        )
 
         try:
-
             # -------------------------------------------------
             # Execute fixes
             # -------------------------------------------------
 
             for check_index in check_indices:
-
                 check_item = checks[
                     check_index
                 ]
 
-                if check_item.status != "FAIL":
-                    continue
-
-                if (
-                    not check_item.has_fix
-                    or not check_item.can_auto_fix
-                ):
-                    skipped_checks.append(
-                        check_item.display_name
-                        or check_item.name
-                    )
-
-                    continue
-
-                if not os.path.isfile(
-                    check_item.script_path
-                ):
-                    failed_fixes.append(
-                        (
-                            "{}: script does not exist"
-                        ).format(
-                            check_item.display_name
-                            or check_item.name
-                        )
-                    )
-
-                    continue
-
                 try:
+                    if check_item.status != "FAIL":
+                        continue
+
+                    if (
+                        not check_item.has_fix
+                        or not check_item.can_auto_fix
+                    ):
+                        continue
+
+                    if not os.path.isfile(
+                        check_item.script_path
+                    ):
+                        failed_fixes.append(
+                            (
+                                "{}: script does not exist"
+                            ).format(
+                                check_item.display_name
+                                or check_item.name
+                            )
+                        )
+                        continue
 
                     module = load_module_from_path(
                         "qc_fix_all_object_{}_{}".format(
@@ -1152,12 +1205,6 @@ class SCRIPTRONAUT_OT_QC_FixAllObjectChecks(
                         fix_function
                     ):
                         check_item.has_fix = False
-
-                        skipped_checks.append(
-                            check_item.display_name
-                            or check_item.name
-                        )
-
                         continue
 
                     result_data = (
@@ -1184,7 +1231,6 @@ class SCRIPTRONAUT_OT_QC_FixAllObjectChecks(
                         continue
 
                     try:
-
                         call_check_fix(
                             module,
                             get_check_id_for_item(
@@ -1193,9 +1239,7 @@ class SCRIPTRONAUT_OT_QC_FixAllObjectChecks(
                             result_data=filtered_result,
                             require_result_data=True,
                         )
-
                     except TypeError as error:
-
                         failed_fixes.append(
                             "{}: {}".format(
                                 check_item.display_name
@@ -1203,7 +1247,6 @@ class SCRIPTRONAUT_OT_QC_FixAllObjectChecks(
                                 error,
                             )
                         )
-
                         continue
 
                     fixed_checks.append(
@@ -1212,7 +1255,6 @@ class SCRIPTRONAUT_OT_QC_FixAllObjectChecks(
                     )
 
                 except Exception:
-
                     failed_fixes.append(
                         "{}:\n{}".format(
                             check_item.display_name
@@ -1221,66 +1263,85 @@ class SCRIPTRONAUT_OT_QC_FixAllObjectChecks(
                         )
                     )
 
+                finally:
+                    completed_steps += 1
+                    settings.run_progress = (
+                        completed_steps
+                        / total_steps
+                    )
+
+                    force_qc_redraw(
+                        context
+                    )
+
             # -------------------------------------------------
             # Re-run affected checks
             # -------------------------------------------------
 
             for check_index in check_indices:
-
-                if (
-                    check_index < 0
-                    or check_index >= len(checks)
-                ):
-                    continue
-
                 check_item = checks[
                     check_index
                 ]
 
-                rerun_success = (
-                    rerun_qc_check_item(
-                        check_item
-                    )
-                )
-
-                if not rerun_success:
-
-                    failed_fixes.append(
-                        (
-                            "{}: fix ran but the check "
-                            "could not be rerun"
-                        ).format(
-                            check_item.display_name
-                            or check_item.name
+                try:
+                    rerun_success = (
+                        rerun_qc_check_item(
+                            check_item
                         )
                     )
 
-                    continue
+                    if not rerun_success:
+                        failed_fixes.append(
+                            (
+                                "{}: fix ran but the check "
+                                "could not be rerun"
+                            ).format(
+                                check_item.display_name
+                                or check_item.name
+                            )
+                        )
+                        continue
 
-                post_status = (
-                    get_post_fix_status(
-                        context,
-                        check_item,
+                    post_status = (
+                        get_post_fix_status(
+                            context,
+                            check_item,
+                        )
                     )
-                )
 
-                if post_status[
-                    "remaining_count"
-                ]:
-                    unresolved_checks.append(
-                        check_item.display_name
-                        or check_item.name
+                    if post_status[
+                        "remaining_count"
+                    ]:
+                        unresolved_checks.append(
+                            check_item.display_name
+                            or check_item.name
+                        )
+
+                        report_post_fix_status(
+                            self,
+                            context,
+                            check_item,
+                        )
+
+                finally:
+                    completed_steps += 1
+                    settings.run_progress = (
+                        completed_steps
+                        / total_steps
                     )
 
-                    report_post_fix_status(
-                        self,
-                        context,
-                        check_item,
+                    force_qc_redraw(
+                        context
                     )
 
         finally:
-
             constants.QC_IS_RUNNING = False
+            settings.is_running = False
+            settings.run_progress = 1.0
+
+            force_qc_redraw(
+                context
+            )
 
         # -----------------------------------------------------
         # Refresh
@@ -1307,9 +1368,7 @@ class SCRIPTRONAUT_OT_QC_FixAllObjectChecks(
         # -----------------------------------------------------
 
         if failed_fixes:
-
             for error in failed_fixes:
-
                 print(
                     "QC object fix error:\n{}".format(
                         error
@@ -1329,7 +1388,6 @@ class SCRIPTRONAUT_OT_QC_FixAllObjectChecks(
             )
 
         elif unresolved_checks:
-
             self.report(
                 {"WARNING"},
                 (
@@ -1345,7 +1403,6 @@ class SCRIPTRONAUT_OT_QC_FixAllObjectChecks(
             )
 
         elif fixed_checks:
-
             self.report(
                 {"INFO"},
                 (
@@ -1357,7 +1414,6 @@ class SCRIPTRONAUT_OT_QC_FixAllObjectChecks(
             )
 
         else:
-
             self.report(
                 {"INFO"},
                 (
