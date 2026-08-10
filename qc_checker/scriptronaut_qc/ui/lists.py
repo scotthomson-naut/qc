@@ -59,7 +59,7 @@ class SCRIPTRONAUT_UL_QC_Checks(UIList):
             status_text = "Running"
 
         elif item.status == "FIXING":
-            icon_name = "TOOL_SETTINGS"
+            icon_name = "MODIFIER"
             status_text = "Fixing"
 
         # ---------------------------------------------------------
@@ -415,7 +415,7 @@ class SCRIPTRONAUT_UL_QC_ObjectChecks(UIList):
         if source_check is not None:
 
             if source_check.status == "FIXING":
-                status_icon = "TOOL_SETTINGS"
+                status_icon = "MODIFIER"
 
             elif source_check.status == "RUNNING":
                 status_icon = "SOLO_ON"
