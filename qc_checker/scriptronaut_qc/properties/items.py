@@ -78,6 +78,11 @@ class SCRIPTRONAUT_QC_CheckItem(PropertyGroup):
                 "Running",
                 "",
             ),
+            (
+                "FIXING",
+                "Fixing",
+                "",
+            ),
         ],
         default="NOT_RUN",
     )

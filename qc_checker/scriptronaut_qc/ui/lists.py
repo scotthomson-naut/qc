@@ -37,6 +37,10 @@ class SCRIPTRONAUT_UL_QC_Checks(UIList):
         # Status
         # ---------------------------------------------------------
 
+        # Safe defaults.
+        icon_name = "VIEWZOOM"
+        status_text = "Not Run"
+
         if not item.is_available:
             icon_name = "LOCKED"
             status_text = "Disabled"
@@ -54,9 +58,9 @@ class SCRIPTRONAUT_UL_QC_Checks(UIList):
             icon_name = "SOLO_ON"
             status_text = "Running"
 
-        else:
-            icon_name = "VIEWZOOM"
-            status_text = "Not Run"
+        elif item.status == "FIXING":
+            icon_name = "TOOL_SETTINGS"
+            status_text = "Fixing"
 
         # ---------------------------------------------------------
         # Enabled checkbox
@@ -403,12 +407,28 @@ class SCRIPTRONAUT_UL_QC_ObjectChecks(UIList):
         )
 
         # ---------------------------------------------------------
-        # Fail icon
+        # Status icon
         # ---------------------------------------------------------
+
+        status_icon = "CANCEL"
+
+        if source_check is not None:
+
+            if source_check.status == "FIXING":
+                status_icon = "MOD_SMOOTH"
+
+            elif source_check.status == "RUNNING":
+                status_icon = "SOLO_ON"
+
+            elif source_check.status == "PASS":
+                status_icon = "CHECKMARK"
+
+            elif source_check.status == "FAIL":
+                status_icon = "CANCEL"
 
         name_column.label(
             text="",
-            icon="CANCEL",
+            icon=status_icon,
         )
 
         # ---------------------------------------------------------

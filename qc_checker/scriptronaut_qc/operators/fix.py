@@ -355,6 +355,14 @@ class SCRIPTRONAUT_OT_QC_FixAll(
                         )
                     )
 
+                    # Show which check is currently being fixed.
+                    item.status = "FIXING"
+                    item.issues = "Fixing..."
+
+                    force_qc_redraw(
+                        context
+                    )
+
                     call_check_fix(
                         module,
                         get_check_id_for_item(
@@ -635,6 +643,13 @@ class SCRIPTRONAUT_OT_QC_FixCheckInline(
             # Execute fix
             # -----------------------------------------------------
 
+            item.status = "FIXING"
+            item.issues = "Fixing..."
+
+            force_qc_redraw(
+                context
+            )
+
             call_check_fix(
                 module,
                 get_check_id_for_item(
@@ -889,6 +904,13 @@ class SCRIPTRONAUT_OT_QC_FixObjectInline(
             # -----------------------------------------------------
 
             try:
+
+                check_item.status = "FIXING"
+                check_item.issues = "Fixing..."
+
+                force_qc_redraw(
+                    context
+                )
 
                 call_check_fix(
                     module,
@@ -1231,6 +1253,14 @@ class SCRIPTRONAUT_OT_QC_FixAllObjectChecks(
                         continue
 
                     try:
+
+                        check_item.status = "FIXING"
+                        check_item.issues = "Fixing..."
+
+                        force_qc_redraw(
+                            context
+                        )
+
                         call_check_fix(
                             module,
                             get_check_id_for_item(
