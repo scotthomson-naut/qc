@@ -9,11 +9,7 @@ SEVERITY = "warning"
 LABEL = "View Layer Render Single Disabled"
 DESCRIPTION = (
     "Checks if 'Render Single Layer' is enabled while more than one "
-    "view layer exists. This scene-wide override skips every view "
-    "layer except the active one at render time, regardless of each "
-    "layer's own 'Use for Rendering' setting - usually left on "
-    "accidentally after fast-iterating on one layer. With only one "
-    "view layer in the scene, this setting is inert and not flagged."
+    "view layer exists."
 )
 WHY = (
     "Without this checked, Blender defaults to rendering every single "
@@ -38,38 +34,103 @@ def main():
         with bpy.context.scene.render.use_single_layer before
         trusting this in production.
 
+        This is a scene-level setting, not tied to any selectable
+        object - like aov_denoising.py, this only ever returns
+        "failed_settings", never "failed_objects". A placeholder key
+        in failed_objects (e.g. "Render Single Layer", which isn't a
+        real Blender object) was previously enough to make the panel
+        show a "Select Failed Objects" button that had nothing valid
+        to select.
+
     Returns:
-        dict: {issues (list(str)), failed_objects(dict)}
+        dict: {issues (list(str)), failed_settings(dict)}
     """
     status = get_render_single_layer_status()
 
-    failed_objects = {}
     issues = []
+    failed_settings = {}
 
     if status["applies"]:
-        failed_objects["Render Single Layer"] = {
-            "issue": (
-                "'Render Single Layer' is enabled with {} view "
-                "layers in the scene - only the active one will "
-                "render.".format(status["view_layer_count"])
-            ),
-        }
         issues.append(
             "Failed: 'Render Single Layer' is enabled with {} view "
             "layers in the scene".format(status["view_layer_count"])
         )
 
+        failed_settings["use_single_layer"] = {
+            "current": True,
+            "expected": False,
+            "view_layer_count": status["view_layer_count"],
+        }
+
     return {
         "issues": issues,
-        "failed_objects": failed_objects,
+        "failed_settings": failed_settings,
     }
 
-# No fix() for this check.
-#
-# Same reasoning as view_layer_use_for_rendering.py - this is a
-# manual-only check, period. This setting is usually a leftover from
-# fast iteration, but that's not certain enough to auto-disable it on
-# an artist's behalf.
+
+def fix(result_data=None):
+    """
+    Fix for issue.
+
+    Note:
+        Same reasoning as the reversal on
+        view_layer_use_for_rendering.py's fix() - this button is only
+        ever triggered by an artist choosing to click it, not run
+        automatically. This setting is usually a leftover from fast
+        iteration rather than a deliberate final choice, and clicking
+        Fix is itself the artist's confirmation that this instance
+        was unintentional.
+
+    Args:
+        result_data (dict | None): Result returned by main().
+    Returns:
+        dict: Fix result.
+    """
+    return fix_render_single_layer(result_data)
+
+# -------------------------------------------------------------------------
+# Fix
+# -------------------------------------------------------------------------
+
+def fix_render_single_layer(result_data=None):
+    """
+    Disables 'Render Single Layer'.
+
+    Args:
+        result_data (dict | None):
+            Result returned by main().
+
+    Returns:
+        dict:
+            Fix result.
+    """
+    if not isinstance(result_data, dict):
+        result_data = {}
+
+    failed_settings = result_data.get(
+        "failed_settings",
+        {},
+    )
+
+    if "use_single_layer" not in failed_settings:
+        return {
+            "issues": [],
+            "fixed_settings": {},
+        }
+
+    scene = bpy.context.scene
+    previous = scene.render.use_single_layer
+    scene.render.use_single_layer = False
+
+    return {
+        "issues": [],
+        "fixed_settings": {
+            "use_single_layer": {
+                "previous": previous,
+                "current": False,
+            },
+        },
+    }
 
 # -------------------------------------------------------------------------
 # Find
