@@ -5,6 +5,7 @@ from bpy.types import Panel, UIList
 from ..constants import COMMON_CATEGORY, TIER
 from ..core import get_qc_elapsed_text, get_severity_icon
 from ..utils.json_io import result_data_from_json
+from .helpers import draw_wrapped_text
 
 
 class SCRIPTRONAUT_PT_QC_Checks(Panel):
