@@ -572,9 +572,15 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
         # ---------------------------------------------------------
 
         elif settings.issues_display:
-            for line in settings.issues_display.splitlines():
-                issues_box.label(
-                    text=line,
+
+            for line in (
+                settings.issues_display
+                .splitlines()
+            ):
+                draw_wrapped_text(
+                    issues_box,
+                    line,
+                    width=60,
                 )
 
         else:

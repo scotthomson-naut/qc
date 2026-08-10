@@ -2,7 +2,6 @@
 
 import os
 import traceback
-import textwrap
 
 import bpy
 from bpy.props import BoolProperty, CollectionProperty, IntProperty, StringProperty
@@ -13,6 +12,7 @@ from ..core.context import QCContext
 from ..core import *
 from ..properties import SCRIPTRONAUT_PG_CheckSetting
 from ..utils import *
+from ..ui import draw_wrapped_text
 
 
 def reset_check_settings_dialog(self, context):
@@ -38,53 +38,6 @@ def reset_check_settings_dialog(self, context):
 
     if context is not None and context.area is not None:
         context.area.tag_redraw()
-
-
-def draw_wrapped_text(
-        layout,
-        text,
-        width=80,
-        icon="INFO",
-    ):
-    """
-    Draw word-wrapped text in a Blender layout.
-
-    Args:
-        layout:
-            Blender UI layout.
-
-        text (str):
-            Text to display.
-
-        width (int):
-            Approximate maximum characters per line.
-
-        icon (str):
-            Icon displayed on the first line.
-    """
-    if not text:
-        return
-
-    lines = textwrap.wrap(
-        str(text),
-        width=width,
-        break_long_words=False,
-        break_on_hyphens=False,
-    )
-
-    for index, line in enumerate(
-        lines
-    ):
-        row = layout.row()
-
-        row.label(
-            text=line,
-            icon=(
-                icon
-                if index == 0
-                else "BLANK1"
-            ),
-        )
 
 
 class SCRIPTRONAUT_OT_QC_CheckSettings(Operator):
