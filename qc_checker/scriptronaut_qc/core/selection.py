@@ -5,17 +5,47 @@ import bmesh
 
 
 def select_object(
-    context,
-    obj,
-):
+        context,
+        obj,
+        switch_view_layer=True,
+    ):
     """
-    Select and activate one Blender object.
+    Select and activate an object.
+
+    Handles objects that exist in bpy.data.objects but are not present
+    in the currently active View Layer.
+
+    Args:
+        context:
+            Blender context.
+
+        obj (bpy.types.Object):
+            Object to select.
+
+        switch_view_layer (bool):
+            If True, switch to another View Layer in the current scene
+            when that View Layer contains the object.
+
+    Returns:
+        tuple:
+            (
+                success,
+                message,
+            )
     """
     if obj is None:
-        return False
+        return (
+            False,
+            "Object does not exist.",
+        )
 
-    # Leave Edit Mode before changing active objects.
-    active_object = context.view_layer.objects.active
+    # ---------------------------------------------------------
+    # Leave Edit Mode before changing object selection
+    # ---------------------------------------------------------
+
+    active_object = (
+        context.view_layer.objects.active
+    )
 
     if (
         active_object is not None
@@ -26,32 +56,103 @@ def select_object(
                 mode="OBJECT"
             )
         except RuntimeError:
-            return False
+            pass
 
-    for selected_object in context.selected_objects:
-        selected_object.select_set(
-            False
+    # ---------------------------------------------------------
+    # Check current View Layer
+    # ---------------------------------------------------------
+
+    if object_in_view_layer(
+        obj,
+        context.view_layer,
+    ):
+        return select_object_in_view_layer(
+            context,
+            obj,
         )
 
-    try:
-        obj.hide_set(
-            False
+    # ---------------------------------------------------------
+    # Search other View Layers in current scene
+    # ---------------------------------------------------------
+
+    if switch_view_layer:
+
+        target_view_layer = (
+            find_view_layer_for_object(
+                context.scene,
+                obj,
+            )
         )
-    except RuntimeError:
-        pass
 
-    obj.hide_viewport = False
-    obj.hide_select = False
+        if target_view_layer is not None:
 
-    obj.select_set(
-        True
+            if context.window is None:
+                return (
+                    False,
+                    (
+                        'Object "{}" exists in View Layer "{}", '
+                        "but the current context has no window."
+                    ).format(
+                        obj.name,
+                        target_view_layer.name,
+                    ),
+                )
+
+            try:
+                context.window.view_layer = (
+                    target_view_layer
+                )
+
+            except Exception as error:
+                return (
+                    False,
+                    (
+                        'Could not switch to View Layer "{}": {}'
+                    ).format(
+                        target_view_layer.name,
+                        error,
+                    ),
+                )
+
+            # Let Blender update after switching layers.
+            context.view_layer.update()
+
+            return select_object_in_view_layer(
+                context,
+                obj,
+            )
+
+    # ---------------------------------------------------------
+    # Object isn't available in any View Layer
+    # ---------------------------------------------------------
+
+    scene_names = [
+        scene.name
+        for scene in obj.users_scene
+    ]
+
+    if scene_names:
+        return (
+            False,
+            (
+                'Object "{}" exists but is not available in any '
+                'View Layer of scene "{}". Object belongs to scene(s): {}.'
+            ).format(
+                obj.name,
+                context.scene.name,
+                ", ".join(scene_names),
+            ),
+        )
+
+    return (
+        False,
+        (
+            'Object "{}" exists in bpy.data.objects but is not '
+            "linked to a scene."
+        ).format(
+            obj.name
+        ),
     )
-
-    context.view_layer.objects.active = (
-        obj
-    )
-
-    return True
 
 
 def select_mesh_components(
@@ -343,3 +444,132 @@ def select_bmesh_elements(
         selected_count += 1
 
     return selected_count
+
+
+def object_in_view_layer(
+        obj,
+        view_layer,
+    ):
+    """
+    Returns True when an object is available in a View Layer.
+    """
+    if (
+        obj is None
+        or view_layer is None
+    ):
+        return False
+
+    return (
+        view_layer.objects.get(
+            obj.name
+        )
+        is not None
+    )
+
+
+def find_view_layer_for_object(
+        scene,
+        obj,
+    ):
+    """
+    Finds a View Layer in the scene that contains the object.
+
+    Returns:
+        bpy.types.ViewLayer | None
+    """
+    if (
+        scene is None
+        or obj is None
+    ):
+        return None
+
+    for view_layer in scene.view_layers:
+
+        if object_in_view_layer(
+            obj,
+            view_layer,
+        ):
+            return view_layer
+
+    return None
+
+
+def select_object_in_view_layer(
+        context,
+        obj,
+    ):
+    """
+    Select an object that is known to exist in the current View Layer.
+
+    Returns:
+        tuple:
+            (
+                success,
+                message,
+            )
+    """
+    # ---------------------------------------------------------
+    # Deselect current objects
+    # ---------------------------------------------------------
+
+    for selected_obj in list(
+        context.selected_objects
+    ):
+        try:
+            selected_obj.select_set(
+                False
+            )
+        except RuntimeError:
+            pass
+
+    # ---------------------------------------------------------
+    # Make the target selectable/visible
+    # ---------------------------------------------------------
+
+    try:
+        obj.hide_set(
+            False
+        )
+    except RuntimeError:
+        pass
+
+    try:
+        obj.hide_viewport = False
+    except Exception:
+        pass
+
+    try:
+        obj.hide_select = False
+    except Exception:
+        pass
+
+    # ---------------------------------------------------------
+    # Select
+    # ---------------------------------------------------------
+
+    try:
+        obj.select_set(
+            True
+        )
+
+        context.view_layer.objects.active = (
+            obj
+        )
+
+    except RuntimeError as error:
+        return (
+            False,
+            (
+                'Could not select object "{}": {}'
+            ).format(
+                obj.name,
+                error,
+            ),
+        )
+
+    return (
+        True,
+        'Selected object: "{}".'.format(
+            obj.name
+        ),
+    )

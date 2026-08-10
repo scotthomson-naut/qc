@@ -175,24 +175,22 @@ class SCRIPTRONAUT_OT_QC_SelectObject(
         # Object-only selection
         # -----------------------------------------------------
 
-        if not select_object(
+        success, message = select_object(
             context,
             obj,
-        ):
+        )
+
+        if not success:
             self.report(
-                {"ERROR"},
-                'Could not select object "{}".'.format(
-                    self.object_name
-                ),
+                {"WARNING"},
+                message,
             )
 
             return {"CANCELLED"}
 
         self.report(
             {"INFO"},
-            'Selected object: "{}".'.format(
-                obj.name
-            ),
+            message,
         )
 
         return {"FINISHED"}
@@ -338,24 +336,22 @@ class SCRIPTRONAUT_OT_QC_SelectCurrentFailedObject(
 
             return {"CANCELLED"}
 
-        if not select_object(
+        success, message = select_object(
             context,
             obj,
-        ):
+        )
+
+        if not success:
             self.report(
-                {"ERROR"},
-                'Could not select object "{}".'.format(
-                    object_name
-                ),
+                {"WARNING"},
+                message,
             )
 
             return {"CANCELLED"}
 
         self.report(
             {"INFO"},
-            'Selected object: "{}".'.format(
-                object_name
-            ),
+            message,
         )
 
         return {"FINISHED"}
