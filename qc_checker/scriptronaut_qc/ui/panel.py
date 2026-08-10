@@ -610,7 +610,9 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
         object_box = layout.box()
 
         object_box.label(
-            text="Failed Objects",
+            text="Failed Objects ({})".format(
+                len(failed_objects)
+            ),
             icon="OBJECT_DATA",
         )
 
