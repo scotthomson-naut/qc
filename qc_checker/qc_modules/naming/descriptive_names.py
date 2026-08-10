@@ -41,8 +41,23 @@ DEFAULT_OBJECT_NAMES = {
     "Text",
     "Curve",
     "BezierCurve",
+    "BézierCurve",
+    "BezierCircle",
+    "BézierCircle",
+    "NurbsCircle",
+    "NurbsCurve",
+    "NurbsPath",
     "Surface",
+    "SurfCircle",
+    "SurfCurve",
+    "SurfCylinder",
+    "SurfCPatch",
+    "SurfSphere",
+    "SurfTorus",
     "Metaball",
+    "Mball",
+    "Text",
+    "PointCloud",
     "Volume",
     "GreasePencil",
     "Camera",
@@ -65,9 +80,7 @@ def main():
             "failed_objects": dict,
         }
     """
-    failed_objects = (
-        get_objects_with_default_names()
-    )
+    failed_objects = get_objects_with_default_names()
 
     issues = []
 
