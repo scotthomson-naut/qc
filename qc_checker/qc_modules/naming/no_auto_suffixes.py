@@ -43,14 +43,7 @@ def main():
             "failed_objects": dict,
         }
     """
-    failed_objects = (
-        get_objects_with_auto_increment_names(
-            exclude_types={
-                "CAMERA",
-                "LIGHT",
-            },
-        )
-    )
+    failed_objects = get_objects_with_auto_increment_names()
 
     issues = []
 
