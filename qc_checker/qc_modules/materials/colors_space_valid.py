@@ -101,10 +101,24 @@ def main(preferences=None):
     )
 
     failed_images = analysis["failed_images"]
+    auto_fixable_images = [
+        image_name
+        for image_name, image_data
+        in failed_images.items()
+        if not (
+            image_data.get(
+                "mixed_usage",
+                False,
+            )
+            and settings[
+                "skip_mixed_usage_on_fix"
+            ]
+        )
+    ]
     failed_materials = build_failed_materials(
         failed_images=failed_images,
     )
-    failed_objects = build_failed_objects(
+    failed_objects = get_failed_colorspace_objects(
         failed_materials=failed_materials,
     )
 
@@ -149,13 +163,30 @@ def main(preferences=None):
         "failed_materials": failed_materials,
         "failed_images": failed_images,
         "settings": settings,
+        "can_auto_fix": bool(
+            auto_fixable_images
+        ),
     }
+
+
+def fix(result_data=None, preferences=None):
+    """
+    Creates and assigns a placeholder material where needed.
+
+    Returns:
+        dict
+    """
+    return fix_color_space(
+        result_data=result_data,
+        preferences=preferences
+    )
+
 
 # -------------------------------------------------------------------------
 # Find
 # -------------------------------------------------------------------------
 
-def build_failed_objects(failed_materials, scene=None):
+def get_failed_colorspace_objects(failed_materials, scene=None):
     """
     Finds scene objects using materials with color-space mismatches.
     """
@@ -203,6 +234,143 @@ def build_failed_objects(failed_materials, scene=None):
             }
 
     return failed_objects
+
+
+# -------------------------------------------------------------------------
+# Fix
+# -------------------------------------------------------------------------
+
+def fix_color_space(
+        result_data=None,
+        preferences=None,
+    ):
+    """
+    Sets failed non-color images to the required color space.
+
+    Images used for both color and non-color data are skipped when
+    skip_mixed_usage_on_fix is enabled.
+
+    Returns:
+        dict:
+        {
+            "issues": list[str],
+            "fixed_images": dict,
+            "skipped_images": dict,
+        }
+    """
+    settings = resolve_settings(
+        SETTINGS,
+        preferences,
+    )
+
+    if not isinstance(
+        result_data,
+        dict,
+    ):
+        result_data = {}
+
+    failed_images = result_data.get(
+        "failed_images",
+        {},
+    )
+
+    fixed_images = {}
+    skipped_images = {}
+    issues = []
+
+    required_colorspace = settings[
+        "required_colorspace"
+    ]
+
+    for image_name, image_data in (
+        failed_images.items()
+    ):
+
+        image = bpy.data.images.get(
+            image_name
+        )
+
+        if image is None:
+            issues.append(
+                'Image "{}" no longer exists.'.format(
+                    image_name
+                )
+            )
+            continue
+
+        # -----------------------------------------------------
+        # Mixed color / non-color usage
+        # -----------------------------------------------------
+
+        if (
+            image_data.get(
+                "mixed_usage",
+                False,
+            )
+            and settings[
+                "skip_mixed_usage_on_fix"
+            ]
+        ):
+            skipped_images[
+                image_name
+            ] = {
+                "reason": (
+                    "Image is used for both color and "
+                    "non-color data."
+                ),
+                "current_colorspace":
+                    get_image_colorspace(
+                        image
+                    ),
+                "required_colorspace":
+                    required_colorspace,
+            }
+
+            continue
+
+        # -----------------------------------------------------
+        # Set color space
+        # -----------------------------------------------------
+
+        old_colorspace = (
+            get_image_colorspace(
+                image
+            )
+        )
+
+        try:
+            image.colorspace_settings.name = (
+                required_colorspace
+            )
+
+        except Exception as error:
+            issues.append(
+                (
+                    'Could not set color space for image "{}": {}'
+                ).format(
+                    image_name,
+                    error,
+                )
+            )
+            continue
+
+        fixed_images[
+            image_name
+        ] = {
+            "old_colorspace":
+                old_colorspace,
+
+            "new_colorspace":
+                get_image_colorspace(
+                    image
+                ),
+        }
+
+    return {
+        "issues": issues,
+        "fixed_images": fixed_images,
+        "skipped_images": skipped_images,
+    }
 
 
 # -------------------------------------------------------------------------

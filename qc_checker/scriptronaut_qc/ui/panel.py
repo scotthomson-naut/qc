@@ -404,7 +404,7 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
 
         if fixable_count > 0:
             fix_all_text = (
-                "Fix All ({})".format(
+                "Fix All ({}) Fixable Checks".format(
                     fixable_count
                 )
             )
