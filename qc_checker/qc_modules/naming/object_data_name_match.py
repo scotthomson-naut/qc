@@ -8,9 +8,10 @@ import bpy
 SEVERITY = "warning"
 LABEL = "Object/Data Name Match"
 DESCRIPTION = (
-    "Checks that single-user mesh datablock names match their object names. "
-    "Like BoxRed -> Cube.001 "
-    "Shared mesh datablocks are allowed and ignored. "
+    "Checks that single-user datablock names match their object "
+    "names, across every object type (Mesh, Camera, Curve, "
+    "Armature, Light, etc). Like BoxRed -> Cube.001 "
+    "Shared datablocks are allowed and ignored. "
 )
 WHY = (
     "An object holds position and rotation data, while its internal datablock "
@@ -24,7 +25,8 @@ WHY = (
 
 def main():
     """
-    Checks whether mesh object names match their mesh datablock names.
+    Checks whether object names match their datablock names, across
+    every object type.
 
     Returns:
         dict:
@@ -34,16 +36,16 @@ def main():
         }
     """
     failed_objects = (
-        get_objects_with_mismatched_mesh_names()
+        get_objects_with_mismatched_data_names()
     )
 
     issues = []
 
     for object_name, data in failed_objects.items():
         issues.append(
-            "Failed object: {} - Mesh datablock is named '{}'".format(
+            "Failed object: {} - Datablock is named '{}'".format(
                 object_name,
-                data["mesh_name"],
+                data["datablock_name"],
             )
         )
 
@@ -57,7 +59,7 @@ def fix(result_data):
     """
     Fixes all objects reported by main().
     """
-    return fix_objects_with_mismatched_mesh_names(
+    return fix_objects_with_mismatched_data_names(
         result_data
     )
 
@@ -66,15 +68,42 @@ def fix(result_data):
 # Find
 # -------------------------------------------------------------------------
 
-def get_objects_with_mismatched_mesh_names(
+def get_objects_with_mismatched_data_names(
         objects=None,
     ):
     """
-    Finds single-user mesh objects whose object name does not match
-    their mesh datablock name.
+    Finds single-user objects (of any type) whose object name does
+    not match their datablock name.
 
-    Shared mesh datablocks are intentionally ignored because one
-    datablock cannot match multiple differently named objects.
+    Note:
+        Unlike the original version of this check, this is no longer
+        restricted to obj.type == "MESH" - every object type with a
+        datablock (Camera, Curve, Armature, Light, Lattice, Metaball,
+        Speaker, GreasePencil, etc.) is checked the same way, since
+        every datablock type shares the same .name and .users
+        properties (inherited from Blender's base ID type), and the
+        comparison logic and severity don't actually differ by
+        object type. Empty objects (obj.data is always None) are
+        naturally skipped, same as before.
+
+        Shared datablocks are intentionally ignored because one
+        datablock cannot match multiple differently named objects.
+
+    Args:
+        objects (iterable[bpy.types.Object] | None):
+            Objects to inspect.
+            Defaults to all objects in the current scene.
+
+    Returns:
+        dict:
+        {
+            "Cube": {
+                "object_name": "Cube",
+                "datablock_name": "Mesh.002",
+                "datablock_users": 1,
+            },
+            ...
+        }
     """
     if objects is None:
         objects = bpy.context.scene.objects
@@ -82,14 +111,11 @@ def get_objects_with_mismatched_mesh_names(
     failed_objects = {}
 
     for obj in objects:
-        if obj.type != "MESH":
-            continue
-
         if obj.data is None:
             continue
 
-        # Shared mesh datablocks are valid and cannot necessarily
-        # match every object name.
+        # Shared datablocks are valid and cannot necessarily match
+        # every object name.
         if obj.data.users > 1:
             continue
 
@@ -98,8 +124,8 @@ def get_objects_with_mismatched_mesh_names(
 
         failed_objects[obj.name] = {
             "object_name": obj.name,
-            "mesh_name": obj.data.name,
-            "mesh_users": obj.data.users,
+            "datablock_name": obj.data.name,
+            "datablock_users": obj.data.users,
         }
 
     return failed_objects
@@ -109,11 +135,12 @@ def get_objects_with_mismatched_mesh_names(
 # Fix
 # -------------------------------------------------------------------------
 
-def fix_objects_with_mismatched_mesh_names(
+def fix_objects_with_mismatched_data_names(
         result_data=None,
     ):
     """
-    Renames single-user mesh datablocks to match their object names.
+    Renames single-user datablocks to match their object names,
+    across every object type.
 
     Shared datablocks are skipped rather than made single-user.
     """
@@ -144,12 +171,12 @@ def fix_objects_with_mismatched_mesh_names(
             )
             continue
 
-        if obj.type != "MESH" or obj.data is None:
+        if obj.data is None:
             continue
 
         if obj.data.users > 1:
             issues.append(
-                'Skipped "{}": mesh datablock "{}" is shared by {} objects.'.format(
+                'Skipped "{}": datablock "{}" is shared by {} objects.'.format(
                     obj.name,
                     obj.data.name,
                     obj.data.users,
@@ -158,13 +185,13 @@ def fix_objects_with_mismatched_mesh_names(
             continue
 
         try:
-            old_mesh_name = obj.data.name
+            old_datablock_name = obj.data.name
             obj.data.name = obj.name
 
             fixed_objects[obj.name] = {
                 "fixed": True,
-                "previous_mesh_name": old_mesh_name,
-                "mesh_name": obj.data.name,
+                "previous_datablock_name": old_datablock_name,
+                "datablock_name": obj.data.name,
             }
 
         except Exception as error:
