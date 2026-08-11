@@ -14,6 +14,7 @@
   --topbar: 72px;
   --content: 1050px;
   --hilite-core: #409ce8;
+  --max: 100%
 }
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
@@ -105,6 +106,13 @@ img { max-width: 100%; margin-right: 4px;}
   border-right: 1px solid var(--line);
   background: rgba(10,11,17,.72); backdrop-filter: blur(14px);
 }
+
+.tools { width: min(calc(100% - 40px), var(--max)); margin: 20px auto 80px; display: grid; grid-template-columns: repeat(3,1fr); border: 1px solid var(--line); border-radius: 18px; overflow: hidden; background: var(--panel); backdrop-filter: blur(8px)}
+.tool { padding: 24px 26px; }
+.tool + .tool { border-left: 1px solid var(--line); }
+.tool strong { display:block; font: 700 1.15rem Space Grotesk; margin-bottom: 7px; }
+.tool span { color: var(--muted); font-size: .9rem; }
+
 .search-wrap { margin-bottom: 22px; }
 .search-wrap input, .search-page input {
   width: 100%; border: 1px solid var(--line); border-radius: 12px;

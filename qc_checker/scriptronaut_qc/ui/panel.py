@@ -581,7 +581,7 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
                 draw_wrapped_text(
                     issues_box,
                     line,
-                    width=60,
+                    width=80,
                 )
 
         else:
