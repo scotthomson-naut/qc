@@ -113,6 +113,9 @@ img { max-width: 100%; margin-right: 4px;}
 .tool strong { display:block; font: 700 1.15rem Space Grotesk; margin-bottom: 7px; }
 .tool span { color: var(--muted); font-size: .9rem; }
 
+.xtools { width: min(calc(100% - 40px), var(--max)); margin: 20px auto 80px; display: grid; grid-template-columns: repeat(3,1fr); border: 1px solid var(--line); border-radius: 18px; overflow: hidden; background: var(--panel); backdrop-filter: blur(8px)}
+.xtool { padding: 24px 26px; }
+
 .search-wrap { margin-bottom: 22px; }
 .search-wrap input, .search-page input {
   width: 100%; border: 1px solid var(--line); border-radius: 12px;
