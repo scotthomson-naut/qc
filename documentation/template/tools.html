@@ -16,7 +16,7 @@
         <div class="stars stars-medium"></div>
         <div class="stars stars-faint"></div>
 
-        <a class="brand" href="index.html">
+        <a class="brand" href="index.html"></a>
         <nav class="nav" style="display: flex; justify-content: center; align-items: center; margin-top:20px;">
             <a class="brand" href="#">
                 <span class="brand-mark">#</span>
@@ -26,6 +26,7 @@
 
 
         <main class="content">
+            <!-- astronaut -->
             <section class="hero" style="display: flex; justify-content: center; align-items: center;">
                 <div class="visual">
                     <div class="astronaut-wrap" id="astronaut">
@@ -33,14 +34,73 @@
                     </div>
                 </div>
             </section>
-            
-            <h1><span>Tools</span></h1>
-            <section class="xtools" id="tools">
-                <div class="xtool"><strong>QC Checker</strong><span>Quality Control Checker.</span></div>
-                <div class="xtool"><strong>Core</strong><span>..</span></div>
-                <div class="xtool"><strong>Packs</strong><span>..</span></div>
-            </section>
-        </main>
 
+            <h1><span>Tools</span></h1>
+
+            <!-- Tool -->
+            <section class="tools" id="tools">
+
+                <!-- Name -->
+                <div class="tool-column tool-main">
+                    <div class="tool-intro">
+                        <h2>QC Checker</h2>
+                        <p>
+                            Quality control tools for checking Blender scenes,
+                            assets, animation, materials, rendering and more.
+                            Find production issues before publishing or rendering.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Core -->
+                <div class="tool-column">
+                    <a class="tool-card tool-card-core" href="core/index.html">
+                        <h3>
+                            <span class="tool-dot core-dot"></span>
+                            Core
+                        </h3>
+                        <p>
+                            The foundation of QC Checker, including the standard
+                            production checks used across modeling, materials,
+                            naming, rendering, scene setup and UVs.
+                        </p>
+                        <span class="tool-card-link">
+                            View Core Documentation →
+                        </span>
+                    </a>
+                </div>
+
+                <!-- Packs -->
+                <div class="tool-column tool-pack-column">
+                    <a class="tool-card" href="packs/animation/index.html">
+                        <h3>
+                            <span class="tool-dot animation-dot"></span>
+                            Animation Pack
+                        </h3>
+                        <p>
+                            Additional animation-focused QC checks for production
+                            scenes, actions, keyframes and animation workflows.
+                        </p>
+                        <span class="tool-card-link">
+                            View Pack →
+                        </span>
+                    </a>
+                    <a class="tool-card" href="packs/rigging/index.html">
+                        <h3>
+                            <span class="tool-dot rigging-dot"></span>
+                            Rigging Pack
+                        </h3>
+                        <p>
+                            Rigging-specific checks for armatures, bones,
+                            deformation, naming and character setup.
+                        </p>
+                        <span class="tool-card-link">
+                            View Pack →
+                        </span>
+                    </a>
+                </div>
+            </section>
+
+        </main>
     </body>
 </html>
