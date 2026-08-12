@@ -317,15 +317,34 @@ def project_polygon_to_local_2d(
         polygon,
     ):
     """
-    Projects a 3D polygon into a stable local 2D coordinate system.
+    Projects a 3D polygon onto a FIXED world-axis-aligned 2D plane,
+    chosen by dominant axis magnitude.
 
-    The basis is built from:
-        X axis = first valid polygon edge
-        Y axis = polygon normal cross X axis
+    Note:
+        This replaces an earlier version that built a custom local
+        basis (tangent/bitangent) FROM polygon.normal. That was a
+        self-referential tautology: polygon.normal is itself derived
+        from the polygon's current winding order (it flips when
+        winding flips), so using it to build the very frame the
+        winding gets re-measured in caused the measurement to always
+        cancel out - confirmed by testing where a correctly-wound
+        face and a deliberately flipped face both reported the exact
+        same Mesh Signed Area, when they should have reported
+        opposite signs.
+
+        The fix: compute a Newell-method normal directly from raw
+        vertex positions, then choose the projection plane using
+        only the ABSOLUTE VALUE of that normal's components.
+        Reversing a polygon's winding negates every component of a
+        Newell normal equally, so magnitude - and therefore which
+        plane gets chosen - never changes between a face and its
+        flipped twin. Only the actual vertex order then affects the
+        final signed area, which is exactly the one thing that
+        should affect it.
 
     Returns:
         list[Vector]:
-            2D projected polygon coordinates.
+            2D projected polygon coordinates in a fixed world plane.
     """
     vertices = [
         mesh.vertices[
@@ -339,57 +358,73 @@ def project_polygon_to_local_2d(
     if len(vertices) < 3:
         return []
 
-    origin = vertices[0]
+    # -----------------------------------------------------------
+    # Newell's method - computed directly from raw vertex positions
+    # in the polygon's current winding order. This DOES flip sign
+    # when winding flips (expected and correct - that's the actual
+    # signal we want), but we only ever use its magnitude below,
+    # never its direction, which keeps plane SELECTION itself
+    # winding-independent.
+    # -----------------------------------------------------------
 
-    tangent = None
+    normal_x = 0.0
+    normal_y = 0.0
+    normal_z = 0.0
 
-    for point in vertices[1:]:
+    count = len(vertices)
 
-        edge = (
-            point
-            - origin
+    for index in range(count):
+        current = vertices[index]
+        next_point = vertices[(index + 1) % count]
+
+        normal_x += (
+            (current.y - next_point.y)
+            * (current.z + next_point.z)
         )
 
-        if edge.length_squared > 1e-20:
-            tangent = edge.normalized()
-            break
-
-    if tangent is None:
-        return []
-
-    normal = polygon.normal.normalized()
-
-    if normal.length_squared <= 1e-20:
-        return []
-
-    bitangent = normal.cross(
-        tangent
-    )
-
-    if bitangent.length_squared <= 1e-20:
-        return []
-
-    bitangent.normalize()
-
-    projected = []
-
-    for point in vertices:
-
-        relative = (
-            point
-            - origin
+        normal_y += (
+            (current.z - next_point.z)
+            * (current.x + next_point.x)
         )
 
-        projected.append(
-            Vector((
-                relative.dot(
-                    tangent
-                ),
-                relative.dot(
-                    bitangent
-                ),
-            ))
+        normal_z += (
+            (current.x - next_point.x)
+            * (current.y + next_point.y)
         )
+
+    abs_x = abs(normal_x)
+    abs_y = abs(normal_y)
+    abs_z = abs(normal_z)
+
+    if abs_x <= 1e-20 and abs_y <= 1e-20 and abs_z <= 1e-20:
+        # Fully degenerate polygon (zero area from any angle).
+        return []
+
+    # -----------------------------------------------------------
+    # Choose the FIXED projection plane by magnitude only - never
+    # by sign/direction, which is what keeps this winding-safe.
+    # -----------------------------------------------------------
+
+    if abs_x >= abs_y and abs_x >= abs_z:
+        # X-dominant: project onto the YZ plane.
+        projected = [
+            Vector((point.y, point.z))
+            for point in vertices
+        ]
+
+    elif abs_y >= abs_x and abs_y >= abs_z:
+        # Y-dominant: project onto the ZX plane.
+        projected = [
+            Vector((point.z, point.x))
+            for point in vertices
+        ]
+
+    else:
+        # Z-dominant: project onto the XY plane.
+        projected = [
+            Vector((point.x, point.y))
+            for point in vertices
+        ]
 
     return projected
 
