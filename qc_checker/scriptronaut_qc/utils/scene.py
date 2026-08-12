@@ -12,6 +12,9 @@ def get_scene_vertices_count():
     """
     Returns int: The Total number of Vertices in the current Scene.
     """
+    # Put in Object mode
+    bpy.ops.object.mode_set(mode='OBJECT')
+
     # Pulls the exact statistics string used in Blender's viewport/status bar
     stats = bpy.context.scene.statistics(bpy.context.view_layer)
 
@@ -25,6 +28,9 @@ def get_scene_edges_count():
     """
     Returns int: The Total number of Edges in the current scene.
     """
+    # Put in Object mode
+    bpy.ops.object.mode_set(mode='OBJECT')
+
     # Pulls the exact statistics string used in Blender's viewport/status bar
     stats = bpy.context.scene.statistics(bpy.context.view_layer)
 
@@ -38,6 +44,9 @@ def get_scene_faces_count():
     """
     Returns int: The Total number of Faces in the current scene.
     """
+    # Put in Object mode
+    bpy.ops.object.mode_set(mode='OBJECT')
+
     # Pulls the exact statistics string used in Blender's viewport/status bar
     stats = bpy.context.scene.statistics(bpy.context.view_layer)
 
@@ -51,6 +60,9 @@ def get_scene_triangles_count():
     """
     Returns int: The Total number of Triangles in the current scene.
     """
+    # Put in Object mode
+    bpy.ops.object.mode_set(mode='OBJECT')
+
     # Pulls the exact statistics string used in Blender's viewport/status bar
     stats = bpy.context.scene.statistics(bpy.context.view_layer)
 
