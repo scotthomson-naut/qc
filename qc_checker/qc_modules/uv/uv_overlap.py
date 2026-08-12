@@ -13,7 +13,7 @@ SEVERITY = "warning"
 LABEL = "UV Overlap"
 DESCRIPTION = (
     "Checks if Object has UV faces that overlap "
-    "with other UV faces. "
+    "with other UV faces."
 )
 WHY = (
     "Overlapping coordinates cause different parts of a 3D model to share "
@@ -26,6 +26,16 @@ WHY = (
 
 # Alpha "DEFAULT"
 MAX_SCENE_TRIANGLES = 4000000
+
+# -------------------------------------------------------------------------
+# Congruence tolerance
+# -------------------------------------------------------------------------
+#
+# Fixed, not a user setting - same reasoning as UV_BOUNDS_EPSILON in
+# uv_within_bounds.py. This absorbs floating-point noise in edge
+# length / area comparisons, it isn't a workflow policy choice.
+# THIS IS THE ONLY PLACE THIS VALUE IS DEFINED.
+CONGRUENCE_TOLERANCE = 1e-4
 
 
 # -------------------------------------------------------------------------
@@ -65,7 +75,9 @@ def main():
             issues.append(
                 (
                     "Failed object: {} - UV map '{}' has "
-                    "{} UV face(s) in {} overlap(s)"
+                    "{} UV face(s) in {} overlap(s) "
+                    "({} likely intentional/mirrored, "
+                    "{} likely mistakes)"
                 ).format(
                     object_name,
                     uv_map_name,
@@ -74,6 +86,12 @@ def main():
                     ],
                     uv_map_data[
                         "overlap_count"
+                    ],
+                    uv_map_data[
+                        "likely_intentional_overlap_count"
+                    ],
+                    uv_map_data[
+                        "likely_mistake_overlap_count"
                     ],
                 )
             )
@@ -99,6 +117,20 @@ def get_objects_with_overlapping_uv_faces(
     Uses a 2D spatial grid / bucket system to reduce triangle
     comparisons on dense meshes.
 
+    Note:
+        Each overlapping polygon pair is additionally tested for
+        congruence (see polygons_are_congruent()) - whether the two
+        full UV faces are the same size/shape, just translated,
+        rotated, or mirrored relative to each other. This can't know
+        artist intent with certainty, but a congruent pair is a
+        strong, low-cost signal for intentional UV reuse (mirrored
+        halves, trim sheets), while a non-congruent pair (different
+        size/shape, partial overlap, distortion) essentially never
+        happens by design. A duplicated-and-forgotten island that's
+        an exact copy will still read as congruent and won't be
+        distinguished from intentional reuse - that's a known,
+        accepted limitation of this approach, not a bug.
+
     Args:
         objects (iterable[bpy.types.Object] | None):
             Objects to inspect.
@@ -119,10 +151,13 @@ def get_objects_with_overlapping_uv_faces(
                         "overlapping_face_count": 4,
                         "polygon_indices": [12, 13, 88, 89],
                         "overlap_count": 2,
+                        "likely_intentional_overlap_count": 1,
+                        "likely_mistake_overlap_count": 1,
                         "overlaps": [
                             {
                                 "polygon_a": 12,
                                 "polygon_b": 88,
+                                "congruent": True,
                             }
                         ],
                     }
@@ -193,6 +228,8 @@ def get_objects_with_overlapping_uv_faces(
         all_overlapping_polygons = set()
 
         total_overlap_count = 0
+        total_likely_intentional_count = 0
+        total_likely_mistake_count = 0
 
         # -----------------------------------------------------
         # Check every UV map
@@ -399,6 +436,46 @@ def get_objects_with_overlapping_uv_faces(
                 overlapping_polygons
             )
 
+            # -------------------------------------------------
+            # Congruence check per overlapping pair
+            # -------------------------------------------------
+
+            overlap_details = []
+            likely_intentional_count = 0
+            likely_mistake_count = 0
+
+            for pair in sorted(overlap_pairs):
+                polygon_a_index, polygon_b_index = pair
+
+                uv_points_a = get_polygon_uv_points(
+                    mesh,
+                    uv_data,
+                    polygon_a_index,
+                )
+
+                uv_points_b = get_polygon_uv_points(
+                    mesh,
+                    uv_data,
+                    polygon_b_index,
+                )
+
+                congruent = polygons_are_congruent(
+                    uv_points_a,
+                    uv_points_b,
+                    tolerance=CONGRUENCE_TOLERANCE,
+                )
+
+                if congruent:
+                    likely_intentional_count += 1
+                else:
+                    likely_mistake_count += 1
+
+                overlap_details.append({
+                    "polygon_a": polygon_a_index,
+                    "polygon_b": polygon_b_index,
+                    "congruent": congruent,
+                })
+
             failed_uv_maps[
                 uv_layer.name
             ] = {
@@ -415,19 +492,13 @@ def get_objects_with_overlapping_uv_faces(
                         overlap_pairs
                     ),
 
-                "overlaps": [
-                    {
-                        "polygon_a":
-                            pair[0],
+                "likely_intentional_overlap_count":
+                    likely_intentional_count,
 
-                        "polygon_b":
-                            pair[1],
-                    }
+                "likely_mistake_overlap_count":
+                    likely_mistake_count,
 
-                    for pair in sorted(
-                        overlap_pairs
-                    )
-                ],
+                "overlaps": overlap_details,
             }
 
             all_overlapping_polygons.update(
@@ -436,6 +507,14 @@ def get_objects_with_overlapping_uv_faces(
 
             total_overlap_count += len(
                 overlap_pairs
+            )
+
+            total_likely_intentional_count += (
+                likely_intentional_count
+            )
+
+            total_likely_mistake_count += (
+                likely_mistake_count
             )
 
         # -----------------------------------------------------
@@ -472,6 +551,12 @@ def get_objects_with_overlapping_uv_faces(
             "overlap_count":
                 total_overlap_count,
 
+            "likely_intentional_overlap_count":
+                total_likely_intentional_count,
+
+            "likely_mistake_overlap_count":
+                total_likely_mistake_count,
+
             "polygon_indices":
                 combined_polygon_indices,
 
@@ -485,6 +570,160 @@ def get_objects_with_overlapping_uv_faces(
         }
 
     return failed_objects
+
+
+# -------------------------------------------------------------------------
+# Congruence helpers
+# -------------------------------------------------------------------------
+
+def get_polygon_uv_points(mesh, uv_data, polygon_index):
+    """
+    Returns the full UV loop for a polygon, in loop order.
+
+    Note:
+        This intentionally reads the ORIGINAL polygon's full UV
+        shape, not just the triangle that happened to trigger the
+        overlap detection - an n-gon gets split into multiple
+        triangles for the overlap test itself, but congruence should
+        compare the real UV faces an artist would actually see.
+
+    Args:
+        mesh (bpy.types.Mesh):
+            Mesh datablock.
+
+        uv_data (bpy.types.bpy_prop_collection):
+            The active UV layer's .data collection.
+
+        polygon_index (int):
+            Index into mesh.polygons.
+
+    Returns:
+        list[tuple[float, float]]:
+            UV points in loop order.
+    """
+    polygon = mesh.polygons[polygon_index]
+
+    return [
+        (
+            uv_data[loop_index].uv.x,
+            uv_data[loop_index].uv.y,
+        )
+        for loop_index in polygon.loop_indices
+    ]
+
+
+def polygon_uv_area(uv_points):
+    """
+    Returns the unsigned area of a 2D polygon via the shoelace
+    formula. Generalizes triangle_signed_area_2d() to any vertex
+    count.
+
+    Args:
+        uv_points (list[tuple[float, float]]):
+            Polygon vertices in loop order.
+
+    Returns:
+        float:
+            Unsigned area.
+    """
+    total = 0.0
+    count = len(uv_points)
+
+    for index in range(count):
+        x1, y1 = uv_points[index]
+        x2, y2 = uv_points[(index + 1) % count]
+
+        total += (x1 * y2) - (x2 * y1)
+
+    return abs(total) * 0.5
+
+
+def polygon_uv_edge_lengths(uv_points):
+    """
+    Returns the sorted edge lengths of a 2D polygon's loop.
+
+    Note:
+        Sorting (rather than keeping loop order) is what makes this
+        comparison indifferent to where the loop happens to start,
+        and to rotation or mirroring - none of those change a
+        shape's SET of edge lengths, only the order they'd appear in
+        if read sequentially.
+
+    Args:
+        uv_points (list[tuple[float, float]]):
+            Polygon vertices in loop order.
+
+    Returns:
+        list[float]:
+            Edge lengths, sorted ascending.
+    """
+    count = len(uv_points)
+    lengths = []
+
+    for index in range(count):
+        x1, y1 = uv_points[index]
+        x2, y2 = uv_points[(index + 1) % count]
+
+        lengths.append(
+            math.hypot(x2 - x1, y2 - y1)
+        )
+
+    return sorted(lengths)
+
+
+def polygons_are_congruent(
+        uv_points_a,
+        uv_points_b,
+        tolerance=CONGRUENCE_TOLERANCE,
+    ):
+    """
+    Checks whether two UV polygons are congruent - same size and
+    shape, allowing for any combination of translation, rotation, or
+    mirroring between them.
+
+    Note:
+        This is a practical heuristic, not a rigorous proof of
+        congruence. Matching area plus the full sorted set of edge
+        lengths is invariant to translation/rotation/mirroring and
+        catches the overwhelming majority of real cases (mirrored
+        halves, trim sheet tiles, duplicated islands), but it's
+        theoretically possible for two genuinely different shapes to
+        coincidentally share the same area and edge-length set
+        without being truly congruent. Good enough for a QC signal
+        distinguishing "probably fine" from "probably a mistake" -
+        not meant to be mathematically airtight.
+
+    Args:
+        uv_points_a (list[tuple[float, float]]):
+            First polygon's UV loop.
+
+        uv_points_b (list[tuple[float, float]]):
+            Second polygon's UV loop.
+
+        tolerance (float):
+            Allowed difference in area and per-edge length.
+
+    Returns:
+        bool:
+            True if the two polygons are considered congruent.
+    """
+    if len(uv_points_a) != len(uv_points_b):
+        return False
+
+    area_a = polygon_uv_area(uv_points_a)
+    area_b = polygon_uv_area(uv_points_b)
+
+    if abs(area_a - area_b) > tolerance:
+        return False
+
+    edge_lengths_a = polygon_uv_edge_lengths(uv_points_a)
+    edge_lengths_b = polygon_uv_edge_lengths(uv_points_b)
+
+    for length_a, length_b in zip(edge_lengths_a, edge_lengths_b):
+        if abs(length_a - length_b) > tolerance:
+            return False
+
+    return True
 
 
 # -------------------------------------------------------------------------
