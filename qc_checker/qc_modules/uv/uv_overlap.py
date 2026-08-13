@@ -181,6 +181,22 @@ def main(preferences=None):
     for object_name, object_data in (
         failed_objects.items()
     ):
+        validation_error = object_data.get(
+            "validation_error"
+        )
+
+        if validation_error:
+            issues.append(
+                (
+                    "Could not validate UV overlap for object '{}': {}"
+                ).format(
+                    object_name,
+                    validation_error,
+                )
+            )
+
+            continue
+
         failed_uv_maps = object_data.get(
             "failed_uv_maps",
             {},
@@ -572,6 +588,7 @@ def get_active_uv_overlap_batched(
             (
                 batch_failed,
                 batch_times,
+                fallback_objects,
             ) = run_active_uv_overlap_batch(
                 context,
                 batch,
@@ -584,6 +601,129 @@ def get_active_uv_overlap_batched(
             timing_by_mesh.update(
                 batch_times
             )
+
+            # -------------------------------------------------
+            # Single-object fallback
+            # -------------------------------------------------
+
+            for fallback_obj in (
+                fallback_objects
+            ):
+                fallback_start = (
+                    time.perf_counter()
+                )
+
+                fallback_result = None
+
+                try:
+                    fallback_result = (
+                        check_object_uv_maps_native(
+                            context,
+                            fallback_obj,
+                            uv_maps_to_check="ACTIVE",
+                        )
+                    )
+
+                except Exception as error:
+                    fallback_result = {
+                        "validation_error":
+                            str(
+                                error
+                            ),
+                    }
+
+                finally:
+                    timing_by_mesh[
+                        fallback_obj.data
+                    ] = (
+                        time.perf_counter()
+                        - fallback_start
+                    )
+
+                # The single-object path returning None means the
+                # object was successfully validated and passed.
+                if not fallback_result:
+                    continue
+
+                # If the fallback itself cannot access the object,
+                # surface that as a validation failure instead of
+                # silently skipping it.
+                if fallback_result.get(
+                    "skipped",
+                    False,
+                ):
+                    failed_by_mesh[
+                        fallback_obj.data
+                    ] = {
+                        "validation_error":
+                            fallback_result.get(
+                                "reason",
+                                (
+                                    "Object could not be checked "
+                                    "with the native UV operator."
+                                ),
+                            ),
+                    }
+
+                    continue
+
+                validation_error = (
+                    fallback_result.get(
+                        "validation_error"
+                    )
+                )
+
+                if validation_error:
+                    failed_by_mesh[
+                        fallback_obj.data
+                    ] = {
+                        "validation_error":
+                            validation_error,
+                    }
+
+                    continue
+
+                # Convert the normal single-object result into the
+                # compact per-Mesh structure used by batched results.
+                failed_uv_maps = (
+                    fallback_result.get(
+                        "failed_uv_maps",
+                        {},
+                    )
+                )
+
+                if not failed_uv_maps:
+                    continue
+
+                uv_map_name = next(
+                    iter(
+                        failed_uv_maps
+                    )
+                )
+
+                uv_map_data = (
+                    failed_uv_maps[
+                        uv_map_name
+                    ]
+                )
+
+                failed_by_mesh[
+                    fallback_obj.data
+                ] = {
+                    "uv_map_name":
+                        uv_map_name,
+
+                    "polygon_indices":
+                        list(
+                            uv_map_data.get(
+                                "polygon_indices",
+                                [],
+                            )
+                        ),
+
+                    "fallback":
+                        True,
+                }
 
     # ---------------------------------------------------------
     # Expand Mesh-datablock result back to every linked object.
@@ -645,6 +785,31 @@ def get_active_uv_overlap_batched(
             if not mesh_result:
                 continue
 
+            validation_error = (
+                mesh_result.get(
+                    "validation_error"
+                )
+            )
+
+            if validation_error:
+                failed_objects[
+                    obj.name
+                ] = {
+                    "detection_engine":
+                        "BLENDER_NATIVE_FALLBACK_ERROR",
+
+                    "uv_maps_to_check":
+                        "ACTIVE",
+
+                    "validation_error":
+                        validation_error,
+
+                    "failed_uv_maps":
+                        {},
+                }
+
+                continue
+
             # Result contains only primitive Python containers, so creating
             # fresh nested structures prevents one object's Details data from
             # accidentally being mutated through another linked instance.
@@ -658,11 +823,20 @@ def get_active_uv_overlap_batched(
                 ]
             )
 
+            detection_engine = (
+                "BLENDER_NATIVE_SINGLE_FALLBACK"
+                if mesh_result.get(
+                    "fallback",
+                    False,
+                )
+                else "BLENDER_NATIVE_BATCHED"
+            )
+
             failed_objects[
                 obj.name
             ] = {
                 "detection_engine":
-                    "BLENDER_NATIVE_BATCHED",
+                    detection_engine,
 
                 "uv_maps_to_check":
                     "ACTIVE",
@@ -670,7 +844,7 @@ def get_active_uv_overlap_batched(
                 "failed_uv_maps": {
                     uv_map_name: {
                         "detection_engine":
-                            "BLENDER_NATIVE_BATCHED",
+                            detection_engine,
 
                         "uv_maps_to_check":
                             "ACTIVE",
@@ -732,12 +906,18 @@ def run_active_uv_overlap_batch(
             (
                 failed_by_mesh,
                 timing_by_mesh,
+                fallback_objects,
             )
+
+        fallback_objects contains objects Blender did not include in the
+        multi-object Edit Mode session. The caller must run those objects
+        through the proven single-object native path.
     """
     if not objects:
         return (
             {},
             {},
+            [],
         )
 
     component_states = {}
@@ -747,6 +927,7 @@ def run_active_uv_overlap_batch(
 
     failed_by_mesh = {}
     timing_by_mesh = {}
+    fallback_objects = []
 
     entered_edit_mode = False
     edit_meshes = set()
@@ -813,6 +994,9 @@ def run_active_uv_overlap_batch(
             return (
                 {},
                 {},
+                list(
+                    objects
+                ),
             )
 
         context.view_layer.objects.active = (
@@ -863,6 +1047,9 @@ def run_active_uv_overlap_batch(
             return (
                 {},
                 {},
+                list(
+                    selectable_objects
+                ),
             )
 
         edit_meshes = {
@@ -870,17 +1057,21 @@ def run_active_uv_overlap_batch(
             for obj in edit_objects
         }
 
-        # Report batch members Blender did not include rather than
-        # crashing the entire QC check.
+        # Anything Blender leaves out of multi-object Edit Mode is
+        # explicitly sent through the proven single-object fallback.
         for obj in selectable_objects:
 
             if obj.data in edit_meshes:
                 continue
 
+            fallback_objects.append(
+                obj
+            )
+
             print(
                 (
-                    "UV Overlap batch skipped '{}': mesh did not "
-                    "enter multi-object Edit Mode."
+                    "UV Overlap batch fallback '{}': mesh did not "
+                    "enter multi-object Edit Mode; checking individually."
                 ).format(
                     obj.name
                 )
@@ -1221,6 +1412,7 @@ def run_active_uv_overlap_batch(
     return (
         failed_by_mesh,
         timing_by_mesh,
+        fallback_objects,
     )
 
 
