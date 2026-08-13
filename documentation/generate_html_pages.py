@@ -4,10 +4,150 @@ from __future__ import annotations
 import argparse
 import html
 import json
+import re
 import shutil
+import textwrap
 from collections import Counter
 from pathlib import Path
 from typing import Any
+
+
+# HTML elements that never contain child content and therefore do not
+# increase indentation when pretty-printing generated pages.
+VOID_HTML_ELEMENTS = {
+    "area",
+    "base",
+    "br",
+    "col",
+    "embed",
+    "hr",
+    "img",
+    "input",
+    "link",
+    "meta",
+    "param",
+    "source",
+    "track",
+    "wbr",
+}
+
+HTML_TOKEN_RE = re.compile(
+    r"(<!--.*?-->|<![^>]*>|<[^>]+>)",
+    re.DOTALL,
+)
+
+
+def format_html(source: str, indent_size: int = 4, line_width: int = 120) -> str:
+    """
+    Pretty-print generated HTML using deterministic 4-space indentation.
+
+    The documentation generator creates controlled HTML, so a lightweight
+    formatter is sufficient and avoids adding a third-party dependency such
+    as BeautifulSoup or html-tidy to the build process.
+
+    Args:
+        source:
+            Raw generated HTML.
+
+        indent_size:
+            Spaces per nesting level. Defaults to 4.
+
+        line_width:
+            Approximate width used when wrapping plain text nodes. Tag lines
+            are intentionally kept intact so attributes remain easy to scan.
+
+    Returns:
+        Formatted HTML ending with exactly one newline.
+    """
+    tokens = HTML_TOKEN_RE.split(source)
+    lines: list[str] = []
+    depth = 0
+
+    def emit(value: str, current_depth: int | None = None) -> None:
+        value = value.strip()
+        if not value:
+            return
+
+        level = depth if current_depth is None else current_depth
+        prefix = " " * (level * indent_size)
+        lines.append(prefix + value)
+
+    for token in tokens:
+        if not token:
+            continue
+
+        stripped = token.strip()
+        if not stripped:
+            continue
+
+        # Comments, doctype and declarations do not alter nesting depth.
+        if stripped.startswith("<!--") or stripped.startswith("<!"):
+            emit(stripped)
+            continue
+
+        # Closing element: move back one level before writing it.
+        if stripped.startswith("</"):
+            depth = max(0, depth - 1)
+            emit(stripped)
+            continue
+
+        # Opening / self-closing element.
+        if stripped.startswith("<"):
+            emit(stripped)
+
+            match = re.match(
+                r"<\s*([A-Za-z0-9:_-]+)",
+                stripped,
+            )
+
+            tag_name = (
+                match.group(1).lower()
+                if match
+                else ""
+            )
+
+            is_self_closing = stripped.endswith("/>")
+
+            if (
+                tag_name
+                and tag_name not in VOID_HTML_ELEMENTS
+                and not is_self_closing
+            ):
+                depth += 1
+
+            continue
+
+        # Plain text between tags. Normal HTML collapses this whitespace, so
+        # normalize it and wrap long prose without changing browser output.
+        normalized_text = " ".join(stripped.split())
+
+        if not normalized_text:
+            continue
+
+        available_width = max(
+            40,
+            line_width - (depth * indent_size),
+        )
+
+        wrapped_lines = textwrap.wrap(
+            normalized_text,
+            width=available_width,
+            break_long_words=False,
+            break_on_hyphens=False,
+        ) or [normalized_text]
+
+        for wrapped_line in wrapped_lines:
+            emit(wrapped_line)
+
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def write_html_file(path: Path, source: str) -> None:
+    """Write one generated HTML document in human-readable form."""
+    path.write_text(
+        format_html(source),
+        encoding="utf-8",
+    )
 
 
 def esc(value: Any) -> str:
@@ -186,9 +326,15 @@ def generate_site(
         '<!--<h2>Check Packs</h2><div class="callout">Future Packs can use the same generated page system while remaining separate from Core.</div>-->'
         '<!--<h2>Pro edition</h2><p class="lead">The same documentation structure can later cover batch reports, studio profiles, pipeline integrations and advanced automation.</p>-->'
     )
-    (output_dir / "index.html").write_text(
-        page_shell(title="QC Checker Core", description="Scriptronaut . QC Checker documentation", body=index_body, records=records, version=version),
-        encoding="utf-8",
+    write_html_file(
+        output_dir / "index.html",
+        page_shell(
+            title="QC Checker Core",
+            description="Scriptronaut . QC Checker documentation",
+            body=index_body,
+            records=records,
+            version=version,
+        ),
     )
 
     # Category and check pages.
@@ -213,9 +359,17 @@ def generate_site(
             f'<h1>{esc(category)}</h1><p class="lead"><b class="hilite-core">{len(items)}</b> checks, listed alphabetically. Open a check for purpose, severity, fix availability, settings and selection behavior.</p>'
             '<div class="grid">' + "".join(cards) + '</div>'
         )
-        (output_dir / "categories" / f"{category_slug(category)}.html").write_text(
-            page_shell(title=f"{category} Checks", description=f"{category} QC checks", body=category_body, records=records, depth=1, active_category=category, version=version),
-            encoding="utf-8",
+        write_html_file(
+            output_dir / "categories" / f"{category_slug(category)}.html",
+            page_shell(
+                title=f"{category} Checks",
+                description=f"{category} QC checks",
+                body=category_body,
+                records=records,
+                depth=1,
+                active_category=category,
+                version=version,
+            ),
         )
 
         check_dir = output_dir / "checks" / category_slug(category)
@@ -252,9 +406,17 @@ def generate_site(
                 + settings_table(item.get("settings") or [])
                 + notes_html
             )
-            (check_dir / f'{item["id"]}.html').write_text(
-                page_shell(title=item["label"], description=item.get("description") or item["label"], body=check_body, records=records, depth=2, active_category=category, version=version),
-                encoding="utf-8",
+            write_html_file(
+                check_dir / f'{item["id"]}.html',
+                page_shell(
+                    title=item["label"],
+                    description=item.get("description") or item["label"],
+                    body=check_body,
+                    records=records,
+                    depth=2,
+                    active_category=category,
+                    version=version,
+                ),
             )
 
     # Search page is generic and powered by checks-data.js.
@@ -264,9 +426,15 @@ def generate_site(
         '<div class="search-page"><input data-search-page-input type="search" placeholder="Search checks…" autofocus>'
         '<div data-search-results class="search-results"></div></div>'
     )
-    (output_dir / "search.html").write_text(
-        page_shell(title="Search", description="Search Scriptronaut QC checks", body=search_body, records=records, version=version),
-        encoding="utf-8",
+    write_html_file(
+        output_dir / "search.html",
+        page_shell(
+            title="Search",
+            description="Search Scriptronaut QC checks",
+            body=search_body,
+            records=records,
+            version=version,
+        ),
     )
 
     # Lightweight all-checks page.
@@ -275,9 +443,15 @@ def generate_site(
         for item in sorted(records, key=lambda record: (record["category"].lower(), record["label"].lower()))
     )
     checks_body = '<div class="eyebrow">Core Checks</div><h1>All checks</h1><div class="grid">' + all_cards + '</div>'
-    (output_dir / "checks.html").write_text(
-        page_shell(title="All Checks", description="All Scriptronaut QC checks", body=checks_body, records=records, version=version),
-        encoding="utf-8",
+    write_html_file(
+        output_dir / "checks.html",
+        page_shell(
+            title="All Checks",
+            description="All Scriptronaut QC checks",
+            body=checks_body,
+            records=records,
+            version=version,
+        ),
     )
 
 
