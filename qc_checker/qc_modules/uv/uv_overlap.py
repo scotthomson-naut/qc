@@ -25,7 +25,7 @@ WHY = (
 
 
 # Alpha safeguard.
-MAX_SCENE_TRIANGLES = 4000000
+MAX_SCENE_TRIANGLES = 10000000
 
 
 # -------------------------------------------------------------------------

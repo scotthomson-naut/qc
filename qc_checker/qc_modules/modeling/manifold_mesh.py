@@ -119,53 +119,167 @@ def get_objects_with_non_manifold_geometry(
 
     results = {}
 
+    mesh_cache = {}
+
     for obj in objects:
+
         if obj.type != "MESH":
             continue
 
-        bm = bmesh.new()
+        mesh = obj.data
 
-        try:
-            bm.from_mesh(obj.data)
-            bm.edges.ensure_lookup_table()
+        if mesh is None:
+            continue
 
-            boundary_edges = []
-            wire_edges = []
-            multi_face_edges = []
+        # -----------------------------------------------------
+        # Analyze each unique Mesh datablock only once
+        # -----------------------------------------------------
 
-            for edge in bm.edges:
-                face_count = len(edge.link_faces)
+        if mesh not in mesh_cache:
 
-                if include_wire and face_count == 0:
-                    wire_edges.append(edge.index)
+            bm = bmesh.new()
 
-                elif include_boundary and face_count == 1:
-                    boundary_edges.append(edge.index)
+            try:
+                bm.from_mesh(
+                    mesh
+                )
 
-                elif include_multi_face and face_count > 2:
-                    multi_face_edges.append(edge.index)
+                bm.edges.ensure_lookup_table()
 
-            non_manifold_edges = (
-                wire_edges
-                + boundary_edges
-                + multi_face_edges
-            )
+                boundary_edges = []
+                wire_edges = []
+                multi_face_edges = []
 
-            if non_manifold_edges:
-                results[obj.name] = {
-                    "boundary_edges": boundary_edges,
-                    "wire_edges": wire_edges,
-                    "multi_face_edges": multi_face_edges,
-                    "non_manifold_edges": non_manifold_edges,
-                    "edge_count": len(non_manifold_edges),
+                for edge in bm.edges:
 
-                    "selection": {
-                        "mode": "EDGE",
-                        "indices": non_manifold_edges,
-                    },
-                }
+                    face_count = len(
+                        edge.link_faces
+                    )
 
-        finally:
-            bm.free()
+                    if (
+                        include_wire
+                        and face_count == 0
+                    ):
+                        wire_edges.append(
+                            edge.index
+                        )
+
+                    elif (
+                        include_boundary
+                        and face_count == 1
+                    ):
+                        boundary_edges.append(
+                            edge.index
+                        )
+
+                    elif (
+                        include_multi_face
+                        and face_count > 2
+                    ):
+                        multi_face_edges.append(
+                            edge.index
+                        )
+
+                non_manifold_edges = (
+                    wire_edges
+                    + boundary_edges
+                    + multi_face_edges
+                )
+
+                if non_manifold_edges:
+
+                    mesh_cache[
+                        mesh
+                    ] = {
+                        "boundary_edges":
+                            boundary_edges,
+
+                        "wire_edges":
+                            wire_edges,
+
+                        "multi_face_edges":
+                            multi_face_edges,
+
+                        "non_manifold_edges":
+                            non_manifold_edges,
+
+                        "edge_count":
+                            len(
+                                non_manifold_edges
+                            ),
+                    }
+
+                else:
+
+                    mesh_cache[
+                        mesh
+                    ] = None
+
+            finally:
+                bm.free()
+
+        # -----------------------------------------------------
+        # Mesh passes
+        # -----------------------------------------------------
+
+        mesh_result = mesh_cache[
+            mesh
+        ]
+
+        if mesh_result is None:
+            continue
+
+        # -----------------------------------------------------
+        # Store result for this object
+        # -----------------------------------------------------
+
+        results[
+            obj.name
+        ] = {
+            "boundary_edges":
+                list(
+                    mesh_result[
+                        "boundary_edges"
+                    ]
+                ),
+
+            "wire_edges":
+                list(
+                    mesh_result[
+                        "wire_edges"
+                    ]
+                ),
+
+            "multi_face_edges":
+                list(
+                    mesh_result[
+                        "multi_face_edges"
+                    ]
+                ),
+
+            "non_manifold_edges":
+                list(
+                    mesh_result[
+                        "non_manifold_edges"
+                    ]
+                ),
+
+            "edge_count":
+                mesh_result[
+                    "edge_count"
+                ],
+
+            "selection": {
+                "mode":
+                    "EDGE",
+
+                "indices":
+                    list(
+                        mesh_result[
+                            "non_manifold_edges"
+                        ]
+                    ),
+            },
+        }
 
     return results
