@@ -1,8 +1,9 @@
-# Standard python imports
-import math
+# Standard library imports
+import time
 
 # Blender imports
 import bpy
+import bmesh
 
 
 # -------------------------------------------------------------------------
@@ -12,39 +13,119 @@ import bpy
 SEVERITY = "warning"
 LABEL = "UV Overlap"
 DESCRIPTION = (
-    "Checks if Object has UV faces that overlap "
-    "with other UV faces."
+    "Checks all UV maps for overlapping UV faces using Blender's native "
+    "UV overlap operator."
 )
 WHY = (
     "Overlapping coordinates cause different parts of a 3D model to share "
     "the same exact space on a 2D texture map. While intentional overlap "
-    "works well for symmetrical or repeating elements like bricks or wood "
-    "planks, unintended overlap breaks texture painting, distorts detail "
-    "baking, and causes artifact."
+    "works well for symmetrical or repeating elements, unintended overlap "
+    "can break texture painting, baking, and other texture workflows."
 )
 
 
-# Alpha "DEFAULT"
+# Alpha safeguard.
 MAX_SCENE_TRIANGLES = 4000000
 
+
 # -------------------------------------------------------------------------
-# Congruence tolerance
+# Settings
 # -------------------------------------------------------------------------
-#
-# Fixed, not a user setting - same reasoning as UV_BOUNDS_EPSILON in
-# uv_within_bounds.py. This absorbs floating-point noise in edge
-# length / area comparisons, it isn't a workflow policy choice.
-# THIS IS THE ONLY PLACE THIS VALUE IS DEFINED.
-CONGRUENCE_TOLERANCE = 1e-4
+
+SETTINGS = {
+    "uv_maps_to_check": {
+        "type": "enum",
+        "label": "UV Maps to Check",
+        "description": (
+            "Choose whether the overlap check scans only each mesh's active "
+            "UV map or every UV map. Active UV Map is faster and recommended "
+            "for routine QC; All UV Maps performs a more exhaustive check."
+        ),
+        "default": "ACTIVE",
+        "items": [
+            (
+                "ACTIVE",
+                "Active UV Map",
+                "Check only the active UV map on each mesh.",
+            ),
+            (
+                "ALL",
+                "All UV Maps",
+                "Check every UV map on each mesh.",
+            ),
+        ],
+    },
+
+    "profile_slow_objects": {
+        "type": "bool",
+        "label": "Profile Slow Objects",
+        "description": (
+            "Print per-object UV overlap execution times to the system "
+            "console so expensive meshes can be identified during testing."
+        ),
+        "default": True,
+    },
+
+    "slow_object_seconds": {
+        "type": "float",
+        "label": "Slow Object Threshold",
+        "description": (
+            "Only objects taking at least this many seconds are listed "
+            "in the slow-object console summary."
+        ),
+        "default": 1.0,
+        "min": 0.0,
+        "max": 3600.0,
+        "precision": 2,
+    },
+
+    "batch_native_overlap": {
+        "type": "bool",
+        "label": "Batch Native Overlap",
+        "description": (
+            "Process multiple mesh objects in one Edit Mode session. "
+            "Objects are temporarily offset in UV space so overlaps are "
+            "tested within each object without creating cross-object "
+            "false positives."
+        ),
+        "default": True,
+    },
+
+    "batch_size": {
+        "type": "int",
+        "label": "Batch Size",
+        "description": (
+            "Maximum number of mesh objects processed in one native "
+            "UV-overlap batch. Smaller values use more mode switches; "
+            "larger values use fewer mode switches."
+        ),
+        "default": 64,
+        "min": 2,
+        "max": 256,
+    },
+}
 
 
 # -------------------------------------------------------------------------
 # Main
 # -------------------------------------------------------------------------
 
-def main():
+def main(preferences=None):
     """
-    Checks all UV maps for overlapping UV faces.
+    Checks UV maps using Blender's native UV overlap detector.
+
+    This intentionally favors speed over the previous Python implementation.
+
+    Unlike the detailed Python solver, Blender's select_overlap operator
+    returns the affected UV faces rather than every polygon-pair
+    relationship. Therefore this version reports:
+
+        - Which objects fail.
+        - Which UV maps fail.
+        - Which polygon indices fail.
+        - How many unique faces overlap.
+
+    It does not classify likely intentional versus mistaken overlap pairs.
 
     Returns:
         dict:
@@ -53,9 +134,45 @@ def main():
             "failed_objects": dict,
         }
     """
+    settings = resolve_settings(
+        SETTINGS,
+        preferences,
+    )
+
+    uv_maps_to_check = str(
+        settings.get(
+            "uv_maps_to_check",
+            "ACTIVE",
+        )
+    ).upper()
+
     failed_objects = (
         get_objects_with_overlapping_uv_faces(
-            grid_size=0.05
+            uv_maps_to_check=uv_maps_to_check,
+            profile_slow_objects=bool(
+                settings.get(
+                    "profile_slow_objects",
+                    True,
+                )
+            ),
+            slow_object_seconds=float(
+                settings.get(
+                    "slow_object_seconds",
+                    1.0,
+                )
+            ),
+            batch_native_overlap=bool(
+                settings.get(
+                    "batch_native_overlap",
+                    True,
+                )
+            ),
+            batch_size=int(
+                settings.get(
+                    "batch_size",
+                    64,
+                )
+            ),
         )
     )
 
@@ -75,23 +192,12 @@ def main():
             issues.append(
                 (
                     "Failed object: {} - UV map '{}' has "
-                    "{} UV face(s) in {} overlap(s) "
-                    "({} likely intentional/mirrored, "
-                    "{} likely mistakes)"
+                    "{} face(s) with overlapping UVs."
                 ).format(
                     object_name,
                     uv_map_name,
                     uv_map_data[
                         "overlapping_face_count"
-                    ],
-                    uv_map_data[
-                        "overlap_count"
-                    ],
-                    uv_map_data[
-                        "likely_intentional_overlap_count"
-                    ],
-                    uv_map_data[
-                        "likely_mistake_overlap_count"
                     ],
                 )
             )
@@ -99,6 +205,7 @@ def main():
     return {
         "issues": issues,
         "failed_objects": failed_objects,
+        "settings": settings,
     }
 
 
@@ -108,429 +215,1469 @@ def main():
 
 def get_objects_with_overlapping_uv_faces(
         objects=None,
-        tolerance=1e-8,
-        grid_size=0.05,
+        uv_maps_to_check="ACTIVE",
+        profile_slow_objects=True,
+        slow_object_seconds=1.0,
+        batch_native_overlap=True,
+        batch_size=64,
     ):
     """
-    Finds mesh objects containing overlapping UV faces across all UV maps.
+    Finds overlapping UV faces using Blender's native
+    bpy.ops.uv.select_overlap() implementation.
 
-    Uses a 2D spatial grid / bucket system to reduce triangle
-    comparisons on dense meshes.
+    Fast path:
+        ACTIVE UV map + Batch Native Overlap enabled.
 
-    Note:
-        Each overlapping polygon pair is additionally tested for
-        congruence (see polygons_are_congruent()) - whether the two
-        full UV faces are the same size/shape, just translated,
-        rotated, or mirrored relative to each other. This can't know
-        artist intent with certainty, but a congruent pair is a
-        strong, low-cost signal for intentional UV reuse (mirrored
-        halves, trim sheets), while a non-congruent pair (different
-        size/shape, partial overlap, distortion) essentially never
-        happens by design. A duplicated-and-forgotten island that's
-        an exact copy will still read as congruent and won't be
-        distinguished from intentional reuse - that's a known,
-        accepted limitation of this approach, not a bug.
+        Meshes are grouped by a View Layer that can display them and then
+        processed in multi-object Edit Mode batches. Before Blender's native
+        overlap operator runs, each object's UVs are translated into a
+        separate temporary U-space region. Translation preserves overlap
+        relationships inside an object while preventing UVs from different
+        objects from being reported as overlapping each other.
 
-    Args:
-        objects (iterable[bpy.types.Object] | None):
-            Objects to inspect.
-            Defaults to all objects in the current scene.
+        The temporary UV translations are always reversed in a finally block.
 
-        tolerance (float):
-            Numerical tolerance used for overlap tests.
+    Fallback:
+        ALL UV maps, or batching disabled, uses the proven per-object native
+        implementation.
 
-        grid_size (float):
-            UV-space size of each spatial bucket.
+    Notes:
+        - Linked objects sharing the same Mesh datablock are evaluated once.
+          Their result is copied to all linked scene objects using that mesh.
+        - Batching is currently used for ACTIVE mode only. ALL mode remains
+          per-object because each mesh can have a different number and set of
+          UV layers.
 
     Returns:
-        dict:
-        {
-            "Character_Body": {
-                "failed_uv_maps": {
-                    "UVMap": {
-                        "overlapping_face_count": 4,
-                        "polygon_indices": [12, 13, 88, 89],
-                        "overlap_count": 2,
-                        "likely_intentional_overlap_count": 1,
-                        "likely_mistake_overlap_count": 1,
-                        "overlaps": [
-                            {
-                                "polygon_a": 12,
-                                "polygon_b": 88,
-                                "congruent": True,
-                            }
-                        ],
-                    }
-                },
-
-                "failed_uv_map_count": 1,
-
-                "overlapping_face_count": 4,
-
-                "polygon_indices": [
-                    12,
-                    13,
-                    88,
-                    89,
-                ],
-
-                "selection": {
-                    "mode": "FACE",
-                    "indices": [
-                        12,
-                        13,
-                        88,
-                        89,
-                    ],
-                },
-            }
-        }
+        dict
     """
+    context = bpy.context
+    scene = context.scene
+
     if objects is None:
-        objects = bpy.context.scene.objects
+        objects = list(
+            scene.objects
+        )
+
+    objects = [
+        obj
+        for obj in objects
+        if (
+            obj.type == "MESH"
+            and obj.data is not None
+            and obj.data.polygons
+            and obj.data.uv_layers
+        )
+    ]
+
+    if not objects:
+        return {}
+
+    state = capture_context_state(
+        context
+    )
 
     failed_objects = {}
+    object_timings = []
 
-    # Keep mesh data synchronized with Edit Mode.
-    if (
-        bpy.context.object
-        and bpy.context.object.mode == "EDIT"
-    ):
-        bpy.ops.object.mode_set(
-            mode="OBJECT"
+    profile_start_time = (
+        time.perf_counter()
+    )
+
+    try:
+        scene.tool_settings.use_uv_select_sync = False
+
+        try:
+            scene.tool_settings.uv_select_mode = "FACE"
+        except Exception:
+            pass
+
+        if (
+            context.object is not None
+            and context.object.mode != "OBJECT"
+        ):
+            try:
+                bpy.ops.object.mode_set(
+                    mode="OBJECT"
+                )
+            except RuntimeError:
+                pass
+
+        use_batching = (
+            batch_native_overlap
+            and str(
+                uv_maps_to_check
+            ).upper()
+            == "ACTIVE"
         )
+
+        if use_batching:
+
+            batch_results, batch_timings = (
+                get_active_uv_overlap_batched(
+                    context,
+                    objects,
+                    batch_size=max(
+                        2,
+                        int(
+                            batch_size
+                        ),
+                    ),
+                )
+            )
+
+            failed_objects.update(
+                batch_results
+            )
+
+            object_timings.extend(
+                batch_timings
+            )
+
+        else:
+
+            # -----------------------------------------------------
+            # Proven per-object fallback
+            # -----------------------------------------------------
+
+            for obj in objects:
+
+                object_start_time = (
+                    time.perf_counter()
+                )
+
+                object_result = None
+
+                try:
+                    object_result = (
+                        check_object_uv_maps_native(
+                            context,
+                            obj,
+                            uv_maps_to_check=(
+                                uv_maps_to_check
+                            ),
+                        )
+                    )
+
+                finally:
+                    object_elapsed = (
+                        time.perf_counter()
+                        - object_start_time
+                    )
+
+                    object_timings.append({
+                        "name":
+                            obj.name,
+
+                        "seconds":
+                            object_elapsed,
+
+                        "polygon_count":
+                            len(
+                                obj.data.polygons
+                            ),
+
+                        "triangle_count":
+                            get_object_triangle_count(
+                                obj
+                            ),
+
+                        "uv_map_count":
+                            len(
+                                obj.data.uv_layers
+                            ),
+                    })
+
+                if not object_result:
+                    continue
+
+                if object_result.get(
+                    "skipped",
+                    False,
+                ):
+                    print(
+                        "UV Overlap skipped '{}': {}".format(
+                            obj.name,
+                            object_result.get(
+                                "reason",
+                                "Unknown reason",
+                            ),
+                        )
+                    )
+
+                    continue
+
+                failed_objects[
+                    obj.name
+                ] = object_result
+
+    finally:
+        restore_context_state(
+            context,
+            state,
+        )
+
+        if profile_slow_objects:
+
+            total_elapsed = (
+                time.perf_counter()
+                - profile_start_time
+            )
+
+            print_uv_overlap_profile(
+                object_timings,
+                total_elapsed=total_elapsed,
+                slow_object_seconds=(
+                    slow_object_seconds
+                ),
+            )
+
+    return failed_objects
+
+
+def get_active_uv_overlap_batched(
+        context,
+        objects,
+        batch_size=64,
+    ):
+    """
+    Processes ACTIVE UV maps in multi-object Edit Mode batches.
+
+    Linked objects that share one Mesh datablock are represented by a single
+    object during overlap detection. The result is then copied to the linked
+    objects.
+
+    Returns:
+        tuple:
+            (
+                failed_objects,
+                object_timings,
+            )
+    """
+    scene = context.scene
+
+    # ---------------------------------------------------------
+    # Group scene objects by Mesh datablock.
+    # ---------------------------------------------------------
+
+    mesh_groups = {}
 
     for obj in objects:
 
-        if obj.type != "MESH":
+        mesh_groups.setdefault(
+            obj.data,
+            [],
+        ).append(
+            obj
+        )
+
+    representatives = [
+        group[
+            0
+        ]
+        for group in mesh_groups.values()
+    ]
+
+    # ---------------------------------------------------------
+    # Assign each representative to a View Layer.
+    #
+    # Prefer the current View Layer when possible.
+    # ---------------------------------------------------------
+
+    view_layer_groups = {}
+
+    for obj in representatives:
+
+        view_layer = None
+
+        if object_in_view_layer(
+            obj,
+            context.view_layer,
+        ):
+            view_layer = (
+                context.view_layer
+            )
+
+        else:
+            view_layer = (
+                find_view_layer_for_object(
+                    scene,
+                    obj,
+                )
+            )
+
+        if view_layer is None:
+            print(
+                (
+                    "UV Overlap skipped '{}': object is not "
+                    "available in any View Layer."
+                ).format(
+                    obj.name
+                )
+            )
+
             continue
 
-        mesh = obj.data
+        view_layer_groups.setdefault(
+            view_layer.name,
+            [],
+        ).append(
+            obj
+        )
+
+    failed_by_mesh = {}
+    timing_by_mesh = {}
+
+    # ---------------------------------------------------------
+    # Process each View Layer and batch.
+    # ---------------------------------------------------------
+
+    for (
+        view_layer_name,
+        group_objects,
+    ) in view_layer_groups.items():
+
+        if context.window is None:
+            break
+
+        target_view_layer = (
+            scene.view_layers.get(
+                view_layer_name
+            )
+        )
+
+        if target_view_layer is None:
+            continue
+
+        context.window.view_layer = (
+            target_view_layer
+        )
+
+        context.view_layer.update()
+
+        for batch_start in range(
+            0,
+            len(
+                group_objects
+            ),
+            batch_size,
+        ):
+
+            batch = group_objects[
+                batch_start:
+                batch_start
+                + batch_size
+            ]
+
+            (
+                batch_failed,
+                batch_times,
+            ) = run_active_uv_overlap_batch(
+                context,
+                batch,
+            )
+
+            failed_by_mesh.update(
+                batch_failed
+            )
+
+            timing_by_mesh.update(
+                batch_times
+            )
+
+    # ---------------------------------------------------------
+    # Expand Mesh-datablock result back to every linked object.
+    # ---------------------------------------------------------
+
+    failed_objects = {}
+    object_timings = []
+
+    for mesh, linked_objects in (
+        mesh_groups.items()
+    ):
+
+        mesh_result = (
+            failed_by_mesh.get(
+                mesh
+            )
+        )
+
+        mesh_seconds = (
+            timing_by_mesh.get(
+                mesh,
+                0.0,
+            )
+        )
+
+        # Attribute shared-mesh execution time to the representative only.
+        # Linked instances receive zero additional native-compute time.
+        for linked_index, obj in enumerate(
+            linked_objects
+        ):
+
+            object_timings.append({
+                "name":
+                    obj.name,
+
+                "seconds":
+                    (
+                        mesh_seconds
+                        if linked_index == 0
+                        else 0.0
+                    ),
+
+                "polygon_count":
+                    len(
+                        mesh.polygons
+                    ),
+
+                "triangle_count":
+                    get_object_triangle_count(
+                        obj
+                    ),
+
+                "uv_map_count":
+                    len(
+                        mesh.uv_layers
+                    ),
+            })
+
+            if not mesh_result:
+                continue
+
+            # Result contains only primitive Python containers, so creating
+            # fresh nested structures prevents one object's Details data from
+            # accidentally being mutated through another linked instance.
+            uv_map_name = mesh_result[
+                "uv_map_name"
+            ]
+
+            polygon_indices = list(
+                mesh_result[
+                    "polygon_indices"
+                ]
+            )
+
+            failed_objects[
+                obj.name
+            ] = {
+                "detection_engine":
+                    "BLENDER_NATIVE_BATCHED",
+
+                "uv_maps_to_check":
+                    "ACTIVE",
+
+                "failed_uv_maps": {
+                    uv_map_name: {
+                        "detection_engine":
+                            "BLENDER_NATIVE_BATCHED",
+
+                        "uv_maps_to_check":
+                            "ACTIVE",
+
+                        "overlapping_face_count":
+                            len(
+                                polygon_indices
+                            ),
+
+                        "polygon_indices":
+                            list(
+                                polygon_indices
+                            ),
+                    }
+                },
+
+                "failed_uv_map_count":
+                    1,
+
+                "overlapping_face_count":
+                    len(
+                        polygon_indices
+                    ),
+
+                "polygon_indices":
+                    list(
+                        polygon_indices
+                    ),
+
+                "selection": {
+                    "mode":
+                        "FACE",
+
+                    "indices":
+                        list(
+                            polygon_indices
+                        ),
+                },
+            }
+
+    return (
+        failed_objects,
+        object_timings,
+    )
+
+
+def run_active_uv_overlap_batch(
+        context,
+        objects,
+    ):
+    """
+    Runs one native overlap operation for a group of mesh objects.
+
+    Each object's active UV map is temporarily translated to its own
+    non-overlapping U range. Internal overlap within each object is unchanged.
+
+    Returns:
+        tuple:
+            (
+                failed_by_mesh,
+                timing_by_mesh,
+            )
+    """
+    if not objects:
+        return (
+            {},
+            {},
+        )
+
+    component_states = {}
+    uv_offsets = {}
+    uv_layers = {}
+    object_start_times = {}
+
+    failed_by_mesh = {}
+    timing_by_mesh = {}
+
+    entered_edit_mode = False
+    edit_meshes = set()
+
+    try:
+        # ---------------------------------------------------------
+        # Select batch objects in Object Mode.
+        # ---------------------------------------------------------
 
         if (
-            mesh is None
-            or not mesh.polygons
+            context.object is not None
+            and context.object.mode != "OBJECT"
         ):
-            continue
+            bpy.ops.object.mode_set(
+                mode="OBJECT"
+            )
 
-        if not mesh.uv_layers:
-            continue
+        for selected_obj in list(
+            context.selected_objects
+        ):
+            try:
+                selected_obj.select_set(
+                    False
+                )
+            except RuntimeError:
+                pass
 
-        # Triangulation only depends on geometry,
-        # so calculate it once per mesh.
+        selectable_objects = []
+
+        for obj in objects:
+
+            if not object_in_view_layer(
+                obj,
+                context.view_layer,
+            ):
+                continue
+
+            component_states[
+                obj.data
+            ] = (
+                capture_mesh_component_selection(
+                    obj.data
+                )
+            )
+
+            obj.hide_select = False
+
+            try:
+                obj.hide_set(
+                    False
+                )
+            except RuntimeError:
+                pass
+
+            obj.select_set(
+                True
+            )
+
+            selectable_objects.append(
+                obj
+            )
+
+        if not selectable_objects:
+            return (
+                {},
+                {},
+            )
+
+        context.view_layer.objects.active = (
+            selectable_objects[
+                0
+            ]
+        )
+
+        for obj in selectable_objects:
+            object_start_times[
+                obj.data
+            ] = time.perf_counter()
+
+        bpy.ops.object.mode_set(
+            mode="EDIT"
+        )
+
+        entered_edit_mode = True
+
+        # ---------------------------------------------------------
+        # Determine which meshes actually entered multi-object
+        # Edit Mode.
+        #
+        # Blender may leave some selected objects out of the edit
+        # session depending on visibility, editability, linked data,
+        # or context. bmesh.from_edit_mesh() must only be called on
+        # meshes that are truly in Edit Mode.
+        # ---------------------------------------------------------
+
+        edit_objects = list(
+            getattr(
+                context,
+                "objects_in_mode_unique_data",
+                [],
+            )
+        )
+
+        edit_objects = [
+            obj
+            for obj in edit_objects
+            if (
+                obj.type == "MESH"
+                and obj.data is not None
+            )
+        ]
+
+        if not edit_objects:
+            return (
+                {},
+                {},
+            )
+
+        edit_meshes = {
+            obj.data
+            for obj in edit_objects
+        }
+
+        # Report batch members Blender did not include rather than
+        # crashing the entire QC check.
+        for obj in selectable_objects:
+
+            if obj.data in edit_meshes:
+                continue
+
+            print(
+                (
+                    "UV Overlap batch skipped '{}': mesh did not "
+                    "enter multi-object Edit Mode."
+                ).format(
+                    obj.name
+                )
+            )
+
+        selectable_objects = [
+            obj
+            for obj in selectable_objects
+            if obj.data in edit_meshes
+        ]
+
+        # ---------------------------------------------------------
+        # Gather active UV layers and calculate a safe packing stride.
+        # ---------------------------------------------------------
+
+        bounds_by_mesh = {}
+        maximum_width = 0.0
+
+        for obj in selectable_objects:
+
+            mesh = obj.data
+
+            uv_layer = (
+                mesh.uv_layers.active
+            )
+
+            if uv_layer is None:
+                continue
+
+            bm = bmesh.from_edit_mesh(
+                mesh
+            )
+
+            bm.faces.ensure_lookup_table()
+
+            bm_uv_layer = (
+                bm.loops.layers.uv.get(
+                    uv_layer.name
+                )
+            )
+
+            if bm_uv_layer is None:
+                continue
+
+            uv_layers[
+                mesh
+            ] = (
+                bm_uv_layer
+            )
+
+            # All source faces must be available to the UV editor.
+            for face in bm.faces:
+                face.select = True
+
+            clear_bmesh_uv_selection(
+                bm,
+                bm_uv_layer,
+            )
+
+            min_u = None
+            max_u = None
+
+            for face in bm.faces:
+                for loop in face.loops:
+
+                    uv = loop[
+                        bm_uv_layer
+                    ].uv
+
+                    u = uv.x
+
+                    if (
+                        min_u is None
+                        or u < min_u
+                    ):
+                        min_u = u
+
+                    if (
+                        max_u is None
+                        or u > max_u
+                    ):
+                        max_u = u
+
+            if min_u is None:
+                continue
+
+            width = max(
+                0.0,
+                max_u
+                - min_u,
+            )
+
+            bounds_by_mesh[
+                mesh
+            ] = (
+                min_u,
+                max_u,
+            )
+
+            maximum_width = max(
+                maximum_width,
+                width,
+            )
+
+        # Keep a generous gap between every object's temporary UV range.
+        stride = max(
+            maximum_width
+            + 10.0,
+            20.0,
+        )
+
+        # ---------------------------------------------------------
+        # Temporarily translate each object's UV map.
+        # ---------------------------------------------------------
+
+        for object_index, obj in enumerate(
+            selectable_objects
+        ):
+
+            mesh = obj.data
+
+            bm_uv_layer = (
+                uv_layers.get(
+                    mesh
+                )
+            )
+
+            bounds = (
+                bounds_by_mesh.get(
+                    mesh
+                )
+            )
+
+            if (
+                bm_uv_layer is None
+                or bounds is None
+            ):
+                continue
+
+            min_u = bounds[
+                0
+            ]
+
+            target_min_u = (
+                object_index
+                * stride
+            )
+
+            offset = (
+                target_min_u
+                - min_u
+            )
+
+            uv_offsets[
+                mesh
+            ] = offset
+
+            if offset == 0.0:
+                continue
+
+            bm = bmesh.from_edit_mesh(
+                mesh
+            )
+
+            for face in bm.faces:
+                for loop in face.loops:
+                    loop[
+                        bm_uv_layer
+                    ].uv.x += offset
+
+            bmesh.update_edit_mesh(
+                mesh,
+                loop_triangles=False,
+                destructive=False,
+            )
+
+        # ---------------------------------------------------------
+        # One native overlap call for the whole batch.
+        # ---------------------------------------------------------
+
+        success, error_message = (
+            run_native_select_overlap(
+                context
+            )
+        )
+
+        if not success:
+            raise RuntimeError(
+                (
+                    "Could not run Blender native batched UV overlap: {}"
+                ).format(
+                    error_message
+                )
+            )
+
+        # ---------------------------------------------------------
+        # Read result per Mesh datablock.
+        # ---------------------------------------------------------
+
+        for obj in selectable_objects:
+
+            mesh = obj.data
+
+            bm_uv_layer = (
+                uv_layers.get(
+                    mesh
+                )
+            )
+
+            if bm_uv_layer is None:
+                continue
+
+            bm = bmesh.from_edit_mesh(
+                mesh
+            )
+
+            bm.faces.ensure_lookup_table()
+
+            polygon_indices = (
+                get_selected_uv_polygon_indices(
+                    bm,
+                    bm_uv_layer,
+                )
+            )
+
+            if polygon_indices:
+
+                uv_layer = (
+                    mesh.uv_layers.active
+                )
+
+                if uv_layer is not None:
+
+                    failed_by_mesh[
+                        mesh
+                    ] = {
+                        "uv_map_name":
+                            uv_layer.name,
+
+                        "polygon_indices":
+                            polygon_indices,
+                    }
+
+            start_time = (
+                object_start_times.get(
+                    mesh
+                )
+            )
+
+            if start_time is not None:
+
+                timing_by_mesh[
+                    mesh
+                ] = (
+                    time.perf_counter()
+                    - start_time
+                )
+
+    finally:
+        # ---------------------------------------------------------
+        # Undo temporary UV translations before leaving Edit Mode.
+        # ---------------------------------------------------------
+
+        if entered_edit_mode:
+
+            for obj in objects:
+
+                mesh = obj.data
+
+                offset = (
+                    uv_offsets.get(
+                        mesh
+                    )
+                )
+
+                bm_uv_layer = (
+                    uv_layers.get(
+                        mesh
+                    )
+                )
+
+                if (
+                    mesh not in edit_meshes
+                    or offset is None
+                    or bm_uv_layer is None
+                    or offset == 0.0
+                ):
+                    continue
+
+                try:
+                    bm = bmesh.from_edit_mesh(
+                        mesh
+                    )
+
+                    for face in bm.faces:
+                        for loop in face.loops:
+                            loop[
+                                bm_uv_layer
+                            ].uv.x -= offset
+
+                    bmesh.update_edit_mesh(
+                        mesh,
+                        loop_triangles=False,
+                        destructive=False,
+                    )
+
+                except Exception:
+                    # Continue restoration for all other meshes.
+                    pass
+
+            if (
+                context.object is not None
+                and context.object.mode != "OBJECT"
+            ):
+                try:
+                    bpy.ops.object.mode_set(
+                        mode="OBJECT"
+                    )
+                except RuntimeError:
+                    pass
+
+        # ---------------------------------------------------------
+        # Restore component selection for each modified Mesh.
+        # ---------------------------------------------------------
+
+        for mesh, component_state in (
+            component_states.items()
+        ):
+
+            try:
+                restore_mesh_component_selection(
+                    mesh,
+                    component_state,
+                )
+            except Exception:
+                pass
+
+    return (
+        failed_by_mesh,
+        timing_by_mesh,
+    )
+
+
+# -------------------------------------------------------------------------
+# Performance profiling helpers
+# -------------------------------------------------------------------------
+
+def get_object_triangle_count(
+        obj,
+    ):
+    """
+    Returns the object's current loop-triangle count.
+
+    Used only for profiling output.
+    """
+    mesh = getattr(
+        obj,
+        "data",
+        None,
+    )
+
+    if mesh is None:
+        return 0
+
+    try:
         mesh.calc_loop_triangles()
 
-        if not mesh.loop_triangles:
-            continue
+        return len(
+            mesh.loop_triangles
+        )
 
-        failed_uv_maps = {}
+    except Exception:
+        return 0
 
-        all_overlapping_polygons = set()
 
-        total_overlap_count = 0
-        total_likely_intentional_count = 0
-        total_likely_mistake_count = 0
+def format_profile_time(
+        seconds,
+    ):
+    """
+    Formats profiling time as seconds or minutes/seconds.
+    """
+    seconds = float(
+        seconds
+    )
 
-        # -----------------------------------------------------
-        # Check every UV map
-        # -----------------------------------------------------
+    if seconds < 60.0:
+        return "{:.2f}s".format(
+            seconds
+        )
 
-        for uv_layer in mesh.uv_layers:
+    minutes = int(
+        seconds
+        // 60.0
+    )
 
-            uv_data = uv_layer.data
+    remaining_seconds = (
+        seconds
+        - (
+            minutes
+            * 60.0
+        )
+    )
 
-            triangles = []
+    return "{}m {:.2f}s".format(
+        minutes,
+        remaining_seconds,
+    )
 
-            # -------------------------------------------------
-            # Build UV triangle records
-            # -------------------------------------------------
 
-            for triangle_index, loop_triangle in enumerate(
-                mesh.loop_triangles
-            ):
-                uv_points = [
-                    (
-                        uv_data[
-                            loop_index
-                        ].uv.x,
+def print_uv_overlap_profile(
+        object_timings,
+        total_elapsed,
+        slow_object_seconds=1.0,
+    ):
+    """
+    Prints a sorted performance summary for slow UV-overlap objects.
+    """
+    threshold = max(
+        0.0,
+        float(
+            slow_object_seconds
+        ),
+    )
 
-                        uv_data[
-                            loop_index
-                        ].uv.y,
-                    )
+    sorted_timings = sorted(
+        object_timings,
+        key=lambda item: (
+            item[
+                "seconds"
+            ]
+        ),
+        reverse=True,
+    )
 
-                    for loop_index
-                    in loop_triangle.loops
-                ]
+    slow_timings = [
+        item
+        for item in sorted_timings
+        if (
+            item[
+                "seconds"
+            ]
+            >= threshold
+        )
+    ]
 
-                # Ignore collapsed UV triangles.
-                if abs(
-                    triangle_signed_area_2d(
-                        uv_points
-                    )
-                ) <= tolerance:
-                    continue
+    print("")
+    print(
+        "UV Overlap Performance"
+    )
+    print(
+        "-" * 96
+    )
 
-                bounds = get_triangle_bounds(
-                    uv_points
+    if slow_timings:
+
+        print(
+            "{:<40} {:>12} {:>12} {:>12} {:>8}".format(
+                "Object",
+                "Time",
+                "Polygons",
+                "Triangles",
+                "UV Maps",
+            )
+        )
+
+        print(
+            "-" * 96
+        )
+
+        for item in slow_timings:
+
+            print(
+                "{:<40} {:>12} {:>12,} {:>12,} {:>8}".format(
+                    item[
+                        "name"
+                    ][:40],
+
+                    format_profile_time(
+                        item[
+                            "seconds"
+                        ]
+                    ),
+
+                    item[
+                        "polygon_count"
+                    ],
+
+                    item[
+                        "triangle_count"
+                    ],
+
+                    item[
+                        "uv_map_count"
+                    ],
                 )
-
-                triangles.append({
-                    "triangle_index":
-                        triangle_index,
-
-                    "polygon_index":
-                        loop_triangle.polygon_index,
-
-                    "uvs":
-                        uv_points,
-
-                    "bounds":
-                        bounds,
-                })
-
-            if not triangles:
-                continue
-
-            # -------------------------------------------------
-            # Build spatial grid
-            # -------------------------------------------------
-
-            grid = build_uv_spatial_grid(
-                triangles,
-                grid_size=grid_size,
             )
 
-            overlapping_polygons = set()
-            overlap_pairs = set()
+    else:
+        print(
+            (
+                "No objects exceeded the {:.2f} second "
+                "slow-object threshold."
+            ).format(
+                threshold
+            )
+        )
 
-            tested_triangle_pairs = set()
+    print(
+        "-" * 96
+    )
 
-            # -------------------------------------------------
-            # Compare only triangles sharing grid cells
-            # -------------------------------------------------
+    print(
+        "Objects checked: {}".format(
+            len(
+                object_timings
+            )
+        )
+    )
 
-            for triangle_indices in grid.values():
+    print(
+        "Objects above threshold: {}".format(
+            len(
+                slow_timings
+            )
+        )
+    )
 
-                count = len(
-                    triangle_indices
-                )
+    print(
+        "Total UV overlap time: {}".format(
+            format_profile_time(
+                total_elapsed
+            )
+        )
+    )
 
-                if count < 2:
-                    continue
+    if sorted_timings:
 
-                for local_a in range(
-                    count
-                ):
-                    triangle_a_index = (
-                        triangle_indices[
-                            local_a
-                        ]
-                    )
+        slowest = (
+            sorted_timings[
+                0
+            ]
+        )
 
-                    triangle_a = triangles[
-                        triangle_a_index
+        print(
+            "Slowest object: {} ({})".format(
+                slowest[
+                    "name"
+                ],
+
+                format_profile_time(
+                    slowest[
+                        "seconds"
                     ]
+                ),
+            )
+        )
 
-                    for local_b in range(
-                        local_a + 1,
-                        count,
-                    ):
-                        triangle_b_index = (
-                            triangle_indices[
-                                local_b
-                            ]
-                        )
+    print(
+        "-" * 96
+    )
+    print("")
 
-                        pair_key = (
-                            min(
-                                triangle_a_index,
-                                triangle_b_index,
-                            ),
-                            max(
-                                triangle_a_index,
-                                triangle_b_index,
-                            ),
-                        )
 
-                        if (
-                            pair_key
-                            in tested_triangle_pairs
-                        ):
-                            continue
+# -------------------------------------------------------------------------
+# Native overlap execution
+# -------------------------------------------------------------------------
 
-                        tested_triangle_pairs.add(
-                            pair_key
-                        )
+def check_object_uv_maps_native(
+        context,
+        obj,
+        uv_maps_to_check="ACTIVE",
+    ):
+    """
+    Checks every UV map on one mesh object using Blender's native
+    select-overlap operator.
 
-                        triangle_b = triangles[
-                            triangle_b_index
-                        ]
+    UV Select Sync stays OFF. The overlap result is read from Blender's
+    version-appropriate BMesh UV-selection API.
 
-                        polygon_a = triangle_a[
-                            "polygon_index"
-                        ]
+    Returns:
+        dict | None
+    """
+    mesh = obj.data
 
-                        polygon_b = triangle_b[
-                            "polygon_index"
-                        ]
+    original_uv_index = (
+        mesh.uv_layers.active_index
+    )
 
-                        # Ignore triangles from the same
-                        # original polygon.
-                        if (
-                            polygon_a
-                            == polygon_b
-                        ):
-                            continue
+    failed_uv_maps = {}
+    all_overlapping_polygons = set()
 
-                        # Cheap bounding-box rejection.
-                        if not bounds_overlap(
-                            triangle_a[
-                                "bounds"
-                            ],
-                            triangle_b[
-                                "bounds"
-                            ],
-                            tolerance=tolerance,
-                        ):
-                            continue
+    component_state = None
 
-                        if not triangles_overlap_with_area(
-                            triangle_a[
-                                "uvs"
-                            ],
-                            triangle_b[
-                                "uvs"
-                            ],
-                            tolerance=tolerance,
-                        ):
-                            continue
+    try:
+        # ---------------------------------------------------------
+        # Ensure object is available in the active View Layer
+        # ---------------------------------------------------------
 
-                        overlapping_polygons.add(
-                            polygon_a
-                        )
+        success, message = (
+            ensure_object_view_layer(
+                context,
+                obj,
+            )
+        )
 
-                        overlapping_polygons.add(
-                            polygon_b
-                        )
+        if not success:
+            return {
+                "skipped": True,
+                "reason": message,
+            }
 
-                        polygon_pair = tuple(
-                            sorted((
-                                polygon_a,
-                                polygon_b,
-                            ))
-                        )
+        # ---------------------------------------------------------
+        # Activate object
+        # ---------------------------------------------------------
 
-                        overlap_pairs.add(
-                            polygon_pair
-                        )
+        make_only_object_active(
+            context,
+            obj,
+        )
 
-            # -------------------------------------------------
-            # UV map passes
-            # -------------------------------------------------
+        # Save selection only for THIS mesh, rather than for every mesh
+        # in the whole scene.
+        component_state = capture_mesh_component_selection(
+            mesh
+        )
 
-            if not overlapping_polygons:
-                continue
+        bpy.ops.object.mode_set(
+            mode="EDIT"
+        )
 
-            sorted_polygons = sorted(
-                overlapping_polygons
+        bm = bmesh.from_edit_mesh(
+            mesh
+        )
+
+        bm.faces.ensure_lookup_table()
+
+        # Native UV overlap only operates on UVs that are available to the
+        # UV editor. Select all source faces while keeping UV selection
+        # independent because UV Select Sync is disabled.
+        for face in bm.faces:
+            face.select = True
+
+        bmesh.update_edit_mesh(
+            mesh,
+            loop_triangles=False,
+            destructive=False,
+        )
+
+        uv_indices = get_uv_indices_to_check(
+            mesh,
+            uv_maps_to_check=(
+                uv_maps_to_check
+            ),
+        )
+
+        for uv_index in uv_indices:
+
+            uv_layer = mesh.uv_layers[
+                uv_index
+            ]
+
+            mesh.uv_layers.active_index = (
+                uv_index
             )
 
-            # -------------------------------------------------
-            # Congruence check per overlapping pair
-            # -------------------------------------------------
+            # -----------------------------------------------------
+            # Clear UV selection only
+            #
+            # Blender 5.0+ moved UV selection state directly onto
+            # BMLoop / BMFace:
+            #
+            #     loop.uv_select_vert
+            #     loop.uv_select_edge
+            #     face.uv_select
+            #
+            # Blender 4.x uses the older BMLoopUV wrapper:
+            #
+            #     loop[bm_uv_layer].select
+            #     loop[bm_uv_layer].select_edge
+            #
+            # Keep both paths so the add-on can continue supporting
+            # Blender 4.3+.
+            # -----------------------------------------------------
 
-            overlap_details = []
-            likely_intentional_count = 0
-            likely_mistake_count = 0
+            bm = bmesh.from_edit_mesh(
+                mesh
+            )
 
-            for pair in sorted(overlap_pairs):
-                polygon_a_index, polygon_b_index = pair
+            bm.faces.ensure_lookup_table()
 
-                uv_points_a = get_polygon_uv_points(
-                    mesh,
-                    uv_data,
-                    polygon_a_index,
+            bm_uv_layer = (
+                bm.loops.layers.uv.get(
+                    uv_layer.name
+                )
+            )
+
+            if bm_uv_layer is None:
+                continue
+
+            clear_bmesh_uv_selection(
+                bm,
+                bm_uv_layer,
+            )
+
+            bmesh.update_edit_mesh(
+                mesh,
+                loop_triangles=False,
+                destructive=False,
+            )
+
+            # -----------------------------------------------------
+            # Native overlap selection
+            # -----------------------------------------------------
+
+            success, error_message = (
+                run_native_select_overlap(
+                    context
+                )
+            )
+
+            if not success:
+                raise RuntimeError(
+                    (
+                        "Could not run Blender native UV overlap "
+                        "selection on '{}' / '{}': {}"
+                    ).format(
+                        obj.name,
+                        uv_layer.name,
+                        error_message,
+                    )
                 )
 
-                uv_points_b = get_polygon_uv_points(
-                    mesh,
-                    uv_data,
-                    polygon_b_index,
+            # -----------------------------------------------------
+            # Read native UV overlap selection from BMesh
+            # -----------------------------------------------------
+
+            bm = bmesh.from_edit_mesh(
+                mesh
+            )
+
+            bm.faces.ensure_lookup_table()
+
+            bm_uv_layer = (
+                bm.loops.layers.uv.get(
+                    uv_layer.name
                 )
+            )
 
-                congruent = polygons_are_congruent(
-                    uv_points_a,
-                    uv_points_b,
-                    tolerance=CONGRUENCE_TOLERANCE,
+            if bm_uv_layer is None:
+                continue
+
+            polygon_indices = (
+                get_selected_uv_polygon_indices(
+                    bm,
+                    bm_uv_layer,
                 )
+            )
 
-                if congruent:
-                    likely_intentional_count += 1
-                else:
-                    likely_mistake_count += 1
-
-                overlap_details.append({
-                    "polygon_a": polygon_a_index,
-                    "polygon_b": polygon_b_index,
-                    "congruent": congruent,
-                })
+            if not polygon_indices:
+                continue
 
             failed_uv_maps[
                 uv_layer.name
             ] = {
+                "detection_engine":
+                    "BLENDER_NATIVE_UV_LOOPS",
+
+                "uv_maps_to_check":
+                    uv_maps_to_check,
+
                 "overlapping_face_count":
                     len(
-                        overlapping_polygons
+                        polygon_indices
                     ),
 
                 "polygon_indices":
-                    sorted_polygons,
-
-                "overlap_count":
-                    len(
-                        overlap_pairs
-                    ),
-
-                "likely_intentional_overlap_count":
-                    likely_intentional_count,
-
-                "likely_mistake_overlap_count":
-                    likely_mistake_count,
-
-                "overlaps": overlap_details,
+                    polygon_indices,
             }
 
             all_overlapping_polygons.update(
-                overlapping_polygons
+                polygon_indices
             )
-
-            total_overlap_count += len(
-                overlap_pairs
-            )
-
-            total_likely_intentional_count += (
-                likely_intentional_count
-            )
-
-            total_likely_mistake_count += (
-                likely_mistake_count
-            )
-
-        # -----------------------------------------------------
-        # Object passes all UV maps
-        # -----------------------------------------------------
 
         if not failed_uv_maps:
-            continue
+            return None
 
         combined_polygon_indices = sorted(
             all_overlapping_polygons
         )
 
-        failed_objects[
-            obj.name
-        ] = {
+        return {
+            "detection_engine":
+                "BLENDER_NATIVE_UV_LOOPS",
+
+            "uv_maps_to_check":
+                uv_maps_to_check,
+
             "failed_uv_maps":
                 failed_uv_maps,
 
@@ -539,29 +1686,14 @@ def get_objects_with_overlapping_uv_faces(
                     failed_uv_maps
                 ),
 
-            # Total unique geometry faces affected
-            # across any UV map.
             "overlapping_face_count":
                 len(
-                    all_overlapping_polygons
+                    combined_polygon_indices
                 ),
-
-            # Total overlap relationships across
-            # all UV maps.
-            "overlap_count":
-                total_overlap_count,
-
-            "likely_intentional_overlap_count":
-                total_likely_intentional_count,
-
-            "likely_mistake_overlap_count":
-                total_likely_mistake_count,
 
             "polygon_indices":
                 combined_polygon_indices,
 
-            # Works with your existing component
-            # selection framework.
             "selection": {
                 "mode": "FACE",
                 "indices":
@@ -569,500 +1701,885 @@ def get_objects_with_overlapping_uv_faces(
             },
         }
 
-    return failed_objects
+    finally:
+        if (
+            context.object is not None
+            and context.object.mode != "OBJECT"
+        ):
+            try:
+                bpy.ops.object.mode_set(
+                    mode="OBJECT"
+                )
+            except RuntimeError:
+                pass
+
+        # Restore this mesh's original component selection.
+        if component_state is not None:
+            restore_mesh_component_selection(
+                mesh,
+                component_state,
+            )
+
+        if (
+            mesh.uv_layers
+            and original_uv_index
+            < len(mesh.uv_layers)
+        ):
+            mesh.uv_layers.active_index = (
+                original_uv_index
+            )
 
 
-# -------------------------------------------------------------------------
-# Congruence helpers
-# -------------------------------------------------------------------------
-
-def get_polygon_uv_points(mesh, uv_data, polygon_index):
+def get_uv_indices_to_check(
+        mesh,
+        uv_maps_to_check="ACTIVE",
+    ):
     """
-    Returns the full UV loop for a polygon, in loop order.
-
-    Note:
-        This intentionally reads the ORIGINAL polygon's full UV
-        shape, not just the triangle that happened to trigger the
-        overlap detection - an n-gon gets split into multiple
-        triangles for the overlap test itself, but congruence should
-        compare the real UV faces an artist would actually see.
+    Returns the UV-layer indices that should be checked for one mesh.
 
     Args:
         mesh (bpy.types.Mesh):
             Mesh datablock.
 
-        uv_data (bpy.types.bpy_prop_collection):
-            The active UV layer's .data collection.
-
-        polygon_index (int):
-            Index into mesh.polygons.
+        uv_maps_to_check (str):
+            "ACTIVE" checks only mesh.uv_layers.active.
+            "ALL" checks every UV layer.
 
     Returns:
-        list[tuple[float, float]]:
-            UV points in loop order.
+        list[int]
     """
-    polygon = mesh.polygons[polygon_index]
+    if not mesh.uv_layers:
+        return []
+
+    mode = str(
+        uv_maps_to_check
+    ).upper()
+
+    if mode == "ALL":
+        return list(
+            range(
+                len(
+                    mesh.uv_layers
+                )
+            )
+        )
+
+    active_index = (
+        mesh.uv_layers.active_index
+    )
+
+    if (
+        active_index < 0
+        or active_index
+        >= len(mesh.uv_layers)
+    ):
+        return []
 
     return [
-        (
-            uv_data[loop_index].uv.x,
-            uv_data[loop_index].uv.y,
-        )
-        for loop_index in polygon.loop_indices
+        active_index
     ]
 
 
-def polygon_uv_area(uv_points):
+def clear_bmesh_uv_selection(
+        bm,
+        bm_uv_layer,
+    ):
     """
-    Returns the unsigned area of a 2D polygon via the shoelace
-    formula. Generalizes triangle_signed_area_2d() to any vertex
-    count.
+    Clears UV selection in the Edit Mode BMesh.
+
+    Blender 5.0+:
+        UV selection moved from BMLoopUV onto BMLoop/BMFace.
+
+    Blender 4.x:
+        UV selection is stored on the legacy BMLoopUV wrapper.
 
     Args:
-        uv_points (list[tuple[float, float]]):
-            Polygon vertices in loop order.
+        bm (bmesh.types.BMesh):
+            Edit-mode BMesh.
 
-    Returns:
-        float:
-            Unsigned area.
+        bm_uv_layer:
+            Active BMesh UV layer.
     """
-    total = 0.0
-    count = len(uv_points)
-
-    for index in range(count):
-        x1, y1 = uv_points[index]
-        x2, y2 = uv_points[(index + 1) % count]
-
-        total += (x1 * y2) - (x2 * y1)
-
-    return abs(total) * 0.5
-
-
-def polygon_uv_edge_lengths(uv_points):
-    """
-    Returns the sorted edge lengths of a 2D polygon's loop.
-
-    Note:
-        Sorting (rather than keeping loop order) is what makes this
-        comparison indifferent to where the loop happens to start,
-        and to rotation or mirroring - none of those change a
-        shape's SET of edge lengths, only the order they'd appear in
-        if read sequentially.
-
-    Args:
-        uv_points (list[tuple[float, float]]):
-            Polygon vertices in loop order.
-
-    Returns:
-        list[float]:
-            Edge lengths, sorted ascending.
-    """
-    count = len(uv_points)
-    lengths = []
-
-    for index in range(count):
-        x1, y1 = uv_points[index]
-        x2, y2 = uv_points[(index + 1) % count]
-
-        lengths.append(
-            math.hypot(x2 - x1, y2 - y1)
+    blender_5_or_newer = (
+        bpy.app.version >= (
+            5,
+            0,
+            0,
         )
+    )
 
-    return sorted(lengths)
+    if blender_5_or_newer:
 
+        for face in bm.faces:
 
-def polygons_are_congruent(
-        uv_points_a,
-        uv_points_b,
-        tolerance=CONGRUENCE_TOLERANCE,
-    ):
-    """
-    Checks whether two UV polygons are congruent - same size and
-    shape, allowing for any combination of translation, rotation, or
-    mirroring between them.
+            # Face-level UV selection.
+            try:
+                face.uv_select = False
+            except AttributeError:
+                pass
 
-    Note:
-        This is a practical heuristic, not a rigorous proof of
-        congruence. Matching area plus the full sorted set of edge
-        lengths is invariant to translation/rotation/mirroring and
-        catches the overwhelming majority of real cases (mirrored
-        halves, trim sheet tiles, duplicated islands), but it's
-        theoretically possible for two genuinely different shapes to
-        coincidentally share the same area and edge-length set
-        without being truly congruent. Good enough for a QC signal
-        distinguishing "probably fine" from "probably a mistake" -
-        not meant to be mathematically airtight.
+            for loop in face.loops:
 
-    Args:
-        uv_points_a (list[tuple[float, float]]):
-            First polygon's UV loop.
+                # Blender 5.0+ UV vertex selection.
+                try:
+                    loop.uv_select_vert = False
+                except AttributeError:
+                    pass
 
-        uv_points_b (list[tuple[float, float]]):
-            Second polygon's UV loop.
+                # Blender 5.0+ UV edge selection.
+                try:
+                    loop.uv_select_edge = False
+                except AttributeError:
+                    pass
 
-        tolerance (float):
-            Allowed difference in area and per-edge length.
+        # Tell BMesh the UV selection state is valid.
+        try:
+            bm.uv_select_sync_valid = True
+        except AttributeError:
+            pass
 
-    Returns:
-        bool:
-            True if the two polygons are considered congruent.
-    """
-    if len(uv_points_a) != len(uv_points_b):
-        return False
+        return
 
-    area_a = polygon_uv_area(uv_points_a)
-    area_b = polygon_uv_area(uv_points_b)
+    # ---------------------------------------------------------
+    # Blender 4.x compatibility
+    # ---------------------------------------------------------
 
-    if abs(area_a - area_b) > tolerance:
-        return False
+    for face in bm.faces:
 
-    edge_lengths_a = polygon_uv_edge_lengths(uv_points_a)
-    edge_lengths_b = polygon_uv_edge_lengths(uv_points_b)
+        for loop in face.loops:
 
-    for length_a, length_b in zip(edge_lengths_a, edge_lengths_b):
-        if abs(length_a - length_b) > tolerance:
-            return False
-
-    return True
-
-
-# -------------------------------------------------------------------------
-# Helpers
-# -------------------------------------------------------------------------
-
-def build_uv_spatial_grid(
-        triangles,
-        grid_size=0.05,
-    ):
-    """
-    Places UV triangles into 2D spatial buckets.
-
-    A triangle is inserted into every grid cell touched by
-    its bounding box.
-
-    Args:
-        triangles (list[dict]):
-            Triangle records containing a "bounds" dictionary.
-
-        grid_size (float):
-            UV width/height of each grid cell.
-
-    Returns:
-        dict:
-        {
-            (grid_x, grid_y): [
-                triangle_index,
-                ...
+            uv_loop = loop[
+                bm_uv_layer
             ]
-        }
+
+            try:
+                uv_loop.select = False
+            except AttributeError:
+                pass
+
+            try:
+                uv_loop.select_edge = False
+            except AttributeError:
+                pass
+
+
+def get_selected_uv_polygon_indices(
+        bm,
+        bm_uv_layer,
+    ):
     """
-    if grid_size <= 0.0:
-        raise ValueError(
-            "grid_size must be greater than zero."
+    Returns source polygon indices selected by Blender's native
+    UV overlap operator.
+
+    Supports both Blender 4.x and Blender 5.0+ UV-selection APIs.
+
+    Returns:
+        list[int]
+    """
+    blender_5_or_newer = (
+        bpy.app.version >= (
+            5,
+            0,
+            0,
         )
+    )
 
-    grid = {}
+    polygon_indices = []
 
-    for triangle_index, triangle in enumerate(triangles):
-        bounds = triangle[
-            "bounds"
-        ]
+    if blender_5_or_newer:
 
-        min_cell_x = math.floor(
-            bounds["min_u"]
-            / grid_size
-        )
+        for face in bm.faces:
 
-        max_cell_x = math.floor(
-            bounds["max_u"]
-            / grid_size
-        )
+            selected = False
 
-        min_cell_y = math.floor(
-            bounds["min_v"]
-            / grid_size
-        )
+            # In UV FACE mode Blender 5.x exposes face-level UV
+            # selection directly.
+            try:
+                selected = bool(
+                    face.uv_select
+                )
+            except AttributeError:
+                selected = False
 
-        max_cell_y = math.floor(
-            bounds["max_v"]
-            / grid_size
-        )
+            # Defensive fallback: some selection-mode/context
+            # combinations may expose only selected UV corners.
+            if not selected:
 
-        for cell_x in range(min_cell_x, max_cell_x + 1):
-            for cell_y in range(min_cell_y, max_cell_y + 1):
-                cell_key = (
-                    cell_x,
-                    cell_y,
+                for loop in face.loops:
+
+                    try:
+                        if loop.uv_select_vert:
+                            selected = True
+                            break
+                    except AttributeError:
+                        pass
+
+            if selected:
+                polygon_indices.append(
+                    face.index
                 )
 
-                grid.setdefault(
-                    cell_key,
-                    [],
-                ).append(
-                    triangle_index
+        polygon_indices.sort()
+
+        return polygon_indices
+
+    # ---------------------------------------------------------
+    # Blender 4.x compatibility
+    # ---------------------------------------------------------
+
+    for face in bm.faces:
+
+        selected = False
+
+        for loop in face.loops:
+
+            uv_loop = loop[
+                bm_uv_layer
+            ]
+
+            try:
+                if uv_loop.select:
+                    selected = True
+                    break
+            except AttributeError:
+                pass
+
+        if selected:
+            polygon_indices.append(
+                face.index
+            )
+
+    polygon_indices.sort()
+
+    return polygon_indices
+
+
+def run_native_select_overlap(
+        context,
+    ):
+    """
+    Runs bpy.ops.uv.select_overlap() with a suitable UI context.
+
+    The operator normally belongs to the UV/Image Editor. If an Image
+    Editor already exists it is used. Otherwise the current area is
+    temporarily changed to IMAGE_EDITOR and restored immediately.
+
+    Returns:
+        tuple[bool, str]
+    """
+    # ---------------------------------------------------------
+    # First try directly.
+    #
+    # Some Blender versions/context combinations allow the operator
+    # to run without an Image Editor override.
+    # ---------------------------------------------------------
+
+    try:
+        if bpy.ops.uv.select_overlap.poll():
+            result = bpy.ops.uv.select_overlap(
+                extend=False
+            )
+
+            if "FINISHED" in result:
+                return (
+                    True,
+                    "",
+                )
+    except RuntimeError:
+        pass
+
+    # ---------------------------------------------------------
+    # Existing Image Editor
+    # ---------------------------------------------------------
+
+    screen = context.screen
+
+    if screen is not None:
+
+        for area in screen.areas:
+
+            if area.type != "IMAGE_EDITOR":
+                continue
+
+            region = get_window_region(
+                area
+            )
+
+            if region is None:
+                continue
+
+            try:
+                with context.temp_override(
+                    area=area,
+                    region=region,
+                ):
+                    if not bpy.ops.uv.select_overlap.poll():
+                        continue
+
+                    result = (
+                        bpy.ops.uv.select_overlap(
+                            extend=False
+                        )
+                    )
+
+                if "FINISHED" in result:
+                    return (
+                        True,
+                        "",
+                    )
+
+            except RuntimeError:
+                continue
+
+    # ---------------------------------------------------------
+    # Temporarily use current area as Image Editor.
+    # ---------------------------------------------------------
+
+    area = context.area
+
+    if area is None:
+        return (
+            False,
+            "No UI area is available for the UV operator.",
+        )
+
+    original_area_type = (
+        area.type
+    )
+
+    try:
+        area.type = "IMAGE_EDITOR"
+
+        region = get_window_region(
+            area
+        )
+
+        if region is None:
+            return (
+                False,
+                "Image Editor has no WINDOW region.",
+            )
+
+        with context.temp_override(
+            area=area,
+            region=region,
+        ):
+            if not bpy.ops.uv.select_overlap.poll():
+                return (
+                    False,
+                    "bpy.ops.uv.select_overlap.poll() returned False.",
                 )
 
-    return grid
+            result = bpy.ops.uv.select_overlap(
+                extend=False
+            )
+
+        if "FINISHED" not in result:
+            return (
+                False,
+                "Native operator returned {}.".format(
+                    result
+                ),
+            )
+
+        return (
+            True,
+            "",
+        )
+
+    except Exception as error:
+        return (
+            False,
+            str(
+                error
+            ),
+        )
+
+    finally:
+        try:
+            area.type = (
+                original_area_type
+            )
+        except Exception:
+            pass
 
 
-def triangle_signed_area_2d(points):
+def get_window_region(
+        area,
+    ):
     """
-    Returns the signed area of a 2D triangle.
+    Returns the WINDOW region from a Blender area.
     """
-    a, b, c = points
+    for region in area.regions:
+        if region.type == "WINDOW":
+            return region
 
-    return 0.5 * (
-        (b[0] - a[0])
-        * (c[1] - a[1])
-        -
-        (b[1] - a[1])
-        * (c[0] - a[0])
+    return None
+
+
+
+# -------------------------------------------------------------------------
+# View Layer helpers
+# -------------------------------------------------------------------------
+
+def object_in_view_layer(
+        obj,
+        view_layer,
+    ):
+    """
+    Returns True when obj is available in view_layer.
+    """
+    if (
+        obj is None
+        or view_layer is None
+    ):
+        return False
+
+    return (
+        view_layer.objects.get(
+            obj.name
+        )
+        is not None
     )
 
 
-def get_triangle_bounds(points):
+def find_view_layer_for_object(
+        scene,
+        obj,
+    ):
     """
-    Returns a 2D bounding box for a triangle.
-    """
-    u_values = [
-        point[0]
-        for point in points
-    ]
+    Finds the first View Layer in the scene that contains obj.
 
-    v_values = [
-        point[1]
-        for point in points
-    ]
+    Returns:
+        bpy.types.ViewLayer | None
+    """
+    if (
+        scene is None
+        or obj is None
+    ):
+        return None
+
+    for view_layer in scene.view_layers:
+
+        if object_in_view_layer(
+            obj,
+            view_layer,
+        ):
+            return view_layer
+
+    return None
+
+
+def ensure_object_view_layer(
+        context,
+        obj,
+    ):
+    """
+    Ensures obj is available in the active View Layer.
+
+    If necessary, switches to another existing View Layer in the
+    current scene that already contains the object.
+
+    Returns:
+        tuple:
+            (
+                success,
+                message,
+            )
+    """
+    if object_in_view_layer(
+        obj,
+        context.view_layer,
+    ):
+        return (
+            True,
+            "",
+        )
+
+    target_view_layer = (
+        find_view_layer_for_object(
+            context.scene,
+            obj,
+        )
+    )
+
+    if target_view_layer is None:
+        return (
+            False,
+            (
+                "Object '{}' is not available in any "
+                "View Layer in scene '{}'."
+            ).format(
+                obj.name,
+                context.scene.name,
+            ),
+        )
+
+    if context.window is None:
+        return (
+            False,
+            (
+                "Cannot switch View Layers because "
+                "the current context has no window."
+            ),
+        )
+
+    try:
+        context.window.view_layer = (
+            target_view_layer
+        )
+
+        context.view_layer.update()
+
+    except Exception as error:
+        return (
+            False,
+            (
+                "Could not switch to View Layer '{}': {}"
+            ).format(
+                target_view_layer.name,
+                error,
+            ),
+        )
+
+    return (
+        True,
+        "",
+    )
+
+
+# -------------------------------------------------------------------------
+# Context preservation
+# -------------------------------------------------------------------------
+
+def capture_context_state(
+        context,
+    ):
+    """
+    Captures only global context state changed by this check.
+
+    Mesh component selection is intentionally NOT captured globally.
+    Each inspected mesh saves/restores only its own component selection.
+    """
+    scene = context.scene
+
+    active_object = (
+        context.view_layer.objects.active
+    )
 
     return {
-        "min_u": min(u_values),
-        "max_u": max(u_values),
-        "min_v": min(v_values),
-        "max_v": max(v_values),
+        "view_layer_name":
+            context.view_layer.name,
+
+        "active_object_name":
+            (
+                active_object.name
+                if active_object
+                else None
+            ),
+
+        "selected_object_names": [
+            obj.name
+            for obj in context.selected_objects
+        ],
+
+        "active_mode":
+            (
+                active_object.mode
+                if active_object
+                else "OBJECT"
+            ),
+
+        "use_uv_select_sync":
+            scene.tool_settings.use_uv_select_sync,
+
+        "uv_select_mode":
+            getattr(
+                scene.tool_settings,
+                "uv_select_mode",
+                None,
+            ),
     }
 
 
-def bounds_overlap(
-        bounds_a,
-        bounds_b,
-        tolerance=1e-8,
+def restore_context_state(
+        context,
+        state,
     ):
     """
-    Checks whether two bounding boxes can overlap
-    with positive area.
+    Restores global context state after native overlap detection.
     """
-    if (bounds_a["max_u"] <= bounds_b["min_u"] + tolerance):
-        return False
+    scene = context.scene
 
-    if (bounds_b["max_u"] <= bounds_a["min_u"] + tolerance):
-        return False
-
-    if (bounds_a["max_v"] <= bounds_b["min_v"] + tolerance):
-        return False
-
-    if (bounds_b["max_v"] <= bounds_a["min_v"] + tolerance):
-        return False
-
-    return True
-
-
-def triangles_overlap_with_area(
-        triangle_a,
-        triangle_b,
-        tolerance=1e-8,
+    if (
+        context.object is not None
+        and context.object.mode != "OBJECT"
     ):
-    """
-    Returns True when two UV triangles overlap with
-    positive area.
+        try:
+            bpy.ops.object.mode_set(
+                mode="OBJECT"
+            )
+        except RuntimeError:
+            pass
 
-    Edge-only and vertex-only contact do not count.
-    """
+    # ---------------------------------------------------------
+    # Restore original View Layer
+    # ---------------------------------------------------------
 
-    # A vertex strictly inside the other triangle.
-    for point in triangle_a:
-        if point_strictly_inside_triangle(
-            point,
-            triangle_b,
-            tolerance=tolerance,
-        ):
-            return True
-
-    for point in triangle_b:
-        if point_strictly_inside_triangle(
-            point,
-            triangle_a,
-            tolerance=tolerance,
-        ):
-            return True
-
-    edges_a = (
-        (triangle_a[0], triangle_a[1]),
-        (triangle_a[1], triangle_a[2]),
-        (triangle_a[2], triangle_a[0]),
+    view_layer_name = state.get(
+        "view_layer_name"
     )
 
-    edges_b = (
-        (triangle_b[0], triangle_b[1]),
-        (triangle_b[1], triangle_b[2]),
-        (triangle_b[2], triangle_b[0]),
-    )
-
-    # Proper edge crossings.
-    for edge_a in edges_a:
-        for edge_b in edges_b:
-            if segments_properly_intersect(
-                edge_a[0],
-                edge_a[1],
-                edge_b[0],
-                edge_b[1],
-                tolerance=tolerance,
-            ):
-                return True
-
-    # Completely coincident UV triangles.
-    if triangles_are_coincident(
-        triangle_a,
-        triangle_b,
-        tolerance=tolerance,
+    if (
+        view_layer_name
+        and context.window is not None
     ):
-        return True
-
-    return False
-
-
-def point_strictly_inside_triangle(
-        point,
-        triangle,
-        tolerance=1e-8,
-    ):
-    """
-    Returns True only when point is strictly inside triangle.
-    """
-    a, b, c = triangle
-
-    d1 = signed_edge(point, a, b)
-
-    d2 = signed_edge(point, b, c)
-
-    d3 = signed_edge(point, c, a)
-
-    all_positive = (
-        d1 > tolerance
-        and d2 > tolerance
-        and d3 > tolerance
-    )
-
-    all_negative = (
-        d1 < -tolerance
-        and d2 < -tolerance
-        and d3 < -tolerance
-    )
-
-    return (
-        all_positive
-        or all_negative
-    )
-
-
-def signed_edge(point, a, b):
-    return (
-        (point[0] - b[0])
-        * (a[1] - b[1])
-        -
-        (a[0] - b[0])
-        * (point[1] - b[1])
-    )
-
-
-def orientation(a, b, c):
-    return (
-        (b[0] - a[0])
-        * (c[1] - a[1])
-        -
-        (b[1] - a[1])
-        * (c[0] - a[0])
-    )
-
-
-def segments_properly_intersect(
-        a1,
-        a2,
-        b1,
-        b2,
-        tolerance=1e-8,
-    ):
-    """
-    Checks for a proper edge crossing.
-
-    Shared endpoints and simple boundary touching
-    are intentionally ignored.
-    """
-    o1 = orientation(a1, a2, b1)
-    o2 = orientation(a1, a2, b2)
-    o3 = orientation(b1, b2, a1)
-    o4 = orientation(b1, b2, a2)
-
-    return (
-        (
-            o1 > tolerance
-            and o2 < -tolerance
+        original_view_layer = (
+            scene.view_layers.get(
+                view_layer_name
+            )
         )
-        or
-        (
-            o1 < -tolerance
-            and o2 > tolerance
-        )
-    ) and (
-        (
-            o3 > tolerance
-            and o4 < -tolerance
-        )
-        or
-        (
-            o3 < -tolerance
-            and o4 > tolerance
-        )
-    )
 
-
-def triangles_are_coincident(
-        triangle_a,
-        triangle_b,
-        tolerance=1e-8,
-    ):
-    """
-    Detects duplicate/coincident UV triangles regardless
-    of vertex ordering.
-    """
-    used = set()
-
-    for point_a in triangle_a:
-        matched = False
-        for index_b, point_b in enumerate(
-            triangle_b
-        ):
-            if index_b in used:
-                continue
-
-            if (
-                abs(
-                    point_a[0]
-                    - point_b[0]
-                ) <= tolerance
-                and
-                abs(
-                    point_a[1]
-                    - point_b[1]
-                ) <= tolerance
-            ):
-                used.add(
-                    index_b
+        if original_view_layer is not None:
+            try:
+                context.window.view_layer = (
+                    original_view_layer
                 )
 
-                matched = True
-                break
+                context.view_layer.update()
 
-        if not matched:
-            return False
+            except Exception:
+                pass
 
-    return True
+    # ---------------------------------------------------------
+    # Restore object selection
+    # ---------------------------------------------------------
+
+    for selected_obj in list(
+        context.selected_objects
+    ):
+        try:
+            selected_obj.select_set(
+                False
+            )
+        except RuntimeError:
+            pass
+
+    for object_name in state[
+        "selected_object_names"
+    ]:
+        obj = bpy.data.objects.get(
+            object_name
+        )
+
+        if obj is None:
+            continue
+
+        if (
+            context.view_layer.objects.get(
+                object_name
+            )
+            is None
+        ):
+            continue
+
+        try:
+            obj.select_set(
+                True
+            )
+        except RuntimeError:
+            pass
+
+    active_object = None
+
+    active_object_name = state[
+        "active_object_name"
+    ]
+
+    if active_object_name:
+        active_object = (
+            bpy.data.objects.get(
+                active_object_name
+            )
+        )
+
+        if (
+            active_object is not None
+            and context.view_layer.objects.get(
+                active_object_name
+            )
+            is not None
+        ):
+            context.view_layer.objects.active = (
+                active_object
+            )
+
+    # ---------------------------------------------------------
+    # Restore UV tool settings
+    # ---------------------------------------------------------
+
+    scene.tool_settings.use_uv_select_sync = (
+        state[
+            "use_uv_select_sync"
+        ]
+    )
+
+    original_uv_select_mode = (
+        state.get(
+            "uv_select_mode"
+        )
+    )
+
+    if original_uv_select_mode is not None:
+        try:
+            scene.tool_settings.uv_select_mode = (
+                original_uv_select_mode
+            )
+        except Exception:
+            pass
+
+    # ---------------------------------------------------------
+    # Restore original Edit Mode
+    # ---------------------------------------------------------
+
+    if (
+        active_object is not None
+        and state[
+            "active_mode"
+        ] == "EDIT"
+    ):
+        try:
+            bpy.ops.object.mode_set(
+                mode="EDIT"
+            )
+        except RuntimeError:
+            pass
+
+
+def capture_mesh_component_selection(
+        mesh,
+    ):
+    """
+    Captures vertex/edge/face selection for one mesh only.
+    """
+    return {
+        "vertices": [
+            vertex.index
+            for vertex in mesh.vertices
+            if vertex.select
+        ],
+
+        "edges": [
+            edge.index
+            for edge in mesh.edges
+            if edge.select
+        ],
+
+        "faces": [
+            polygon.index
+            for polygon in mesh.polygons
+            if polygon.select
+        ],
+    }
+
+
+def restore_mesh_component_selection(
+        mesh,
+        state,
+    ):
+    """
+    Restores vertex/edge/face selection for one mesh.
+    """
+    vertex_indices = set(
+        state[
+            "vertices"
+        ]
+    )
+
+    edge_indices = set(
+        state[
+            "edges"
+        ]
+    )
+
+    face_indices = set(
+        state[
+            "faces"
+        ]
+    )
+
+    for vertex in mesh.vertices:
+        vertex.select = (
+            vertex.index
+            in vertex_indices
+        )
+
+    for edge in mesh.edges:
+        edge.select = (
+            edge.index
+            in edge_indices
+        )
+
+    for polygon in mesh.polygons:
+        polygon.select = (
+            polygon.index
+            in face_indices
+        )
+
+
+def make_only_object_active(
+        context,
+        obj,
+    ):
+    """
+    Makes one object the only selected active object.
+    """
+    if (
+        context.object is not None
+        and context.object.mode != "OBJECT"
+    ):
+        bpy.ops.object.mode_set(
+            mode="OBJECT"
+        )
+
+    for selected_obj in list(
+        context.selected_objects
+    ):
+        try:
+            selected_obj.select_set(
+                False
+            )
+        except RuntimeError:
+            pass
+
+    if (
+        context.view_layer.objects.get(
+            obj.name
+        )
+        is None
+    ):
+        raise RuntimeError(
+            (
+                "Object '{}' is not available in the "
+                "current View Layer."
+            ).format(
+                obj.name
+            )
+        )
+
+    obj.hide_select = False
+
+    try:
+        obj.hide_set(
+            False
+        )
+    except RuntimeError:
+        pass
+
+    obj.select_set(
+        True
+    )
+
+    context.view_layer.objects.active = (
+        obj
+    )
