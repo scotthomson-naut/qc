@@ -1,3 +1,7 @@
+# Python imports
+import time
+import copy
+
 # Blender imports
 import bpy
 import bmesh
@@ -67,6 +71,29 @@ SETTINGS = {
         ),
         "default": False,
     },
+
+    "profile_slow_objects": {
+        "type": "bool",
+        "label": "Profile Slow Objects",
+        "description": (
+            "Print per-object Connected Geometry execution times to the "
+            "system console so expensive meshes can be identified."
+        ),
+        "default": True,
+    },
+
+    "slow_object_seconds": {
+        "type": "float",
+        "label": "Slow Object Threshold",
+        "description": (
+            "Only objects taking at least this many seconds are listed "
+            "in the profiling summary."
+        ),
+        "default": 1.0,
+        "min": 0.0,
+        "max": 3600.0,
+        "precision": 2,
+    },
 }
 
 
@@ -94,6 +121,18 @@ def main(preferences=None):
 
     failed_objects = get_objects_with_loose_geometry(
         settings=settings,
+        profile_slow_objects=bool(
+            settings.get(
+                "profile_slow_objects",
+                True,
+            )
+        ),
+        slow_object_seconds=float(
+            settings.get(
+                "slow_object_seconds",
+                1.0,
+            )
+        ),
     )
 
     issues = []
@@ -176,23 +215,22 @@ def fix(
 def get_objects_with_loose_geometry(
         objects=None,
         settings=None,
+        profile_slow_objects=True,
+        slow_object_seconds=1.0,
     ):
     """
     Finds disconnected geometry components on mesh objects.
 
-    The main component is selected using this priority:
+    Performance:
+        Mesh connectivity is analyzed directly from Mesh vertices, edges,
+        and polygons instead of copying every mesh into a BMesh.
 
-        1. Highest face count
-        2. Highest edge count
-        3. Highest vertex count
-        4. Lowest original vertex index
+        Objects sharing the same Mesh datablock are analyzed once and reuse
+        the same result.
 
-    Args:
-        objects (iterable[bpy.types.Object] | None):
-            Objects to inspect. Defaults to objects in the current scene.
-
-        settings (dict | None):
-            Resolved check settings.
+    Profiling:
+        When enabled, execution time is recorded per unique Mesh datablock.
+        Linked objects sharing that mesh do not duplicate the analysis cost.
 
     Returns:
         dict
@@ -201,25 +239,337 @@ def get_objects_with_loose_geometry(
         objects = bpy.context.scene.objects
 
     if settings is None:
-        settings = resolve_settings(SETTINGS)
+        settings = resolve_settings(
+            SETTINGS
+        )
 
     failed_objects = {}
 
+    analysis_cache = {}
+    timing_cache = {}
+    mesh_representative = {}
+
+    profile_start_time = (
+        time.perf_counter()
+    )
+
     for obj in objects:
+
         if obj.type != "MESH":
             continue
 
-        object_result = analyze_object_components(
-            obj=obj,
-            settings=settings,
+        mesh = getattr(
+            obj,
+            "data",
+            None,
         )
 
-        if object_result is None:
+        if mesh is None:
             continue
 
-        failed_objects[obj.name] = object_result
+        mesh_representative.setdefault(
+            mesh,
+            obj.name,
+        )
+
+        if obj.mode == "EDIT":
+            try:
+                obj.update_from_editmode()
+            except Exception:
+                pass
+
+        if mesh not in analysis_cache:
+
+            object_start_time = (
+                time.perf_counter()
+            )
+
+            try:
+                analysis_cache[
+                    mesh
+                ] = (
+                    analyze_mesh_components_fast(
+                        mesh=mesh,
+                        settings=settings,
+                    )
+                )
+
+            finally:
+                timing_cache[
+                    mesh
+                ] = (
+                    time.perf_counter()
+                    - object_start_time
+                )
+
+        cached_result = (
+            analysis_cache[
+                mesh
+            ]
+        )
+
+        if cached_result is None:
+            continue
+
+        object_result = copy.deepcopy(
+            cached_result
+        )
+
+        object_result[
+            "object_type"
+        ] = obj.type
+
+        object_result[
+            "mesh_name"
+        ] = mesh.name
+
+        failed_objects[
+            obj.name
+        ] = object_result
+
+    if profile_slow_objects:
+
+        total_elapsed = (
+            time.perf_counter()
+            - profile_start_time
+        )
+
+        print_connected_geometry_profile(
+            timing_cache=timing_cache,
+            mesh_representative=(
+                mesh_representative
+            ),
+            total_elapsed=total_elapsed,
+            slow_object_seconds=(
+                slow_object_seconds
+            ),
+        )
 
     return failed_objects
+
+
+def format_profile_time(
+        seconds,
+    ):
+    """
+    Formats profiling time as seconds or minutes/seconds.
+    """
+    seconds = float(
+        seconds
+    )
+
+    if seconds < 60.0:
+        return "{:.2f}s".format(
+            seconds
+        )
+
+    minutes = int(
+        seconds
+        // 60.0
+    )
+
+    remaining_seconds = (
+        seconds
+        - (
+            minutes
+            * 60.0
+        )
+    )
+
+    return "{}m {:.2f}s".format(
+        minutes,
+        remaining_seconds,
+    )
+
+
+def print_connected_geometry_profile(
+        timing_cache,
+        mesh_representative,
+        total_elapsed,
+        slow_object_seconds=1.0,
+    ):
+    """
+    Prints a sorted performance summary for Connected Geometry.
+
+    Timing is per unique Mesh datablock so linked duplicates do not
+    artificially inflate the measured compute cost.
+    """
+    threshold = max(
+        0.0,
+        float(
+            slow_object_seconds
+        ),
+    )
+
+    records = []
+
+    for mesh, seconds in (
+        timing_cache.items()
+    ):
+
+        records.append({
+            "object_name":
+                mesh_representative.get(
+                    mesh,
+                    mesh.name,
+                ),
+
+            "mesh_name":
+                mesh.name,
+
+            "seconds":
+                seconds,
+
+            "vertices":
+                len(
+                    mesh.vertices
+                ),
+
+            "edges":
+                len(
+                    mesh.edges
+                ),
+
+            "faces":
+                len(
+                    mesh.polygons
+                ),
+        })
+
+    records.sort(
+        key=lambda item: (
+            item[
+                "seconds"
+            ]
+        ),
+        reverse=True,
+    )
+
+    slow_records = [
+        item
+        for item in records
+        if (
+            item[
+                "seconds"
+            ]
+            >= threshold
+        )
+    ]
+
+    print("")
+    print(
+        "Connected Geometry Performance"
+    )
+    print(
+        "-" * 104
+    )
+
+    if slow_records:
+
+        print(
+            "{:<34} {:>12} {:>14} {:>14} {:>14}".format(
+                "Object",
+                "Time",
+                "Vertices",
+                "Edges",
+                "Faces",
+            )
+        )
+
+        print(
+            "-" * 104
+        )
+
+        for item in slow_records:
+
+            print(
+                "{:<34} {:>12} {:>14,} {:>14,} {:>14,}".format(
+                    item[
+                        "object_name"
+                    ][:34],
+
+                    format_profile_time(
+                        item[
+                            "seconds"
+                        ]
+                    ),
+
+                    item[
+                        "vertices"
+                    ],
+
+                    item[
+                        "edges"
+                    ],
+
+                    item[
+                        "faces"
+                    ],
+                )
+            )
+
+    else:
+        print(
+            (
+                "No meshes exceeded the {:.2f} second "
+                "slow-object threshold."
+            ).format(
+                threshold
+            )
+        )
+
+    print(
+        "-" * 104
+    )
+
+    print(
+        "Unique meshes checked: {}".format(
+            len(
+                records
+            )
+        )
+    )
+
+    print(
+        "Meshes above threshold: {}".format(
+            len(
+                slow_records
+            )
+        )
+    )
+
+    print(
+        "Total Connected Geometry time: {}".format(
+            format_profile_time(
+                total_elapsed
+            )
+        )
+    )
+
+    if records:
+
+        slowest = records[
+            0
+        ]
+
+        print(
+            "Slowest mesh: {} ({})".format(
+                slowest[
+                    "object_name"
+                ],
+
+                format_profile_time(
+                    slowest[
+                        "seconds"
+                    ]
+                ),
+            )
+        )
+
+    print(
+        "-" * 104
+    )
+    print("")
 
 
 def analyze_object_components(
@@ -227,140 +577,653 @@ def analyze_object_components(
         settings=None,
     ):
     """
-    Analyzes the connected geometry components of one mesh object.
+    Compatibility wrapper for analyzing one mesh object.
 
-    Returns:
-        dict | None
+    The optimized implementation reads Mesh data directly rather than
+    constructing a temporary BMesh.
     """
-    if obj is None or obj.type != "MESH":
+    if (
+        obj is None
+        or obj.type != "MESH"
+    ):
         return None
 
     if settings is None:
-        settings = resolve_settings(SETTINGS)
+        settings = resolve_settings(
+            SETTINGS
+        )
 
-    mesh = getattr(obj, "data", None)
+    mesh = getattr(
+        obj,
+        "data",
+        None,
+    )
 
     if mesh is None:
         return None
 
-    # Synchronize Edit Mode changes back to the mesh datablock.
     if obj.mode == "EDIT":
         try:
             obj.update_from_editmode()
         except Exception:
             pass
 
-    bm = bmesh.new()
+    result = analyze_mesh_components_fast(
+        mesh=mesh,
+        settings=settings,
+    )
 
-    try:
+    if result is None:
+        return None
+
+    result = copy.deepcopy(
+        result
+    )
+
+    result[
+        "object_type"
+    ] = obj.type
+
+    result[
+        "mesh_name"
+    ] = mesh.name
+
+    return result
+
+
+def analyze_mesh_components_fast(
+        mesh,
+        settings=None,
+    ):
+    """
+    Finds connected components directly from a Mesh datablock.
+
+    Connectivity is defined through mesh edges:
+        - Every edge unions its two endpoint vertices.
+        - Isolated vertices remain one-vertex components.
+        - Faces belong to the component containing their vertices.
+
+    This avoids:
+        bmesh.new()
         bm.from_mesh(mesh)
+        Python sets containing BMVert/BMEdge/BMFace objects
+        repeated link_edges/link_faces traversal
 
-        bm.verts.ensure_lookup_table()
-        bm.edges.ensure_lookup_table()
-        bm.faces.ensure_lookup_table()
+    Complexity is approximately O(V + E + F * average_face_size).
 
-        if not bm.verts:
-            return None
-
-        components = find_connected_components(bm)
-
-        if len(components) <= 1:
-            return None
-
-        main_component_index = get_main_component_index(
-            components
+    Returns:
+        dict | None
+            Same serialized result structure used by the previous
+            BMesh-based implementation.
+    """
+    if settings is None:
+        settings = resolve_settings(
+            SETTINGS
         )
 
-        loose_components = []
+    vertex_count = len(
+        mesh.vertices
+    )
 
-        for component_index, component in enumerate(
-            components
+    if vertex_count == 0:
+        return None
+
+    # A single vertex is necessarily one connected component.
+    if (
+        vertex_count == 1
+        and len(mesh.edges) == 0
+    ):
+        return None
+
+    # ---------------------------------------------------------
+    # Disjoint-set / Union-Find
+    # ---------------------------------------------------------
+
+    parent = list(
+        range(
+            vertex_count
+        )
+    )
+
+    rank = [
+        0
+    ] * vertex_count
+
+    def find(
+            vertex_index,
         ):
-            if component_index == main_component_index:
-                continue
+        root = vertex_index
 
-            if should_ignore_component(
-                component=component,
-                settings=settings,
-            ):
-                continue
+        while parent[
+            root
+        ] != root:
+            root = parent[
+                root
+            ]
 
-            loose_components.append(
-                serialize_component(
-                    component=component,
-                    component_index=component_index,
-                )
+        while parent[
+            vertex_index
+        ] != vertex_index:
+
+            next_index = parent[
+                vertex_index
+            ]
+
+            parent[
+                vertex_index
+            ] = root
+
+            vertex_index = (
+                next_index
             )
 
-        if not loose_components:
-            return None
+        return root
 
-        main_component = components[
-            main_component_index
+    def union(
+            vertex_a,
+            vertex_b,
+        ):
+        root_a = find(
+            vertex_a
+        )
+
+        root_b = find(
+            vertex_b
+        )
+
+        if root_a == root_b:
+            return
+
+        rank_a = rank[
+            root_a
         ]
 
-        loose_vertex_indices = sorted({
+        rank_b = rank[
+            root_b
+        ]
+
+        if rank_a < rank_b:
+            parent[
+                root_a
+            ] = root_b
+
+        elif rank_a > rank_b:
+            parent[
+                root_b
+            ] = root_a
+
+        else:
+            parent[
+                root_b
+            ] = root_a
+
+            rank[
+                root_a
+            ] += 1
+
+    # ---------------------------------------------------------
+    # Edges define vertex connectivity
+    # ---------------------------------------------------------
+
+    for edge in mesh.edges:
+
+        vertices = edge.vertices
+
+        union(
+            vertices[0],
+            vertices[1],
+        )
+
+    # Compress every root once.
+    roots = [
+        find(
             vertex_index
-            for component in loose_components
-            for vertex_index in component[
+        )
+        for vertex_index
+        in range(
+            vertex_count
+        )
+    ]
+
+    # ---------------------------------------------------------
+    # Build compact component records
+    # ---------------------------------------------------------
+
+    components_by_root = {}
+
+    for vertex_index, root in enumerate(
+        roots
+    ):
+
+        component = (
+            components_by_root.get(
+                root
+            )
+        )
+
+        if component is None:
+
+            component = {
+                "vertex_indices": [],
+                "edge_indices": [],
+                "face_indices": [],
+                "first_vertex_index":
+                    vertex_index,
+            }
+
+            components_by_root[
+                root
+            ] = component
+
+        component[
+            "vertex_indices"
+        ].append(
+            vertex_index
+        )
+
+    # If there is only one root, the entire mesh is connected.
+    if len(
+        components_by_root
+    ) <= 1:
+        return None
+
+    for edge in mesh.edges:
+
+        root = roots[
+            edge.vertices[
+                0
+            ]
+        ]
+
+        components_by_root[
+            root
+        ][
+            "edge_indices"
+        ].append(
+            edge.index
+        )
+
+    for polygon in mesh.polygons:
+
+        if not polygon.vertices:
+            continue
+
+        root = roots[
+            polygon.vertices[
+                0
+            ]
+        ]
+
+        components_by_root[
+            root
+        ][
+            "face_indices"
+        ].append(
+            polygon.index
+        )
+
+    # Match the previous deterministic component ordering:
+    # lowest original vertex index first.
+    components = sorted(
+        components_by_root.values(),
+        key=lambda component: (
+            component[
+                "first_vertex_index"
+            ]
+        ),
+    )
+
+    # ---------------------------------------------------------
+    # Determine main component
+    # ---------------------------------------------------------
+
+    main_component_index = (
+        get_main_serialized_component_index(
+            components
+        )
+    )
+
+    if main_component_index < 0:
+        return None
+
+    loose_components = []
+
+    minimum_vertices = int(
+        settings.get(
+            "minimum_loose_vertices",
+            1,
+        )
+    )
+
+    ignore_vertex_only = bool(
+        settings.get(
+            "ignore_vertex_only_components",
+            False,
+        )
+    )
+
+    ignore_edge_only = bool(
+        settings.get(
+            "ignore_edge_only_components",
+            False,
+        )
+    )
+
+    ignore_faces = bool(
+        settings.get(
+            "ignore_face_components",
+            False,
+        )
+    )
+
+    for component_index, component in enumerate(
+        components
+    ):
+
+        if (
+            component_index
+            == main_component_index
+        ):
+            continue
+
+        vertex_indices = component[
+            "vertex_indices"
+        ]
+
+        edge_indices = component[
+            "edge_indices"
+        ]
+
+        face_indices = component[
+            "face_indices"
+        ]
+
+        component_vertex_count = len(
+            vertex_indices
+        )
+
+        component_edge_count = len(
+            edge_indices
+        )
+
+        component_face_count = len(
+            face_indices
+        )
+
+        if (
+            component_vertex_count
+            < minimum_vertices
+        ):
+            continue
+
+        if (
+            component_face_count == 0
+            and component_edge_count == 0
+            and ignore_vertex_only
+        ):
+            continue
+
+        if (
+            component_face_count == 0
+            and component_edge_count > 0
+            and ignore_edge_only
+        ):
+            continue
+
+        if (
+            component_face_count > 0
+            and ignore_faces
+        ):
+            continue
+
+        loose_components.append(
+            serialize_index_component(
+                component=component,
+                component_index=(
+                    component_index
+                ),
+            )
+        )
+
+    if not loose_components:
+        return None
+
+    main_component = components[
+        main_component_index
+    ]
+
+    # Components are disjoint, so concatenation + sort is cheaper than
+    # constructing sets of BMesh objects and then serializing them.
+    loose_vertex_indices = []
+
+    loose_edge_indices = []
+
+    loose_face_indices = []
+
+    for component in loose_components:
+
+        loose_vertex_indices.extend(
+            component[
                 "vertex_indices"
             ]
-        })
+        )
 
-        loose_edge_indices = sorted({
-            edge_index
-            for component in loose_components
-            for edge_index in component[
+        loose_edge_indices.extend(
+            component[
                 "edge_indices"
             ]
-        })
+        )
 
-        loose_face_indices = sorted({
-            face_index
-            for component in loose_components
-            for face_index in component[
+        loose_face_indices.extend(
+            component[
                 "face_indices"
             ]
-        })
+        )
 
-        return {
-            "object_type": obj.type,
-            "mesh_name": mesh.name,
-            "total_component_count": len(
+    loose_vertex_indices.sort()
+    loose_edge_indices.sort()
+    loose_face_indices.sort()
+
+    return {
+        "object_type":
+            "MESH",
+
+        "mesh_name":
+            mesh.name,
+
+        "total_component_count":
+            len(
                 components
             ),
-            "main_component_index": main_component_index,
-            "main_component": serialize_component(
+
+        "main_component_index":
+            main_component_index,
+
+        "main_component":
+            serialize_index_component(
                 component=main_component,
-                component_index=main_component_index,
+                component_index=(
+                    main_component_index
+                ),
             ),
-            "loose_component_count": len(
+
+        "loose_component_count":
+            len(
                 loose_components
             ),
-            "loose_vertex_count": len(
+
+        "loose_vertex_count":
+            len(
                 loose_vertex_indices
             ),
-            "loose_edge_count": len(
+
+        "loose_edge_count":
+            len(
                 loose_edge_indices
             ),
-            "loose_face_count": len(
+
+        "loose_face_count":
+            len(
                 loose_face_indices
             ),
-            "loose_vertex_indices": loose_vertex_indices,
-            "loose_edge_indices": loose_edge_indices,
-            "loose_face_indices": loose_face_indices,
-            "loose_components": loose_components,
 
-            "selection": {
-                "mode": "MIXED",
-                "vertex_indices": loose_vertex_indices,
-                "edge_indices": loose_edge_indices,
-                "face_indices": loose_face_indices,
-            },
-        }
+        "loose_vertex_indices":
+            loose_vertex_indices,
 
-    finally:
-        bm.free()
+        "loose_edge_indices":
+            loose_edge_indices,
+
+        "loose_face_indices":
+            loose_face_indices,
+
+        "loose_components":
+            loose_components,
+
+        "selection": {
+            "mode":
+                "MIXED",
+
+            "vertex_indices":
+                loose_vertex_indices,
+
+            "edge_indices":
+                loose_edge_indices,
+
+            "face_indices":
+                loose_face_indices,
+        },
+    }
+
+
+def get_main_serialized_component_index(
+        components,
+    ):
+    """
+    Selects the main mesh body from index-based component records.
+
+    Priority matches the previous implementation:
+        1. Highest face count
+        2. Highest edge count
+        3. Highest vertex count
+        4. Lowest original vertex index
+    """
+    if not components:
+        return -1
+
+    def component_score(
+            index_and_component,
+        ):
+
+        index, component = (
+            index_and_component
+        )
+
+        return (
+            len(
+                component[
+                    "face_indices"
+                ]
+            ),
+
+            len(
+                component[
+                    "edge_indices"
+                ]
+            ),
+
+            len(
+                component[
+                    "vertex_indices"
+                ]
+            ),
+
+            -component[
+                "first_vertex_index"
+            ],
+        )
+
+    main_index, _component = max(
+        enumerate(
+            components
+        ),
+        key=component_score,
+    )
+
+    return main_index
+
+
+def serialize_index_component(
+        component,
+        component_index,
+    ):
+    """
+    Serializes a direct-Mesh component record into the same result
+    structure used by the original BMesh implementation.
+    """
+    vertex_indices = component[
+        "vertex_indices"
+    ]
+
+    edge_indices = component[
+        "edge_indices"
+    ]
+
+    face_indices = component[
+        "face_indices"
+    ]
+
+    if face_indices:
+        component_type = (
+            "FACE_ISLAND"
+        )
+
+    elif edge_indices:
+        component_type = (
+            "LOOSE_EDGES"
+        )
+
+    else:
+        component_type = (
+            "ISOLATED_VERTICES"
+        )
+
+    return {
+        "component_index":
+            component_index,
+
+        "component_type":
+            component_type,
+
+        "vertex_count":
+            len(
+                vertex_indices
+            ),
+
+        "edge_count":
+            len(
+                edge_indices
+            ),
+
+        "face_count":
+            len(
+                face_indices
+            ),
+
+        "vertex_indices":
+            list(
+                vertex_indices
+            ),
+
+        "edge_indices":
+            list(
+                edge_indices
+            ),
+
+        "face_indices":
+            list(
+                face_indices
+            ),
+    }
 
 
 # -------------------------------------------------------------------------
