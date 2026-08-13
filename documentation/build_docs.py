@@ -19,6 +19,8 @@ def build_docs(
     output_dir: str | Path,
     version: str = "1.0",
 ) -> None:
+    """
+    """
     output_dir = Path(output_dir).resolve()
     build_data_dir = output_dir.parent / ".site"
     data_json = build_data_dir / "checks.json"
