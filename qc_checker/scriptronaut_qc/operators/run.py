@@ -250,6 +250,7 @@ class SCRIPTRONAUT_OT_QC_RunSelected(Operator):
                 )
 
                 item.result_data = "{}"
+                item.result_summary = "{}"
 
                 # Force the panel to redraw BEFORE the check begins.
                 # This is where the RUNNING/star icon becomes visible.
@@ -297,6 +298,12 @@ class SCRIPTRONAUT_OT_QC_RunSelected(Operator):
                             )
                         )
 
+                        item.result_summary = (
+                            result_summary_to_json(
+                                result_data
+                            )
+                        )
+
                         item.has_fix = False
                         item.can_auto_fix = False
 
@@ -340,15 +347,25 @@ class SCRIPTRONAUT_OT_QC_RunSelected(Operator):
                                 unavailable_reason
                             )
 
+                            skipped_result = {
+                                "issues": [
+                                    unavailable_reason
+                                ],
+                                "script_path":
+                                    script_path,
+                                "skipped": True,
+                            }
+
                             item.result_data = (
-                                result_data_to_json({
-                                    "issues": [
-                                        unavailable_reason
-                                    ],
-                                    "script_path":
-                                        script_path,
-                                    "skipped": True,
-                                })
+                                result_data_to_json(
+                                    skipped_result
+                                )
+                            )
+
+                            item.result_summary = (
+                                result_summary_to_json(
+                                    skipped_result
+                                )
                             )
 
                             continue
@@ -393,6 +410,12 @@ class SCRIPTRONAUT_OT_QC_RunSelected(Operator):
                                 )
                             )
 
+                            item.result_summary = (
+                                result_summary_to_json(
+                                    result_data
+                                )
+                            )
+
                             item.has_fix = False
                             item.can_auto_fix = False
 
@@ -433,6 +456,12 @@ class SCRIPTRONAUT_OT_QC_RunSelected(Operator):
 
                             item.result_data = (
                                 result_data_to_json(
+                                    result_data
+                                )
+                            )
+
+                            item.result_summary = (
+                                result_summary_to_json(
                                     result_data
                                 )
                             )
@@ -523,6 +552,12 @@ class SCRIPTRONAUT_OT_QC_RunSelected(Operator):
 
                     item.result_data = (
                         result_data_to_json(
+                            result_data
+                        )
+                    )
+
+                    item.result_summary = (
+                        result_summary_to_json(
                             result_data
                         )
                     )

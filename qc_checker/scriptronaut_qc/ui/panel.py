@@ -1,11 +1,46 @@
 """Scriptronaut QC Checks internal module."""
 
+import time
+
 from bpy.types import Panel, UIList
 
 from ..constants import COMMON_CATEGORY, TIER
 from ..core import get_qc_elapsed_text, get_severity_icon
-from ..utils.json_io import result_data_from_json
+from ..utils.json_io import result_summary_from_json
 from .helpers import draw_wrapped_text
+
+
+QC_PANEL_PROFILE = True
+QC_PANEL_PROFILE_THRESHOLD = 0.020
+
+
+def _qc_profile_print(
+        label,
+        elapsed,
+        extra="",
+    ):
+    """
+    Prints only panel operations that exceed the profiling threshold.
+    """
+    if not QC_PANEL_PROFILE:
+        return
+
+    if elapsed < QC_PANEL_PROFILE_THRESHOLD:
+        return
+
+    suffix = (
+        " | {}".format(extra)
+        if extra
+        else ""
+    )
+
+    print(
+        "QC Panel {:<28} {:7.3f} sec{}".format(
+            label,
+            elapsed,
+            suffix,
+        )
+    )
 
 
 class SCRIPTRONAUT_PT_QC_Checks(Panel):
@@ -227,6 +262,9 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
         # ---------------------------------------------------------
 
         if settings.mode == "CHECKS":
+
+            profile_start = time.perf_counter()
+
             self.draw_checks_mode(
                 context,
                 layout,
@@ -234,16 +272,32 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
                 checks,
             )
 
+            _qc_profile_print(
+                "draw_checks_mode",
+                time.perf_counter() - profile_start,
+                "category={}".format(
+                    settings.category
+                ),
+            )
+
         # ---------------------------------------------------------
         # OBJECT MODE
         # ---------------------------------------------------------
 
         elif settings.mode == "OBJECTS":
+
+            profile_start = time.perf_counter()
+
             self.draw_objects_mode(
                 context,
                 layout,
                 settings,
                 checks,
+            )
+
+            _qc_profile_print(
+                "draw_objects_mode",
+                time.perf_counter() - profile_start,
             )
 
     # ---------------------------------------------------------------------
@@ -331,6 +385,8 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
         # Check list
         # ---------------------------------------------------------
 
+        profile_start = time.perf_counter()
+
         layout.template_list(
             "SCRIPTRONAUT_UL_QC_Checks",
             "",
@@ -339,6 +395,14 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
             settings,
             "check_index",
             rows=8,
+        )
+
+        _qc_profile_print(
+            "checks template_list",
+            time.perf_counter() - profile_start,
+            "checks={}".format(
+                len(checks)
+            ),
         )
 
         # ---------------------------------------------------------
@@ -457,11 +521,24 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
             )
             return
 
-        result_data = result_data_from_json(
-            current_item.result_data
+        profile_start = time.perf_counter()
+
+        result_summary = result_summary_from_json(
+            current_item.result_summary
         )
 
-        failed_objects = result_data.get(
+        _qc_profile_print(
+            "result summary decode",
+            time.perf_counter() - profile_start,
+            "check={} summary={:.2f} KB".format(
+                current_item.name,
+                len(
+                    current_item.result_summary
+                ) / 1024.0,
+            ),
+        )
+
+        failed_objects = result_summary.get(
             "failed_objects",
             {},
         )
@@ -474,6 +551,12 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
             isinstance(failed_objects, dict)
             and failed_objects
         ):
+            profile_start = time.perf_counter()
+
+            failed_object_count = len(
+                failed_objects
+            )
+
             for object_name, object_data in failed_objects.items():
 
                 row = issues_box.row(
@@ -482,30 +565,24 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
 
                 row.alert = True
 
-                selection_data = None
+                selection_mode = ""
 
                 if isinstance(
                     object_data,
                     dict,
                 ):
-                    selection_data = object_data.get(
-                        "selection"
-                    )
+                    selection_mode = str(
+                        object_data.get(
+                            "selection_mode",
+                            "",
+                        )
+                    ).upper()
 
                 # -------------------------------------------------
                 # Selection button
                 # -------------------------------------------------
 
-                if isinstance(
-                    selection_data,
-                    dict,
-                ):
-                    selection_mode = str(
-                        selection_data.get(
-                            "mode",
-                            "",
-                        )
-                    ).upper()
+                if selection_mode:
 
                     if selection_mode == "FACE":
                         button_icon = "FACESEL"
@@ -567,6 +644,15 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
                 details_operator.object_name = (
                     object_name
                 )
+
+            _qc_profile_print(
+                "failed object rows",
+                time.perf_counter() - profile_start,
+                "check={} objects={}".format(
+                    current_item.name,
+                    failed_object_count,
+                ),
+            )
 
         # ---------------------------------------------------------
         # Non-object issue messages
@@ -651,6 +737,8 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
 
             return
 
+        profile_start = time.perf_counter()
+
         object_box.template_list(
             "SCRIPTRONAUT_UL_QC_FailedObjects",
             "",
@@ -659,6 +747,14 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
             settings,
             "failed_object_index",
             rows=6,
+        )
+
+        _qc_profile_print(
+            "failed objects template",
+            time.perf_counter() - profile_start,
+            "objects={}".format(
+                len(failed_objects)
+            ),
         )
 
         # ---------------------------------------------------------
@@ -712,6 +808,8 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
 
             return
 
+        profile_start = time.perf_counter()
+
         check_box.template_list(
             "SCRIPTRONAUT_UL_QC_ObjectChecks",
             "",
@@ -720,6 +818,14 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
             settings,
             "object_check_index",
             rows=6,
+        )
+
+        _qc_profile_print(
+            "object checks template",
+            time.perf_counter() - profile_start,
+            "checks={}".format(
+                len(object_checks)
+            ),
         )
 
         # ---------------------------------------------------------

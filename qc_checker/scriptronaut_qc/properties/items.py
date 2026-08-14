@@ -112,6 +112,10 @@ class SCRIPTRONAUT_QC_CheckItem(PropertyGroup):
         default="{}"
     )
 
+    result_summary: StringProperty(
+        default="{}"
+    )
+
     check_id: StringProperty(
         default=""
     )

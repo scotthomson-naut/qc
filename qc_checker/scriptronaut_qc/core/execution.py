@@ -6,6 +6,7 @@ import time
 import traceback
 from typing import Any
 
+from ..utils.json_io import result_summary_to_json
 from .preferences import get_check_id_for_item, get_check_preferences, module_has_settings
 from .results import normalize_check_result, get_issues_from_result
 from ..utils.json_io import result_data_to_json
@@ -191,6 +192,12 @@ def rerun_qc_check_item(item):
 
         item.result_data = (
             result_data_to_json(
+                result_data
+            )
+        )
+
+        item.result_summary = (
+            result_summary_to_json(
                 result_data
             )
         )

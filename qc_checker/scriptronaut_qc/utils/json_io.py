@@ -134,21 +134,160 @@ def save_check_list(folder_path, check_list):
 
 def result_data_to_json(result_data):
     """
-    Serializes QC result data into JSON.
+    Serializes full QC result data into compact JSON.
 
-    Args:
-        result_data (dict): Result dictionary.
-
-    Returns:
-        str: JSON representation of the result.
+    Large component-index arrays can otherwise become dramatically larger
+    when pretty printed with indentation.
     """
     try:
-        return json.dumps(result_data, indent=4)
+        return json.dumps(
+            result_data,
+            separators=(",", ":"),
+        )
     except Exception:
-        return json.dumps({
-            "issues": ["Result data could not be converted to JSON."],
-            "raw_result": str(result_data),
-        }, indent=4)
+        return json.dumps(
+            {
+                "issues": [
+                    "Result data could not be converted to JSON."
+                ],
+                "raw_result": str(
+                    result_data
+                ),
+            },
+            separators=(",", ":"),
+        )
+
+
+def build_result_summary(result_data):
+    """
+    Builds the lightweight UI representation of a QC result.
+
+    Full component indices stay in result_data. The summary contains only
+    failed object names and the component-selection mode needed by the panel.
+    """
+    summary = {
+        "failed_objects": {},
+        "failed_object_count": 0,
+    }
+
+    if not isinstance(
+        result_data,
+        dict,
+    ):
+        return summary
+
+    failed_objects = result_data.get(
+        "failed_objects",
+        {},
+    )
+
+    if not isinstance(
+        failed_objects,
+        dict,
+    ):
+        return summary
+
+    for object_name, object_data in (
+        failed_objects.items()
+    ):
+        selection_mode = ""
+
+        if isinstance(
+            object_data,
+            dict,
+        ):
+            selection = object_data.get(
+                "selection"
+            )
+
+            if isinstance(
+                selection,
+                dict,
+            ):
+                selection_mode = str(
+                    selection.get(
+                        "mode",
+                        "",
+                    )
+                ).upper()
+
+        summary[
+            "failed_objects"
+        ][
+            str(
+                object_name
+            )
+        ] = {
+            "selection_mode":
+                selection_mode,
+        }
+
+    summary[
+        "failed_object_count"
+    ] = len(
+        summary[
+            "failed_objects"
+        ]
+    )
+
+    return summary
+
+
+def result_summary_to_json(result_data):
+    """
+    Serializes the lightweight UI result summary.
+    """
+    return json.dumps(
+        build_result_summary(
+            result_data
+        ),
+        separators=(",", ":"),
+    )
+
+
+def result_summary_from_json(json_text):
+    """
+    Deserializes the lightweight UI result summary.
+    """
+    if not json_text:
+        return {
+            "failed_objects": {},
+            "failed_object_count": 0,
+        }
+
+    try:
+        result = json.loads(
+            json_text
+        )
+    except Exception:
+        result = {}
+
+    if not isinstance(
+        result,
+        dict,
+    ):
+        result = {}
+
+    failed_objects = result.get(
+        "failed_objects",
+        {},
+    )
+
+    if not isinstance(
+        failed_objects,
+        dict,
+    ):
+        failed_objects = {}
+
+    return {
+        "failed_objects":
+            failed_objects,
+
+        "failed_object_count":
+            len(
+                failed_objects
+            ),
+    }
 
 
 def result_data_from_json(json_text):

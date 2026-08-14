@@ -12,7 +12,12 @@ from .preferences import get_check_preference_id, module_has_settings
 from .execution import call_check_main
 from .results import normalize_check_result, get_issues_from_result
 from .availability import evaluate_check_availability
-from ..utils.json_io import load_check_list, result_data_from_json, result_data_to_json
+from ..utils.json_io import (
+    load_check_list,
+    result_data_from_json,
+    result_data_to_json,
+    result_summary_from_json,
+)
 from ..utils.module_loader import load_module_from_path
 
 
@@ -323,11 +328,11 @@ def rebuild_failed_objects(context):
         if check_item.status != "FAIL":
             continue
 
-        result_data = result_data_from_json(
-            check_item.result_data
+        result_summary = result_summary_from_json(
+            check_item.result_summary
         )
 
-        failed_objects = result_data.get(
+        failed_objects = result_summary.get(
             "failed_objects",
             {},
         )
@@ -424,12 +429,12 @@ def refresh_object_failed_checks(context):
         if check_item.status != "FAIL":
             continue
 
-        result_data = result_data_from_json(
-            check_item.result_data
+        result_summary = result_summary_from_json(
+            check_item.result_summary
         )
 
         check_failed_objects = (
-            result_data.get(
+            result_summary.get(
                 "failed_objects",
                 {},
             )
