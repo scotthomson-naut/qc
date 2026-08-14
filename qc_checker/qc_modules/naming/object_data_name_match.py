@@ -1,6 +1,7 @@
 # Blender imports
 import bpy
 
+
 # -------------------------------------------------------------------------
 # Metadata
 # -------------------------------------------------------------------------
@@ -18,6 +19,7 @@ WHY = (
     "holds the actual geometry or properties. When they mismatch, "
     "identifying assets becomes difficult."
 )
+
 
 # -------------------------------------------------------------------------
 # Main
@@ -139,29 +141,14 @@ def fix_objects_with_mismatched_data_names(
         result_data=None,
     ):
     """
-    Renames single-user datablocks to match their object names.
+    Renames single-user datablocks to exactly match their object names.
 
-    Uses a two-pass rename so datablock-name swaps/cycles do not
-    cause Blender to generate automatic numeric suffixes.
+    Uses Blender's ID.rename(..., mode="ALWAYS") collision handling.
+    When the requested datablock name already exists, Blender renames
+    the conflicting datablock and guarantees the current datablock gets
+    the requested name.
 
-    Example:
-
-        Object             Data
-        window.001   ->     window.003
-        window.002   ->     window.001
-        window.003   ->     window.004
-        window.004   ->     window.002
-
-    Pass 1:
-        All affected datablocks receive temporary unique names.
-
-    Pass 2:
-        Each datablock is renamed to its object's final name.
-
-    Shared datablocks are skipped rather than made single-user.
-
-    Returns:
-        dict
+    Shared datablocks remain untouched.
     """
     if not isinstance(
         result_data,
@@ -183,11 +170,11 @@ def fix_objects_with_mismatched_data_names(
     fixed_objects = {}
     issues = []
 
-    rename_items = []
+    # ---------------------------------------------------------
+    # Resolve current objects first
+    # ---------------------------------------------------------
 
-    # ---------------------------------------------------------
-    # Gather objects that are still valid and safe to rename
-    # ---------------------------------------------------------
+    objects_to_fix = []
 
     for object_name in failed_objects:
 
@@ -212,7 +199,7 @@ def fix_objects_with_mismatched_data_names(
             issues.append(
                 (
                     'Skipped "{}": datablock "{}" '
-                    "is shared by {} objects."
+                    "is shared by {} users."
                 ).format(
                     obj.name,
                     datablock.name,
@@ -221,162 +208,92 @@ def fix_objects_with_mismatched_data_names(
             )
             continue
 
-        # Already fixed since the QC result was generated.
         if datablock.name == obj.name:
             continue
 
-        rename_items.append({
-            "object":
-                obj,
-
-            "datablock":
-                datablock,
-
-            "old_name":
-                datablock.name,
-
-            "target_name":
-                obj.name,
-        })
-
-    if not rename_items:
-        return {
-            "fixed_objects": {},
-            "issues": issues,
-        }
+        objects_to_fix.append(
+            obj
+        )
 
     # ---------------------------------------------------------
-    # Pass 1
-    #
-    # Move every affected datablock out of the way first.
-    # This breaks rename cycles such as:
-    #
-    # A -> B
-    # B -> C
-    # C -> A
+    # Rename
     # ---------------------------------------------------------
 
-    for index, item in enumerate(
-        rename_items
-    ):
+    for obj in objects_to_fix:
 
-        datablock = item[
-            "datablock"
-        ]
+        datablock = obj.data
 
-        temporary_name = (
-            "__SCRIPTRONAUT_QC_TEMP__{:06d}__"
-        ).format(
-            index
+        # Another rename earlier in the sequence may already
+        # have caused this datablock to receive its correct name.
+        if datablock.name == obj.name:
+            continue
+
+        old_datablock_name = (
+            datablock.name
         )
 
         try:
-            datablock.name = (
-                temporary_name
+
+            # Blender handles the collision for us.
+            #
+            # ALWAYS means:
+            #     This datablock MUST receive obj.name.
+            #     If another datablock owns that name,
+            #     Blender renames the other datablock.
+            rename_result = datablock.rename(
+                obj.name,
+                mode="ALWAYS",
             )
-
-            item[
-                "temporary_name"
-            ] = datablock.name
-
-        except Exception as error:
-
-            item[
-                "temporary_failed"
-            ] = True
-
-            issues.append(
-                (
-                    'Could not temporarily rename datablock '
-                    'for object "{}": {}'
-                ).format(
-                    item[
-                        "object"
-                    ].name,
-                    error,
-                )
-            )
-
-    # ---------------------------------------------------------
-    # Pass 2
-    #
-    # All original conflicting names are now free.
-    # Assign the final names.
-    # ---------------------------------------------------------
-
-    for item in rename_items:
-
-        if item.get(
-            "temporary_failed",
-            False,
-        ):
-            continue
-
-        obj = item[
-            "object"
-        ]
-
-        datablock = item[
-            "datablock"
-        ]
-
-        old_name = item[
-            "old_name"
-        ]
-
-        target_name = item[
-            "target_name"
-        ]
-
-        try:
-            datablock.name = (
-                target_name
-            )
-
-            # -------------------------------------------------
-            # Verify Blender actually accepted the exact name
-            # -------------------------------------------------
-
-            if datablock.name != target_name:
-
-                issues.append(
-                    (
-                        'Could not set datablock for "{}" '
-                        'to exact name "{}". Blender assigned '
-                        '"{}" instead.'
-                    ).format(
-                        obj.name,
-                        target_name,
-                        datablock.name,
-                    )
-                )
-
-                continue
-
-            fixed_objects[
-                obj.name
-            ] = {
-                "fixed":
-                    True,
-
-                "previous_datablock_name":
-                    old_name,
-
-                "datablock_name":
-                    datablock.name,
-            }
 
         except Exception as error:
 
             issues.append(
                 (
-                    'Could not rename datablock for '
-                    'object "{}": {}'
+                    'Could not rename datablock for "{}": {}'
                 ).format(
                     obj.name,
                     error,
                 )
             )
+
+            continue
+
+        # -----------------------------------------------------
+        # Verify exact result
+        # -----------------------------------------------------
+
+        if datablock.name != obj.name:
+
+            issues.append(
+                (
+                    'Could not assign exact datablock name "{}" '
+                    'to object "{}". Blender assigned "{}".'
+                ).format(
+                    obj.name,
+                    obj.name,
+                    datablock.name,
+                )
+            )
+
+            continue
+
+        fixed_objects[
+            obj.name
+        ] = {
+            "fixed":
+                True,
+
+            "previous_datablock_name":
+                old_datablock_name,
+
+            "datablock_name":
+                datablock.name,
+
+            "rename_result":
+                str(
+                    rename_result
+                ),
+        }
 
     bpy.context.view_layer.update()
 
