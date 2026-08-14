@@ -205,7 +205,19 @@ def page_shell(
     active_category: str = "",
     version: str = "1.0",
 ) -> str:
-    prefix = relative_prefix(depth)
+    """
+    Builds a QC Checker documentation page shell.
+
+    depth is relative to /site/docs/qc_checker:
+        0 = /docs/qc_checker/index.html
+        1 = /docs/qc_checker/categories/*.html
+        2 = /docs/qc_checker/checks/<category>/*.html
+    """
+    qc_prefix = relative_prefix(depth)
+
+    # /docs/qc_checker is two levels below /site.
+    site_prefix = "../../" + qc_prefix
+
     return (
         '<!doctype html><html lang="en"><head>'
         '<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
@@ -214,22 +226,21 @@ def page_shell(
         '<link rel="preconnect" href="https://fonts.googleapis.com">'
         '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
         '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">'
-        f'<link rel="stylesheet" href="{prefix}assets/css/docs.css"></head><body>'
+        f'<link rel="stylesheet" href="{site_prefix}css/docs.css"></head><body>'
         '<div class="stars"></div>'
         '<div class="stars stars-medium"></div>'
         '<div class="stars stars-faint"></div>'
         '<header class="topbar">'
-        f'<a class="brand" href="{prefix}index.html"><span class="brand-mark">#</span>'
-        f'<img src="{prefix}assets/svg/scriptronaut_name.svg" alt="Scriptronaut"></a>'
+        f'<a class="brand" href="{qc_prefix}index.html"><span class="brand-mark">#</span>'
+        f'<img src="{site_prefix}svg/scriptronaut_name.svg" alt="Scriptronaut"></a>'
         '<div class="top-actions"><span class="hide-mobile"><b>QC Checker</b> Documentation</span>'
         f'<span class="badge hilite-core"><b>Core</b> {esc(version)}</span></div></header>'
         '<div class="shell">'
         + navigation(records, depth, active_category)
         + f'<main class="content">{body}<footer class="footer"><b>Scriptronaut</b> | QC Checker <b class="hilite-core">Core</b> documentation.</footer></main></div>'
-        f'<script src="{prefix}assets/js/checks-data.js"></script>'
-        f'<script src="{prefix}assets/js/docs.js"></script></body></html>'
+        f'<script src="{qc_prefix}assets/js/checks-data.js"></script>'
+        f'<script src="{qc_prefix}assets/js/docs.js"></script></body></html>'
     )
-
 
 def settings_table(settings: list[dict[str, Any]]) -> str:
     if not settings:
@@ -269,10 +280,12 @@ def generate_site(
     records = json.loads(data_path.read_text(encoding="utf-8"))
 
     required_template_files = (
-        template_site / "assets/css/docs.css",
-        template_site / "assets/js/docs.js",
-        template_site / "assets/svg/scriptronaut_name.svg",
-        template_site / "assets/svg/scriptronaut_character.svg",
+        template_site / "css/docs.css",
+        template_site / "svg/scriptronaut_name.svg",
+        template_site / "svg/scriptronaut_character.svg",
+        template_site / "index.html",
+        template_site / "docs/qc_checker/panel.html",
+        template_site / "docs/qc_checker/assets/js/docs.js",
     )
     missing_template_files = [
         path for path in required_template_files if not path.is_file()
@@ -290,14 +303,18 @@ def generate_site(
         shutil.rmtree(output_dir)
     shutil.copytree(template_site, output_dir)
 
+    # Generated QC Checker documentation lives here.
+    qc_output = output_dir / "docs" / "qc_checker"
+    qc_output.mkdir(parents=True, exist_ok=True)
+
     categories = sorted({record["category"] for record in records}, key=str.lower)
     counts = Counter(record["category"] for record in records)
 
     # Generated data files.
-    data_out = output_dir / "assets/data/checks.json"
+    data_out = qc_output / "assets/data/checks.json"
     data_out.parent.mkdir(parents=True, exist_ok=True)
     data_out.write_text(json.dumps(records, indent=4, ensure_ascii=False) + "\n", encoding="utf-8")
-    js_out = output_dir / "assets/js/checks-data.js"
+    js_out = qc_output / "assets/js/checks-data.js"
     js_out.parent.mkdir(parents=True, exist_ok=True)
     js_out.write_text(
         "/* Auto-generated. Do not edit manually. */\n\n"
@@ -319,7 +336,7 @@ def generate_site(
         '<div class="actions"><a class="button primary" href="panel.html">Open panel guide →</a>'
         '<a class="button" href="categories/animation.html">Browse checks</a></div></div>'
         '<div class="astronaut-wrap" id="astronaut">'
-        '<img src="assets/svg/scriptronaut_character.svg" alt="Scriptronaut character">'
+        '<img src="../../svg/scriptronaut_character.svg" alt="Scriptronaut character">'
         '</div>'
         '</section>'
         '<h2><b class="hilite-core">Core</b> categories</h2><div class="grid">' + category_cards + '</div>'
@@ -327,7 +344,7 @@ def generate_site(
         '<!--<h2>Pro edition</h2><p class="lead">The same documentation structure can later cover batch reports, studio profiles, pipeline integrations and advanced automation.</p>-->'
     )
     write_html_file(
-        output_dir / "index.html",
+        qc_output / "index.html",
         page_shell(
             title="QC Checker Core",
             description="Scriptronaut . QC Checker documentation",
@@ -338,8 +355,8 @@ def generate_site(
     )
 
     # Category and check pages.
-    (output_dir / "categories").mkdir(parents=True, exist_ok=True)
-    (output_dir / "checks").mkdir(parents=True, exist_ok=True)
+    (qc_output / "categories").mkdir(parents=True, exist_ok=True)
+    (qc_output / "checks").mkdir(parents=True, exist_ok=True)
     for category in categories:
         items = sorted((record for record in records if record["category"] == category), key=lambda item: item["label"].lower())
         cards = []
@@ -360,7 +377,7 @@ def generate_site(
             '<div class="grid">' + "".join(cards) + '</div>'
         )
         write_html_file(
-            output_dir / "categories" / f"{category_slug(category)}.html",
+            qc_output / "categories" / f"{category_slug(category)}.html",
             page_shell(
                 title=f"{category} Checks",
                 description=f"{category} QC checks",
@@ -372,7 +389,7 @@ def generate_site(
             ),
         )
 
-        check_dir = output_dir / "checks" / category_slug(category)
+        check_dir = qc_output / "checks" / category_slug(category)
         check_dir.mkdir(parents=True, exist_ok=True)
         for item in items:
             why = item.get("why") or "This check protects scene quality and helps catch production issues before publishing or rendering."
@@ -427,7 +444,7 @@ def generate_site(
         '<div data-search-results class="search-results"></div></div>'
     )
     write_html_file(
-        output_dir / "search.html",
+        qc_output / "search.html",
         page_shell(
             title="Search",
             description="Search Scriptronaut QC checks",
@@ -444,7 +461,7 @@ def generate_site(
     )
     checks_body = '<div class="eyebrow">Core Checks</div><h1>All checks</h1><div class="grid">' + all_cards + '</div>'
     write_html_file(
-        output_dir / "checks.html",
+        qc_output / "checks.html",
         page_shell(
             title="All Checks",
             description="All Scriptronaut QC checks",

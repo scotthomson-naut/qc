@@ -22,7 +22,7 @@ def build_docs(
     """
     """
     output_dir = Path(output_dir).resolve()
-    build_data_dir = output_dir.parent / ".site"
+    build_data_dir = output_dir.parent / ".site_build"
     data_json = build_data_dir / "checks.json"
     data_js = build_data_dir / "checks-data.js"
 
