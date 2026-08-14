@@ -91,6 +91,10 @@ img { max-width: 100%; margin-right: 4px;}
   color: var(--orange); background: var(--panel);
   font-family: "Space Grotesk", sans-serif;
 }
+.brand-centered {
+    display: flex; justify-content: center; align-items: center; margin-top:20px;
+}
+
 
 .top-actions { display: flex; align-items: center; gap: 16px; color: var(--muted); font-size: .9rem; }
 .badge, .pill {
@@ -274,7 +278,6 @@ img { max-width: 100%; margin-right: 4px;}
 .tool-pack-column {
     align-content: start;
 }
-
 
 .search-wrap { margin-bottom: 22px; }
 .search-wrap input, .search-page input {
