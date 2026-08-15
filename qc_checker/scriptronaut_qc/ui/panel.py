@@ -61,7 +61,7 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
             Fix only the selected check on the selected object.
     """
 
-    bl_label = "QC Checks"
+    bl_label = "QC Checker"
     bl_idname = "SCRIPTRONAUT_PT_QC_Checks"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
