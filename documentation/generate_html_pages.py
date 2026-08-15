@@ -10,6 +10,7 @@ import textwrap
 from collections import Counter
 from pathlib import Path
 from typing import Any
+from datetime import datetime
 
 
 # HTML elements that never contain child content and therefore do not
@@ -214,6 +215,7 @@ def page_shell(
         2 = /docs/qc_checker/checks/<category>/*.html
     """
     qc_prefix = relative_prefix(depth)
+    current_year = datetime.now().year
 
     # /docs/qc_checker is two levels below /site.
     site_prefix = "../../" + qc_prefix
@@ -231,13 +233,14 @@ def page_shell(
         '<div class="stars stars-medium"></div>'
         '<div class="stars stars-faint"></div>'
         '<header class="topbar">'
-        f'<a class="brand" href="{qc_prefix}index.html"><span class="brand-mark">#</span>'
+        f'<a class="brand" href="{site_prefix}index.html"><span class="brand-mark">#</span>'
         f'<img src="{site_prefix}svg/scriptronaut_name.svg" alt="Scriptronaut"></a>'
         '<div class="top-actions"><span class="hide-mobile"><b>QC Checker</b> Documentation</span>'
         f'<span class="badge hilite-core"><b>Core</b> {esc(version)}</span></div></header>'
         '<div class="shell">'
         + navigation(records, depth, active_category)
-        + f'<main class="content">{body}<footer class="footer"><b>Scriptronaut</b> | QC Checker <b class="hilite-core">Core</b> documentation.</footer></main></div>'
+        + f'<main class="content">{body}<footer class="footer"><b>Scriptronaut</b> | QC Checker <b class="hilite-core">Core</b> documentation.'
+        f'<span style="float:right;">&copy; {current_year}</span></footer></main></div>'
         f'<script src="{qc_prefix}assets/js/checks-data.js"></script>'
         f'<script src="{qc_prefix}assets/js/docs.js"></script></body></html>'
     )
