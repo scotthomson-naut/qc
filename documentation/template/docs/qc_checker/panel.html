@@ -47,7 +47,7 @@
 
                     <section class="card">
                         <h2 style="margin-top:0">In <b class="doc-ancor">Checks</b> Mode</h2>
-                        <img src="assets/images/qc_checks_panel_mode_checks.png" alt="Scriptronaut"></a>
+                        <img src="assets/images/qc_checker_panel_mode_checks.png" alt="Scriptronaut"></a>
                     </section>
 
                     <span id="status"></span>
@@ -83,13 +83,13 @@
                             The Severity Summary provides an overview of the current 
                             results for the selected category.<br>
                             
-                            <b class="doc-item"><img src="assets/images/qc_checks_severity_critical.png" alt="Scriptronaut"> Critical</b> : Number of critical issues found. These 
+                            <b class="doc-item"><img src="assets/images/qc_checker_severity_critical.png" alt="Scriptronaut"> Critical</b> : Number of critical issues found. These 
                             generally should be fixed before moving forward.<br>
 
-                            <b class="doc-item"><img src="assets/images/qc_checks_severity_warning.png" alt="Scriptronaut"> Warning</b> : Number of recommended fixes that may 
+                            <b class="doc-item"><img src="assets/images/qc_checker_severity_warning.png" alt="Scriptronaut"> Warning</b> : Number of recommended fixes that may 
                             affect quality or consistency.<br>
 
-                            <b class="doc-item"><img src="assets/images/qc_checks_severity_info.png" alt="Scriptronaut"> Info</b> : Number of informational messages that do 
+                            <b class="doc-item"><img src="assets/images/qc_checker_severity_info.png" alt="Scriptronaut"> Info</b> : Number of informational messages that do 
                             not represent errors.<br>
                         </p>
                     </section>
@@ -108,7 +108,7 @@
                         <p>
                             Group of buttons to help selection of Checks to run.<br>
                             <b class="doc-item">Select All</b> : Selects all Checks.<br>
-                            <b><img src="assets/images/qc_checks_btn_select_critical.png" alt="Scriptronaut"></a></b> : Selects <b class="doc-critical">critical</b> Checks Only.<br>
+                            <b><img src="assets/images/qc_checker_btn_select_critical.png" alt="Scriptronaut"></a></b> : Selects <b class="doc-critical">critical</b> Checks Only.<br>
                             <b class="doc-item">Select None</b> : Unselects all Checks.<br>
                         </p>
                     </section>
@@ -120,38 +120,38 @@
                             in the selected category. Each row represents one independent 
                             validation that can be run against the current scene.<br>
 
-                            <b class="doc-item"><img src="assets/images/qc_checks_enable.png" alt="Scriptronaut"> Enable Check</b> : 
+                            <b class="doc-item"><img src="assets/images/qc_checker_enable.png" alt="Scriptronaut"> Enable Check</b> : 
                             Enables or Disables the check to be Run.<br>
 
-                            <b class="doc-item"><img src="assets/images/qc_checks_severity.png" alt="Scriptronaut"> Severity</b> : 
+                            <b class="doc-item"><img src="assets/images/qc_checker_severity.png" alt="Scriptronaut"> Severity</b> : 
                             Indicates the importance of the check. <br>
                             <b class="doc-critical">Critical</b> issues should normally be fixed before continuing, <br>
                             <b class="doc-warning">Warning</b> highlights recommended fixes, and <br>
                             <b class="doc-info">Info</b> provides useful information.<br>
 
-                            <b class="doc-item"><img src="assets/images/qc_checks_name.png" alt="Scriptronaut"> Check Name</b> : 
+                            <b class="doc-item"><img src="assets/images/qc_checker_name.png" alt="Scriptronaut"> Check Name</b> : 
                             Displays the friendly name of the QC check. 
                             Selecting a row also displays its failed objects or issue 
                             messages below after running the checks.<br>
 
-                            <b class="doc-item"><img src="assets/images/qc_checks_info.png" alt="Scriptronaut"> Information</b> : 
+                            <b class="doc-item"><img src="assets/images/qc_checker_info.png" alt="Scriptronaut"> Information</b> : 
                             Tooltip describing what the check validates and why it 
                             exists. This is useful when learning the QC system or 
                             understanding an unfamiliar check.<br>
-                            <img src="assets/images/qc_checks_panel_check_tooltip.png" alt="Scriptronaut">
+                            <img src="assets/images/qc_checker_panel_check_tooltip.png" alt="Scriptronaut">
 
-                            <b class="doc-item"><img src="assets/images/qc_checks_status.png" alt="Scriptronaut"> Status</b> : 
+                            <b class="doc-item"><img src="assets/images/qc_checker_status.png" alt="Scriptronaut"> Status</b> : 
                             Shows the current result of the check: 
                             <b>Not Run</b>, <b>Running</b>, <b>Pass</b>, or <b>Fail</b>. 
                             Results are updated each time the check is executed.<br>
 
-                            <b class="doc-item"><img src="assets/images/qc_checks_btn_settings.png" alt="Scriptronaut"> Settings</b> : 
+                            <b class="doc-item"><img src="assets/images/qc_checker_btn_settings.png" alt="Scriptronaut"> Settings</b> : 
                             Opens the settings dialog for checks that support 
                             user-configurable options, allowing project-specific 
                             thresholds or behavior to be adjusted.<br>
-                            <img src="assets/images/qc_checks_panel_check_settings.png" alt="Scriptronaut">
+                            <img src="assets/images/qc_checker_panel_check_settings.png" alt="Scriptronaut">
 
-                            <b class="doc-item"><img src="assets/images/qc_checks_btn_fix.png" alt="Scriptronaut"> Fix</b> : 
+                            <b class="doc-item"><img src="assets/images/qc_checker_btn_fix.png" alt="Scriptronaut"> Fix</b> : 
                             After running a Check, This button executes the automatic fix for the failed check when one is 
                             available. Some checks require manual correction and therefore does not display a Fix button.<br>
                         </p>
@@ -161,7 +161,7 @@
                         <h3>Run / Runnng</h3>
                         <p>
                             Click the Run button to Run the currently selected checks one after the other.
-                            <img src="assets/images/qc_checks_panel_running.png" alt="Scriptronaut">
+                            <img src="assets/images/qc_checker_panel_running.png" alt="Scriptronaut">
                         </p>
 
                     </section>
@@ -170,7 +170,7 @@
                         <h3>Batch Fix</h3>
                         <p>
                             Click the Fix All (#) button to Fix All fixable Checks for All Objects.<br>
-                            <img src="assets/images/qc_checks_panel_batch_fix.png" alt="Scriptronaut">
+                            <img src="assets/images/qc_checker_panel_batch_fix.png" alt="Scriptronaut">
                         </p>
                     </section>
 
@@ -200,14 +200,14 @@
                     <!-- After Run -->
                     <section class="card">
                         <h3>After Checks Run</h3>
-                        <img src="assets/images/qc_checks_panel_failed_objects.png" alt="Scriptronaut">
+                        <img src="assets/images/qc_checker_panel_failed_objects.png" alt="Scriptronaut">
                         <h3>Failure Details</h3>
                         <p>
                             If any checks fail the objects that failed will be flagged. You can click on the 
-                            <img src="assets/images/qc_checks_failure_details.png" alt="Scriptronaut">
+                            <img src="assets/images/qc_checker_failure_details.png" alt="Scriptronaut">
                             icon to see the Failure Details.<br>
                         </p>
-                        <img src="assets/images/qc_checks_panel_failure_details.png" alt="Scriptronaut">
+                        <img src="assets/images/qc_checker_panel_failure_details.png" alt="Scriptronaut">
                     </section>
 
                 <span id="objects"></span>
@@ -221,7 +221,7 @@
 
                     <section class="card">
                         <h2 style="margin-top:0">In <b class="doc-ancor">Objects</b> Mode</h2>
-                        <img src="assets/images/qc_checks_panel_mode_objects.png" alt="Scriptronaut"></a>
+                        <img src="assets/images/qc_checker_panel_mode_objects.png" alt="Scriptronaut"></a>
                     </section>
 
                     <section class="card">
@@ -272,7 +272,7 @@
                         <h3>Failed Checks</h3>
                         <p>
                             List of failed Checks for the selected failed Object list.<br>
-                            If available click on the <img src="assets/images/qc_checks_btn_fix.png" alt="Scriptronaut">
+                            If available click on the <img src="assets/images/qc_checker_btn_fix.png" alt="Scriptronaut">
                             to Fix only that specific Check on the Object.
                         </p>
                     </section>
@@ -293,9 +293,12 @@
 
                 </div>
 
+                <!-- Footer -->
                 <footer class="footer">
                     <b>Scriptronaut</b> | QC Checker <b class="hilite-core">Core</b> documentation.
+                    <span style="float:right;">&copy; 2026</span>
                 </footer>
+
             </main>
         </div>
         <script src="assets/js/checks-data.js"></script><script src="assets/js/docs.js"></script>
