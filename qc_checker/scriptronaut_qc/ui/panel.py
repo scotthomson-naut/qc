@@ -386,7 +386,9 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
 
         row.operator(
             "scriptronaut.qc_select_invert",
-            icon="CLIPUV_HLT",
+            icon_value=get_icon_id(
+                "select_invert"
+            ),
             text="",
         )
 
