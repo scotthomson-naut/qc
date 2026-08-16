@@ -160,6 +160,42 @@ class SCRIPTRONAUT_OT_QC_SelectCritical(Operator):
 
 
 # -------------------------------------------------------------------------
+# Select Invert
+# -------------------------------------------------------------------------
+
+class SCRIPTRONAUT_OT_QC_SelectInvert(Operator):
+    """
+    Deselects all QC checks.
+    """
+
+    bl_idname = (
+        "scriptronaut.qc_select_invert"
+    )
+
+    bl_label = (
+        "Invert Selection"
+    )
+
+    bl_description = (
+        "Inverts the Selected checks"
+    )
+
+    def execute(
+        self,
+        context,
+    ):
+        for item in (
+            context.scene
+            .scriptronaut_qc_checks
+        ):
+            item.selected = (
+                not item.selected
+            )
+
+        return {"FINISHED"}
+
+
+# -------------------------------------------------------------------------
 # Run Selected
 # -------------------------------------------------------------------------
 
@@ -646,5 +682,6 @@ CLASSES = (
     SCRIPTRONAUT_OT_QC_SelectAll,
     SCRIPTRONAUT_OT_QC_SelectNone,
     SCRIPTRONAUT_OT_QC_SelectCritical,
+    SCRIPTRONAUT_OT_QC_SelectInvert,
     SCRIPTRONAUT_OT_QC_RunSelected,
 )

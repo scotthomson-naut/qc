@@ -354,7 +354,7 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
         )
 
         # ---------------------------------------------------------
-        # Select All / Critical / None
+        # Select All / Critical / Invert / None
         # ---------------------------------------------------------
 
         row = layout.row(align=True)
@@ -370,6 +370,14 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
         row.operator(
             "scriptronaut.qc_select_critical",
             icon="KEYTYPE_EXTREME_VEC",
+            text="",
+        )
+
+        row.separator()
+
+        row.operator(
+            "scriptronaut.qc_select_invert",
+            icon="MOD_BRIGHTNESS_CONTRAST",
             text="",
         )
 
