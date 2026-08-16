@@ -11,7 +11,7 @@ from .properties import items as property_items
 from .properties import settings as property_settings
 from .operators import category_editor, fix, info, run, selection, settings as settings_ops
 from .ui import lists, panel
-from .ui.icons import (
+from .icons import (
     register_icons,
     unregister_icons,
 )

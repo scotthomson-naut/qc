@@ -208,7 +208,7 @@ class SCRIPTRONAUT_OT_QC_ObjectDetails(
                 check_item.display_name
                 or check_item.name
             ),
-            icon=get_severity_icon(
+            icon_value=get_severity_icon(
                 check_item.severity
             ),
         )

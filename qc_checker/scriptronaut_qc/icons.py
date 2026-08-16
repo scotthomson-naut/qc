@@ -44,6 +44,7 @@ def register_icons():
 
     icon_directory = os.path.join(
         os.path.dirname(__file__),
+        "ui",
         "icons",
     )
 

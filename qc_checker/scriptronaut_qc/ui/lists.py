@@ -93,7 +93,7 @@ class SCRIPTRONAUT_UL_QC_Checks(UIList):
         severity_info = row.operator(
             "scriptronaut.qc_check_info",
             text="",
-            icon=get_severity_icon(
+            icon_value=get_severity_icon(
                 item.severity
             ),
             emboss=False,
@@ -363,6 +363,7 @@ class SCRIPTRONAUT_UL_QC_ObjectChecks(UIList):
         # ---------------------------------------------------------
 
         if source_check is not None:
+
             severity_icon = get_severity_icon(
                 source_check.severity
             )
@@ -374,11 +375,14 @@ class SCRIPTRONAUT_UL_QC_ObjectChecks(UIList):
             )
 
         else:
-            severity_icon = (
-                "KEYTYPE_KEYFRAME_VEC"
+
+            severity_icon = get_severity_icon(
+                "warning"
             )
 
-            display_name = item.name
+            display_name = (
+                item.name
+            )
 
         # ---------------------------------------------------------
         # Layout
@@ -403,7 +407,7 @@ class SCRIPTRONAUT_UL_QC_ObjectChecks(UIList):
 
         name_column.label(
             text="",
-            icon=severity_icon,
+            icon_value=severity_icon,
         )
 
         # ---------------------------------------------------------

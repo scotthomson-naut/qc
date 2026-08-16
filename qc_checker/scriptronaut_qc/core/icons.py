@@ -1,20 +1,31 @@
 """Scriptronaut QC Checks internal module."""
 
-from typing import Any
+from ..icons import get_icon_id
 
 
-def get_severity_icon(severity):
+def get_severity_icon(
+        severity,
+    ):
     """
-    Returns the Blender icon for a QC severity.
+    Returns the custom icon ID for a QC severity.
     """
 
     icons = {
-        "critical": "KEYTYPE_EXTREME_VEC",
-        "warning": "KEYTYPE_KEYFRAME_VEC",
-        "info": "KEYTYPE_BREAKDOWN_VEC",
+        "critical":
+            "severity_critical",
+
+        "warning":
+            "severity_warning",
+
+        "info":
+            "severity_info",
     }
 
-    return icons.get(
+    icon_name = icons.get(
         severity,
-        "KEYTYPE_KEYFRAME_VEC",
+        "severity_warning",
+    )
+
+    return get_icon_id(
+        icon_name
     )
