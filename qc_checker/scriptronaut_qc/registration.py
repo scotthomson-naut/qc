@@ -11,6 +11,10 @@ from .properties import items as property_items
 from .properties import settings as property_settings
 from .operators import category_editor, fix, info, run, selection, settings as settings_ops
 from .ui import lists, panel
+from .ui.icons import (
+    register_icons,
+    unregister_icons,
+)
 from .properties import (
     SCRIPTRONAUT_QC_CheckItem, SCRIPTRONAUT_QC_EditorItem,
     SCRIPTRONAUT_QC_FailedObjectItem, SCRIPTRONAUT_QC_ObjectCheckItem,
@@ -38,6 +42,7 @@ SCENE_PROPERTIES = (
 
 
 def register():
+    register_icons()
     for cls in CLASSES:
         bpy.utils.register_class(cls)
     bpy.types.Scene.scriptronaut_qc_settings = PointerProperty(type=SCRIPTRONAUT_QC_Settings)
@@ -69,3 +74,4 @@ def unregister():
             delattr(bpy.types.Scene, name)
     for cls in reversed(CLASSES):
         bpy.utils.unregister_class(cls)
+    unregister_icons()
