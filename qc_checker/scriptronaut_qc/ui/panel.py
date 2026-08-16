@@ -377,7 +377,7 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
 
         row.operator(
             "scriptronaut.qc_select_invert",
-            icon="SELECT_DIFFERENCE",
+            icon="CLIPUV_HLT",
             text="",
         )
 
