@@ -240,21 +240,27 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
             text="Critical: {}".format(
                 critical_count
             ),
-            icon="KEYTYPE_EXTREME_VEC",
+            icon_value=get_icon_id(
+                "severity_critical"
+            ),
         )
 
         warning_col.label(
             text="Warning: {}".format(
                 warning_count
             ),
-            icon="KEYTYPE_KEYFRAME_VEC",
+            icon_value=get_icon_id(
+                "severity_warning"
+            ),
         )
 
         info_col.label(
             text="Info: {}".format(
                 info_count
             ),
-            icon="KEYTYPE_BREAKDOWN_VEC",
+            icon_value=get_icon_id(
+                "severity_info"
+            ),
         )
 
 
@@ -370,7 +376,9 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
 
         row.operator(
             "scriptronaut.qc_select_critical",
-            icon="KEYTYPE_EXTREME_VEC",
+            icon_value=get_icon_id(
+                "severity_critical"
+            ),
             text="",
         )
 
