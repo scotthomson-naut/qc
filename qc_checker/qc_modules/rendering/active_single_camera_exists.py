@@ -358,10 +358,19 @@ def get_camera_status(scene=None):
     camera_objects = [
         obj
         for obj in scene.objects
-        if obj.type == "CAMERA"
+        if (
+            obj.type == "CAMERA"
+            and obj.library is None
+        )
     ]
 
     active_camera = scene.camera
+
+    if (
+        active_camera is not None
+        and active_camera.library is not None
+    ):
+        active_camera = None
 
     return {
         "has_camera": bool(camera_objects),

@@ -118,6 +118,11 @@ def get_objects_with_empty_nla_tracks(
     failed_objects = {}
 
     for obj in objects:
+        # Ignore directly linked library objects. They are read-only
+        # in this file and should not be reported by local QC checks.
+        if obj.library is not None:
+            continue
+
         animation_data = getattr(
             obj,
             "animation_data",
@@ -222,6 +227,9 @@ def remove_empty_nla_tracks(
                     object_name
                 )
             )
+            continue
+
+        if obj.library is not None:
             continue
 
         animation_data = getattr(

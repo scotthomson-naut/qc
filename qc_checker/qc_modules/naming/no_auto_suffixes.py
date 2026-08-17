@@ -159,6 +159,11 @@ def get_objects_with_auto_increment_names(
 
     for obj in objects:
 
+        # Directly linked library objects are read-only and are
+        # outside the scope of local naming QC.
+        if obj.library is not None:
+            continue
+
         if obj.type in exclude_types:
             continue
 

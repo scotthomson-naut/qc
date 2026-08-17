@@ -86,6 +86,9 @@ def get_objects_with_missing_materials(
 
     for obj in objects:
 
+        if obj.library is not None:
+            continue
+
         if obj.type != "MESH":
             continue
 
@@ -225,6 +228,9 @@ def assign_placeholder_materials(
         )
 
         if obj is None:
+            continue
+
+        if obj.library is not None:
             continue
 
         if obj.type != "MESH":

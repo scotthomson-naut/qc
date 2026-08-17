@@ -113,6 +113,11 @@ def get_objects_with_mismatched_data_names(
     failed_objects = {}
 
     for obj in objects:
+
+        # Directly linked library objects are read-only and are
+        # outside the scope of local naming QC.
+        if obj.library is not None:
+            continue
         if obj.data is None:
             continue
 
@@ -188,6 +193,9 @@ def fix_objects_with_mismatched_data_names(
                     object_name
                 )
             )
+            continue
+
+        if obj.library is not None:
             continue
 
         datablock = obj.data

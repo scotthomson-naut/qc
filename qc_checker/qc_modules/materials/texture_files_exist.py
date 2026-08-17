@@ -143,6 +143,11 @@ def get_images_with_missing_file_paths(
 
     for image in images:
 
+        # Ignore images coming directly from linked Blender libraries.
+        # Their paths belong to the source library, not this local file.
+        if image.library is not None:
+            continue
+
         source = image.source
 
         # -----------------------------------------------------
@@ -304,6 +309,10 @@ def get_objects_using_failed_images(
 
     for obj in objects:
 
+        # Directly linked objects are read-only and outside local QC scope.
+        if obj.library is not None:
+            continue
+
         object_missing_images = []
 
         material_slots = getattr(
@@ -323,6 +332,9 @@ def get_objects_using_failed_images(
             )
 
             if material is None:
+                continue
+
+            if material.library is not None:
                 continue
 
             if not material.use_nodes:

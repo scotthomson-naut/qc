@@ -196,6 +196,10 @@ def get_failed_colorspace_objects(failed_materials, scene=None):
     failed_objects = {}
 
     for obj in scene.objects:
+
+        if obj.library is not None:
+            continue
+
         material_results = []
 
         for slot_index, slot in enumerate(
@@ -296,6 +300,9 @@ def fix_color_space(
                     image_name
                 )
             )
+            continue
+
+        if image.library is not None:
             continue
 
         # -----------------------------------------------------
@@ -408,6 +415,9 @@ def analyze_scene_texture_usage(settings=None):
             image = getattr(node, "image", None)
 
             if image is None:
+                continue
+
+            if image.library is not None:
                 continue
 
             node_usage = classify_image_texture_usage(
@@ -897,6 +907,10 @@ def get_scene_materials(scene=None):
     seen = set()
 
     for obj in scene.objects:
+
+        if obj.library is not None:
+            continue
+
         for slot in getattr(
             obj,
             "material_slots",
@@ -909,6 +923,9 @@ def get_scene_materials(scene=None):
             )
 
             if material is None:
+                continue
+
+            if material.library is not None:
                 continue
 
             key = get_datablock_key(material)

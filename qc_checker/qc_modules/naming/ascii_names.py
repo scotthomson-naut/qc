@@ -172,6 +172,11 @@ def get_objects_with_unicode_characters(
     failed_objects = {}
 
     for obj in objects:
+
+        # Directly linked library objects are read-only and are
+        # outside the scope of local naming QC.
+        if obj.library is not None:
+            continue
         object_result = get_unicode_name_data(
             obj.name
         )

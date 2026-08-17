@@ -149,6 +149,10 @@ def get_objects_exceeding_poly_budget(
     total_triangles = 0
 
     for obj in objects:
+
+        if obj.library is not None:
+            continue
+
         if obj.type != "MESH":
             continue
 

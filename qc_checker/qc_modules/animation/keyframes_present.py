@@ -116,6 +116,11 @@ def get_objects_with_empty_actions(
     failed_objects = {}
 
     for obj in objects:
+        # Ignore directly linked library objects. They are read-only
+        # in this file and should not be reported by local QC checks.
+        if obj.library is not None:
+            continue
+
         animation_data = getattr(
             obj,
             "animation_data",
@@ -210,6 +215,9 @@ def unassign_empty_actions(
                     object_name
                 )
             )
+            continue
+
+        if obj.library is not None:
             continue
 
         animation_data = getattr(

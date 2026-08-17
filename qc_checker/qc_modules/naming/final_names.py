@@ -173,6 +173,11 @@ def get_objects_with_invalid_prefixes(
 
     for obj in objects:
 
+        # Directly linked library objects are read-only and are
+        # outside the scope of local naming QC.
+        if obj.library is not None:
+            continue
+
         # -----------------------------------------------------
         # Object name
         # -----------------------------------------------------
@@ -430,6 +435,9 @@ def fix_invalid_prefixes(
                     original_object_name
                 )
             )
+            continue
+
+        if obj.library is not None:
             continue
 
         fixed_data = {}

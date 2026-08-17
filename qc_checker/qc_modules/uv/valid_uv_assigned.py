@@ -150,6 +150,11 @@ def get_meshes_with_unmapped_polygons(
 
     for obj in objects:
 
+        # Directly linked library objects are read-only and outside
+        # the scope of local UV QC.
+        if obj.library is not None:
+            continue
+
         if obj.type != "MESH":
             continue
 

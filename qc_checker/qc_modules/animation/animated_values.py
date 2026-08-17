@@ -211,6 +211,11 @@ def get_objects_with_constant_fcurves(
     failed_objects = {}
 
     for obj in objects:
+        # Ignore directly linked library objects. They are read-only
+        # in this file and should not be reported by local QC checks.
+        if obj.library is not None:
+            continue
+
         action = get_object_action(
             obj
         )
@@ -370,6 +375,9 @@ def reduce_constant_fcurves(
                     object_name
                 )
             )
+            continue
+
+        if obj.library is not None:
             continue
 
         action = get_object_action(

@@ -141,6 +141,11 @@ def get_objects_with_trailing_spaces(
 
     for obj in objects:
 
+        # Directly linked library objects are read-only and are
+        # outside the scope of local naming QC.
+        if obj.library is not None:
+            continue
+
         # -----------------------------------------------------
         # Object name
         # -----------------------------------------------------
@@ -299,6 +304,9 @@ def fix_objects_with_trailing_spaces(
                     old_object_name
                 )
             )
+            continue
+
+        if obj.library is not None:
             continue
 
         fixed_data = {}

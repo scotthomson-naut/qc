@@ -88,6 +88,12 @@ def get_objects_in_scene_root(scene=None):
     failed_objects = {}
 
     for obj in scene.collection.objects:
+
+        # Directly linked library objects are read-only and outside
+        # the scope of local scene organization QC.
+        if obj.library is not None:
+            continue
+
         failed_objects[obj.name] = {
             "issue": "Linked directly to the Scene Collection root.",
         }

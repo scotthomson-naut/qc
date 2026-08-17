@@ -312,6 +312,10 @@ def get_scene_animation_range(
     animated_objects = {}
 
     for obj in scene.objects:
+
+        if obj.library is not None:
+            continue
+
         object_range = get_object_animation_range(
             obj=obj,
             include_muted_nla=include_muted_nla,

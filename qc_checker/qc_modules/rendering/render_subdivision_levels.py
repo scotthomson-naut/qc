@@ -249,6 +249,10 @@ def get_objects_with_excessive_render_subdivision(
     failed_objects = {}
 
     for obj in objects:
+
+        if obj.library is not None:
+            continue
+
         modifiers = getattr(
             obj,
             "modifiers",
@@ -463,6 +467,9 @@ def reduce_excessive_render_subdivision(
                     object_name
                 )
             )
+            continue
+
+        if obj.library is not None:
             continue
 
         if not isinstance(

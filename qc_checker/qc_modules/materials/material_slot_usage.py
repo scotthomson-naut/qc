@@ -211,6 +211,10 @@ def get_objects_with_unused_material_slots(
     failed_objects = {}
 
     for obj in objects:
+
+        if obj.library is not None:
+            continue
+
         if obj.type != "MESH":
             continue
 
@@ -373,6 +377,9 @@ def remove_unused_material_slots(
             )
             continue
 
+        if obj.library is not None:
+            continue
+
         if obj.type != "MESH":
             issues.append(
                 'Object "{}" is no longer a mesh.'.format(
@@ -474,7 +481,11 @@ def get_current_unused_slot_indices(
     Returns:
         list[int]
     """
-    if obj is None or obj.type != "MESH":
+    if (
+        obj is None
+        or obj.type != "MESH"
+        or obj.library is not None
+    ):
         return []
 
     results = get_objects_with_unused_material_slots(
@@ -523,6 +534,9 @@ def remove_material_slot_by_index(
 
     if obj.type != "MESH":
         return False, "Object is not a mesh."
+
+    if obj.library is not None:
+        return False, "Linked library object is read-only."
 
     if (
         slot_index < 0

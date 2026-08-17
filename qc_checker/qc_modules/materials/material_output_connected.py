@@ -235,6 +235,13 @@ def get_materials_with_unconnected_nodes(
     failed_materials = {}
 
     for material in materials:
+
+        if material is None:
+            continue
+
+        if material.library is not None:
+            continue
+
         material_result = get_material_unconnected_nodes(
             material=material,
             settings=settings,
@@ -662,6 +669,10 @@ def get_scene_materials(scene=None):
     seen_materials = set()
 
     for obj in scene.objects:
+
+        if obj.library is not None:
+            continue
+
         for material_slot in getattr(
             obj,
             "material_slots",
@@ -674,6 +685,9 @@ def get_scene_materials(scene=None):
             )
 
             if material is None:
+                continue
+
+            if material.library is not None:
                 continue
 
             try:
@@ -729,6 +743,10 @@ def get_objects_using_failed_materials(
     failed_objects = {}
 
     for obj in scene.objects:
+
+        if obj.library is not None:
+            continue
+
         object_materials = []
 
         for slot_index, material_slot in enumerate(
@@ -745,6 +763,9 @@ def get_objects_using_failed_materials(
             )
 
             if material is None:
+                continue
+
+            if material.library is not None:
                 continue
 
             if material.name not in failed_material_names:

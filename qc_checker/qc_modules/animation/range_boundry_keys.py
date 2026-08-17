@@ -111,6 +111,11 @@ def get_objects_missing_start_end_keys(
     failed_objects = {}
 
     for obj in objects:
+        # Ignore directly linked library objects. They are read-only
+        # in this file and should not be reported by local QC checks.
+        if obj.library is not None:
+            continue
+
         animation_data = obj.animation_data
 
         if (
@@ -207,6 +212,9 @@ def fix_objects_missing_start_end_keys(result_data=None):
             issues.append(
                 "Object no longer exists: {}".format(object_name)
             )
+            continue
+
+        if obj.library is not None:
             continue
 
         animation_data = obj.animation_data

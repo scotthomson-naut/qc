@@ -279,7 +279,8 @@ def get_objects_with_overlapping_uv_faces(
         obj
         for obj in objects
         if (
-            obj.type == "MESH"
+            obj.library is None
+            and obj.type == "MESH"
             and obj.data is not None
             and obj.data.polygons
             and obj.data.uv_layers
@@ -913,6 +914,15 @@ def run_active_uv_overlap_batch(
         multi-object Edit Mode session. The caller must run those objects
         through the proven single-object native path.
     """
+    objects = [
+        obj
+        for obj in objects
+        if (
+            obj is not None
+            and obj.library is None
+        )
+    ]
+
     if not objects:
         return (
             {},
