@@ -5,7 +5,11 @@ import time
 from bpy.types import Panel, UIList
 
 from ..constants import COMMON_CATEGORY, TIER
-from ..core import get_qc_elapsed_text, get_severity_icon
+from ..core import (
+    get_qc_elapsed_text,
+    get_severity_icon,
+    notify_window_scene_changed,
+)
 from ..utils.json_io import result_summary_from_json
 from .helpers import draw_wrapped_text
 from ..icons import get_icon_id
@@ -80,6 +84,25 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
         checks = (
             scene.scriptronaut_qc_checks
         )
+
+        # ---------------------------------------------------------
+        # New Scene initialization
+        # ---------------------------------------------------------
+        #
+        # QC check collections are stored per Scene. Blender creates a
+        # brand-new Scene with an empty collection, but the Category enum
+        # can already display its default value without firing the enum's
+        # update callback.
+        #
+        # Scene-change/depsgraph notifications are not guaranteed for every
+        # way Blender creates an empty Scene. The panel redraw, however, is
+        # guaranteed because Blender is displaying the new Scene.
+        #
+        # Request a deferred initialization here. The timer performs the
+        # actual collection mutation after draw() has finished, avoiding
+        # RNA changes from inside the panel draw callback itself.
+        if len(checks) == 0:
+            notify_window_scene_changed()
 
         # ---------------------------------------------------------
         # Tier-level settings

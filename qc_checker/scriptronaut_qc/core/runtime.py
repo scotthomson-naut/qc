@@ -142,20 +142,266 @@ def mark_scene_modified_after_qc(
             break
 
 
-def redraw_qc_status_timer():
+QC_SCENE_MSGBUS_OWNER = object()
+
+
+def initialize_scene_qc(
+        scene,
+        window=None,
+    ):
     """
-    Redraws View3D areas so elapsed QC time updates while idle.
+    Initializes the QC list for one Scene when its per-scene collection
+    is still empty.
+
+    Returns:
+        bool:
+            True when the Scene is initialized or already populated.
+            False when Blender does not yet provide a usable context.
+    """
+    if scene is None:
+        return False
+
+    if not hasattr(
+        scene,
+        "scriptronaut_qc_settings",
+    ):
+        return False
+
+    if not hasattr(
+        scene,
+        "scriptronaut_qc_checks",
+    ):
+        return False
+
+    settings = (
+        scene.scriptronaut_qc_settings
+    )
+
+    checks = (
+        scene.scriptronaut_qc_checks
+    )
+
+    if len(checks) > 0:
+        return True
+
+    categories = get_categories(
+        settings.folder_path,
+        use_json=settings.use_check_settings,
+    )
+
+    if not categories:
+        checks.clear()
+        settings.issues_display = ""
+        return True
+
+    # New Scenes inherit the EnumProperty default display, but the update
+    # callback does not run because no user-driven category change occurred.
+    # Ensure the stored value is valid before explicitly loading it.
+    current_category = settings.category
+
+    if current_category not in categories:
+        try:
+            settings.category = categories[0]
+        except (TypeError, ValueError):
+            return False
+
+        # The EnumProperty update callback may populate the collection.
+        if len(checks) > 0:
+            return True
+
+        current_category = settings.category
+
+    # Some newly-created Scenes can visually show the first enum item
+    # while the underlying RNA value has not yet caused its update callback
+    # to run. At this point we explicitly load whatever valid category is
+    # stored rather than waiting for another property change.
+    if current_category not in categories:
+        return False
+
+    windows = list(
+        bpy.context.window_manager.windows
+    )
+
+    if not windows:
+        return False
+
+    if window is None:
+        for candidate in windows:
+            if candidate.scene == scene:
+                window = candidate
+                break
+
+    if window is None:
+        window = (
+            bpy.context.window
+            or windows[0]
+        )
+
+    screen = window.screen
+
+    if screen is None:
+        return False
+
+    try:
+        with bpy.context.temp_override(
+            window=window,
+            screen=screen,
+            scene=scene,
+        ):
+            success, message = load_qc_category(
+                bpy.context
+            )
+
+        if not success:
+            print(
+                "Scriptronaut QC could not initialize Scene '{}': {}".format(
+                    scene.name,
+                    message,
+                )
+            )
+
+        return success
+
+    except Exception as error:
+        print(
+            "Scriptronaut QC could not initialize Scene '{}': {}".format(
+                scene.name,
+                error,
+            )
+        )
+
+        return False
+
+
+def initialize_current_window_scenes_timer():
+    """
+    Initializes Scenes currently displayed by Blender windows.
+
+    This is scheduled by the RNA message bus when Window.scene changes,
+    which happens immediately when the user creates or switches Scenes.
+    """
+    windows = list(
+        bpy.context.window_manager.windows
+    )
+
+    if not windows:
+        return 0.1
+
+    all_initialized = True
+
+    for window in windows:
+        scene = window.scene
+
+        if scene is None:
+            continue
+
+        if not initialize_scene_qc(
+            scene,
+            window=window,
+        ):
+            all_initialized = False
+
+    redraw_view3d_areas()
+
+    if not all_initialized:
+        return 0.1
+
+    return None
+
+
+def notify_window_scene_changed():
+    """
+    Message-bus callback fired when a Blender window changes Scene.
+
+    RNA message-bus callbacks do not receive a reliable UI context, so the
+    actual initialization is deferred to a short timer tick.
+    """
+    if not bpy.app.timers.is_registered(
+        initialize_current_window_scenes_timer
+    ):
+        bpy.app.timers.register(
+            initialize_current_window_scenes_timer,
+            first_interval=0.01,
+        )
+
+
+def register_scene_change_listener():
+    """
+    Subscribes to Blender Window.scene changes.
+    """
+    bpy.msgbus.clear_by_owner(
+        QC_SCENE_MSGBUS_OWNER
+    )
+
+    bpy.msgbus.subscribe_rna(
+        key=(
+            bpy.types.Window,
+            "scene",
+        ),
+        owner=QC_SCENE_MSGBUS_OWNER,
+        args=(),
+        notify=notify_window_scene_changed,
+        options={
+            "PERSISTENT",
+        },
+    )
+
+
+def unregister_scene_change_listener():
+    """
+    Removes the Window.scene message-bus subscription.
+    """
+    bpy.msgbus.clear_by_owner(
+        QC_SCENE_MSGBUS_OWNER
+    )
+
+    if bpy.app.timers.is_registered(
+        initialize_current_window_scenes_timer
+    ):
+        bpy.app.timers.unregister(
+            initialize_current_window_scenes_timer
+        )
+
+
+def initialize_new_scene_qc(
+        scene,
+        depsgraph,
+    ):
+    """
+    Dependency-graph fallback for newly created Scenes.
+
+    The Window.scene message bus is the primary mechanism because an empty
+    newly-created Scene may not produce a dependency-graph update immediately.
+    """
+    initialize_scene_qc(
+        scene
+    )
+
+
+def redraw_view3d_areas():
+    """
+    Requests redraw for every View3D area.
     """
     try:
         for window in bpy.context.window_manager.windows:
             screen = window.screen
+
             if screen is None:
                 continue
+
             for area in screen.areas:
                 if area.type == "VIEW_3D":
                     area.tag_redraw()
+
     except Exception:
         pass
+
+
+def redraw_qc_status_timer():
+    """
+    Redraws View3D areas so elapsed QC time updates while idle.
+    """
+    redraw_view3d_areas()
 
     return 30.0
 

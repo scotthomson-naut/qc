@@ -4,8 +4,13 @@ import bpy
 from bpy.props import CollectionProperty, PointerProperty
 
 from .core.runtime import (
-    initialize_qc_checks_after_load, initialize_qc_checks_timer,
-    mark_scene_modified_after_qc, redraw_qc_status_timer,
+    initialize_new_scene_qc,
+    initialize_qc_checks_after_load,
+    initialize_qc_checks_timer,
+    mark_scene_modified_after_qc,
+    redraw_qc_status_timer,
+    register_scene_change_listener,
+    unregister_scene_change_listener,
 )
 from .properties import items as property_items
 from .properties import settings as property_settings
@@ -52,6 +57,12 @@ def register():
     bpy.types.Scene.scriptronaut_qc_object_checks = CollectionProperty(type=SCRIPTRONAUT_QC_ObjectCheckItem)
     if initialize_qc_checks_after_load not in bpy.app.handlers.load_post:
         bpy.app.handlers.load_post.append(initialize_qc_checks_after_load)
+
+    register_scene_change_listener()
+
+    if initialize_new_scene_qc not in bpy.app.handlers.depsgraph_update_post:
+        bpy.app.handlers.depsgraph_update_post.append(initialize_new_scene_qc)
+
     if mark_scene_modified_after_qc not in bpy.app.handlers.depsgraph_update_post:
         bpy.app.handlers.depsgraph_update_post.append(mark_scene_modified_after_qc)
     if not bpy.app.timers.is_registered(initialize_qc_checks_timer):
@@ -63,6 +74,12 @@ def register():
 def unregister():
     if initialize_qc_checks_after_load in bpy.app.handlers.load_post:
         bpy.app.handlers.load_post.remove(initialize_qc_checks_after_load)
+
+    unregister_scene_change_listener()
+
+    if initialize_new_scene_qc in bpy.app.handlers.depsgraph_update_post:
+        bpy.app.handlers.depsgraph_update_post.remove(initialize_new_scene_qc)
+
     if mark_scene_modified_after_qc in bpy.app.handlers.depsgraph_update_post:
         bpy.app.handlers.depsgraph_update_post.remove(mark_scene_modified_after_qc)
     if bpy.app.timers.is_registered(initialize_qc_checks_timer):
