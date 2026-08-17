@@ -254,6 +254,11 @@ def get_objects_with_loose_geometry(
     )
 
     for obj in objects:
+        # Ignore directly linked library objects. They are read-only
+        # in this file and cannot be safely fixed by this QC check.
+        if obj.library is not None:
+            continue
+
 
         if obj.type != "MESH":
             continue
@@ -585,6 +590,7 @@ def analyze_object_components(
     if (
         obj is None
         or obj.type != "MESH"
+        or obj.library is not None
     ):
         return None
 
@@ -1535,6 +1541,11 @@ def remove_object_loose_components(
     """
     if settings is None:
         settings = resolve_settings(SETTINGS)
+
+    if obj.library is not None:
+        return {
+            "error": "Linked library object is read-only.",
+        }
 
     mesh = obj.data
 

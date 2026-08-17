@@ -92,6 +92,11 @@ def get_objects_with_duplicate_edges(objects=None):
     failed_objects = {}
 
     for obj in objects:
+        # Ignore directly linked library objects. They are read-only
+        # in this file and cannot be safely fixed by this QC check.
+        if obj.library is not None:
+            continue
+
         if obj.type != "MESH":
             continue
 
@@ -158,7 +163,10 @@ def fix_duplicate_edges(result_data):
             )
             continue
 
-        if obj.data.library is not None:
+        if (
+            obj.library is not None
+            or obj.data.library is not None
+        ):
             issues.append(
                 "Skipped linked object: {}".format(object_name)
             )

@@ -104,6 +104,11 @@ def get_objects_scale(
     results = {}
 
     for obj in objects:
+        # Ignore directly linked library objects. They are read-only
+        # in this file and cannot be safely fixed by this QC check.
+        if obj.library is not None:
+            continue
+
         if obj.type in exclude_types:
             continue
 

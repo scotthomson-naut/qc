@@ -102,6 +102,13 @@ def get_objects_with_unapplied_location(objects=None):
         if obj.type != "MESH":
             continue
 
+        # Linked library objects are read-only from this file and cannot
+        # be fixed safely by this QC check.
+        if is_linked_object(
+            obj
+        ):
+            continue
+
         location = tuple(obj.location)
 
         has_unapplied_location = any(
@@ -244,7 +251,9 @@ def fix_objects_with_unapplied_location(
         if obj.name in candidate_names:
             return
 
-        if obj.library is not None:
+        if is_linked_object(
+            obj
+        ):
             return
 
         candidate_names.add(
@@ -275,12 +284,12 @@ def fix_objects_with_unapplied_location(
         if obj.data is None:
             continue
 
-        if obj.library is not None:
-            issues.append(
-                "Skipped linked object: {}".format(
-                    obj.name
-                )
-            )
+        if is_linked_object(
+            obj
+        ):
+            # Normally this should not be reached because linked objects
+            # are excluded by the Find stage, but keep the guard here in
+            # case an older/stale result_data payload is being fixed.
             continue
 
         original_failed_objects.append(
@@ -619,6 +628,31 @@ def fix_objects_with_unapplied_location(
 # -------------------------------------------------------------------------
 # Helpers
 # ------------------------------------------------------------------------
+
+def is_linked_object(
+        obj,
+    ):
+    """
+    Returns True when obj comes directly from an external Blender library.
+
+    Linked objects are read-only in the current file and should not be
+    reported by transform checks that offer automatic fixes.
+
+    Library Overrides are intentionally treated as local/editable here:
+        obj.library is None
+        obj.override_library is not None
+
+    Returns:
+        bool
+    """
+    if obj is None:
+        return False
+
+    return (
+        obj.library
+        is not None
+    )
+
 
 def get_object_descendants(
         obj,
