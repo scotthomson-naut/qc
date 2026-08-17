@@ -23,8 +23,10 @@ body {
   min-height: 100vh;
   color: var(--text);
   background:
+    /*
     radial-gradient(circle at 80% 15%, rgba(252,132,44,.11), transparent 26rem),
     radial-gradient(circle at 15% 80%, rgba(101,75,255,.07), transparent 30rem),
+    */
     var(--bg);
   font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
