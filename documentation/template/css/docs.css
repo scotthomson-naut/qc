@@ -98,6 +98,16 @@ img { max-width: 100%; margin-right: 4px;}
     display: flex; justify-content: center; align-items: center; margin-top:20px;
 }
 
+/* links */
+
+.i-facebook:hover {
+    filter: brightness(0) saturate(100%) invert(43%) sepia(97%) saturate(468%) hue-rotate(180deg) brightness(97%) contrast(81%);
+}
+
+.i-youtube:hover {
+    filter: brightness(0) saturate(100%) invert(78%) sepia(79%) saturate(5088%) hue-rotate(323deg) brightness(91%) contrast(96%);
+}
+
 
 .top-actions { display: flex; align-items: center; gap: 16px; color: var(--muted); font-size: .9rem; }
 .badge, .pill {
