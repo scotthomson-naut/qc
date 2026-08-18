@@ -1,12 +1,12 @@
-schema_version = "1.1.0"
+schema_version = "1.0.0"
 
 id = "scriptronaut_qc_checker"
-version = "1.1.0"
+version = "1.0.0"
 name = "Scriptronaut QC Checker"
 tagline = "Run categorized quality-control sanity checks in Blender"
 
 maintainer = "Scriptronaut"
-copyright = ["2026 Scriptronaut"]
+website = "https://scriptronaut.com"
 
 type = "add-on"
 tags = [
@@ -15,7 +15,7 @@ tags = [
     "Workflow",
 ]
 
-blender_version_min = "5.1.0"
+blender_version_min = "4.3.0"
 license = ["SPDX:GPL-3.0-or-later"]
 
 
