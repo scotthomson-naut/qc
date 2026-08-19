@@ -309,6 +309,102 @@ def initialize_current_window_scenes_timer():
     return None
 
 
+def refresh_current_window_qc_categories_timer():
+    """
+    Reloads the currently selected QC category for every visible Scene
+    after the registered check-pack list changes.
+    """
+    windows = list(
+        bpy.context.window_manager.windows
+    )
+
+    if not windows:
+        return 0.1
+
+    retry = False
+
+    for window in windows:
+        scene = window.scene
+
+        if scene is None:
+            continue
+
+        if not hasattr(
+            scene,
+            "scriptronaut_qc_settings",
+        ):
+            retry = True
+            continue
+
+        if not hasattr(
+            scene,
+            "scriptronaut_qc_checks",
+        ):
+            retry = True
+            continue
+
+        screen = window.screen
+
+        if screen is None:
+            retry = True
+            continue
+
+        try:
+            with bpy.context.temp_override(
+                window=window,
+                screen=screen,
+                scene=scene,
+            ):
+                success, message = load_qc_category(
+                    bpy.context
+                )
+
+            if not success:
+                print(
+                    (
+                        "Scriptronaut QC could not refresh Scene "
+                        "'{}' after a pack change: {}"
+                    ).format(
+                        scene.name,
+                        message,
+                    )
+                )
+
+        except Exception as error:
+            print(
+                (
+                    "Scriptronaut QC could not refresh Scene "
+                    "'{}' after a pack change: {}"
+                ).format(
+                    scene.name,
+                    error,
+                )
+            )
+
+            retry = True
+
+    redraw_view3d_areas()
+
+    if retry:
+        return 0.1
+
+    return None
+
+
+def notify_check_pack_registry_changed():
+    """
+    Schedules a deferred category reload after a check pack is
+    registered or unregistered.
+    """
+    if not bpy.app.timers.is_registered(
+        refresh_current_window_qc_categories_timer
+    ):
+        bpy.app.timers.register(
+            refresh_current_window_qc_categories_timer,
+            first_interval=0.01,
+        )
+
+
 def notify_window_scene_changed():
     """
     Message-bus callback fired when a Blender window changes Scene.

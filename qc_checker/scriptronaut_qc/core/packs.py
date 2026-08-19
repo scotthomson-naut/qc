@@ -7,6 +7,25 @@ import os
 _PACKS = OrderedDict()
 
 
+def _notify_registry_changed():
+    """
+    Requests a QC category refresh without creating an import cycle.
+    """
+    try:
+        from .runtime import (
+            notify_check_pack_registry_changed,
+        )
+
+        notify_check_pack_registry_changed()
+
+    except Exception as error:
+        print(
+            "Scriptronaut QC pack refresh notification failed: {}".format(
+                error
+            )
+        )
+
+
 def register_check_pack(
         pack_id,
         name,
@@ -149,6 +168,8 @@ def register_check_pack(
         )
     )
 
+    _notify_registry_changed()
+
     return dict(
         record
     )
@@ -181,6 +202,8 @@ def unregister_check_pack(
             record["name"]
         )
     )
+
+    _notify_registry_changed()
 
     return True
 
