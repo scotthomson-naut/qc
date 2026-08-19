@@ -3,6 +3,12 @@
 import bpy
 from bpy.props import CollectionProperty, PointerProperty
 
+from .constants import QC_MODULES_DIR
+from .core.packs import (
+    register_check_pack,
+    unregister_check_pack,
+)
+
 from .core.runtime import (
     initialize_new_scene_qc,
     initialize_qc_checks_after_load,
@@ -47,6 +53,16 @@ SCENE_PROPERTIES = (
 
 
 def register():
+    # Core is itself a registered check pack. Discovery never needs to know
+    # that these checks happen to ship beside the framework.
+    register_check_pack(
+        pack_id="scriptronaut_core",
+        name="Scriptronaut QC Core",
+        checks_path=QC_MODULES_DIR,
+        version="0.1.0",
+        priority=0,
+    )
+
     register_icons()
     for cls in CLASSES:
         bpy.utils.register_class(cls)
@@ -72,6 +88,10 @@ def register():
 
 
 def unregister():
+    unregister_check_pack(
+        "scriptronaut_core"
+    )
+
     if initialize_qc_checks_after_load in bpy.app.handlers.load_post:
         bpy.app.handlers.load_post.remove(initialize_qc_checks_after_load)
 

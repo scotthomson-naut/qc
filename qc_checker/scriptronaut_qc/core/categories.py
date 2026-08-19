@@ -70,9 +70,6 @@ def load_qc_category(context):
     folder_path = settings.folder_path
     category = settings.category
 
-    if not os.path.isdir(folder_path):
-        return False, "QC folder does not exist."
-
     scripts = get_scripts(
         folder_path,
         category,
@@ -96,6 +93,11 @@ def load_qc_category(context):
 
         item.source_category = (
             script_data["source_category"]
+        )
+
+        item.pack_id = script_data.get(
+            "pack_id",
+            "legacy",
         )
 
         item.selected = True
@@ -268,7 +270,10 @@ def populate_qc_editor(context, category=None):
     editor_items = scene.scriptronaut_qc_editor_items
     editor_items.clear()
 
-    registry, duplicate_names = discover_check_scripts(settings.folder_path)
+    registry, duplicate_names = discover_check_scripts(
+        settings.folder_path,
+        registered=False,
+    )
     if duplicate_names:
         lines = []
         for script_name, paths in duplicate_names.items():
@@ -291,6 +296,7 @@ def populate_qc_editor(context, category=None):
         item.name = script_name
         item.script_path = script_data["script_path"]
         item.source_category = script_data["source_category"]
+        item.pack_id = script_data.get("pack_id", "legacy")
         item.selected = script_name in assigned_names
 
     settings.editor_index = 0

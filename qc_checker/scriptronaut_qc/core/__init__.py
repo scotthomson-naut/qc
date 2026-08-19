@@ -1,6 +1,7 @@
 """QC framework core services."""
 
 from .context import QCContext
+from .packs import *
 from .preferences import *
 from .discovery import *
 from .results import *

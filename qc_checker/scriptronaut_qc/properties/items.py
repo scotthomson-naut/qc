@@ -92,6 +92,11 @@ class SCRIPTRONAUT_QC_CheckItem(PropertyGroup):
         default="",
     )
 
+    pack_id: StringProperty(
+        name="Pack ID",
+        default="",
+    )
+
     has_fix: BoolProperty(
         default=False
     )
@@ -142,6 +147,7 @@ class SCRIPTRONAUT_QC_EditorItem(PropertyGroup):
     name: StringProperty(name="Script Name", default="")
     script_path: StringProperty(name="Script Path", default="")
     source_category: StringProperty(name="Source Folder", default="")
+    pack_id: StringProperty(name="Pack ID", default="")
     selected: BoolProperty(name="Enabled", default=False)
 
 
