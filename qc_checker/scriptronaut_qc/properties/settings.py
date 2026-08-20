@@ -3,7 +3,7 @@
 from bpy.props import BoolProperty, CollectionProperty, EnumProperty, FloatProperty, IntProperty, StringProperty
 from bpy.types import PropertyGroup
 
-from ..constants import QC_MODULES_DIR
+from ..constants import CHECKS_DIR
 from ..core.callbacks import update_qc_category, update_qc_check_index, update_use_check_settings
 from ..core.categories import qc_category_items, qc_editor_category_items, refresh_object_failed_checks
 
@@ -18,7 +18,7 @@ class SCRIPTRONAUT_QC_Settings(PropertyGroup):
     folder_path: StringProperty(
         name="QC Folder",
         subtype="DIR_PATH",
-        default=str(QC_MODULES_DIR),
+        default=str(CHECKS_DIR),
     )
 
     last_run_time: StringProperty(

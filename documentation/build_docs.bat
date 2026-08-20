@@ -9,12 +9,12 @@ echo.
 REM Root folder (folder this BAT is in)
 set ROOT=%~dp0
 
-set QC_MODULES=%ROOT%..\qc_checker\qc_modules
+set CHECKS=%ROOT%..\qc_checker\checks
 set TEMPLATE=%ROOT%\template
 set OUTPUT=%ROOT%\site
 
 python "%ROOT%\build_docs.py" ^
-    "%QC_MODULES%" ^
+    "%CHECKS%" ^
     "%TEMPLATE%" ^
     "%OUTPUT%" ^
     --version 1.1

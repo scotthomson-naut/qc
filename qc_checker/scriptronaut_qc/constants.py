@@ -2,7 +2,11 @@ from pathlib import Path
 import bpy
 
 EXTENSION_ROOT = Path(__file__).resolve().parent.parent
-QC_MODULES_DIR = str(EXTENSION_ROOT / "qc_modules")
+CHECKS_DIR = str(EXTENSION_ROOT / "checks")
+
+# Backward-compatibility alias for older internal/external code.
+# New code should use CHECKS_DIR.
+QC_MODULES_DIR = CHECKS_DIR
 COMMON_CATEGORY = "common"
 CHECK_SETTINGS_FILE = "check_settings.json"
 CHECK_PREFERENCES_DIR = bpy.utils.user_resource(

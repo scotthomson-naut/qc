@@ -155,14 +155,14 @@ def parse_check(script_path: Path, category: str, root: Path) -> dict[str, Any]:
 
 
 def generate_metadata(
-    qc_modules_dir: str | Path,
+    checks_dir: str | Path,
     output_json: str | Path,
     output_js: str | Path | None = None,
     categories: Iterable[str] | None = None,
 ) -> list[dict[str, Any]]:
-    root = Path(qc_modules_dir).resolve()
+    root = Path(checks_dir).resolve()
     if not root.is_dir():
-        raise FileNotFoundError(f"QC modules directory does not exist: {root}")
+        raise FileNotFoundError(f"QC checks directory does not exist: {root}")
 
     category_names = (
         sorted(normalize_identifier(name) for name in categories)
@@ -209,14 +209,14 @@ def generate_metadata(
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Extract QC metadata from check modules.")
-    parser.add_argument("qc_modules_dir")
+    parser.add_argument("checks_dir")
     parser.add_argument("output_json")
     parser.add_argument("--js", dest="output_js")
     parser.add_argument("--categories", nargs="*")
     args = parser.parse_args()
 
     records = generate_metadata(
-        args.qc_modules_dir,
+        args.checks_dir,
         args.output_json,
         output_js=args.output_js,
         categories=args.categories,

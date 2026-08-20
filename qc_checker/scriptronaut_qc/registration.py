@@ -3,7 +3,7 @@
 import bpy
 from bpy.props import CollectionProperty, PointerProperty
 
-from .constants import QC_MODULES_DIR
+from .constants import CHECKS_DIR
 from .core.packs import (
     register_check_pack,
     unregister_check_pack,
@@ -58,7 +58,7 @@ def register():
     register_check_pack(
         pack_id="scriptronaut_core",
         name="Scriptronaut QC Core",
-        checks_path=QC_MODULES_DIR,
+        checks_path=CHECKS_DIR,
         version="0.1.0",
         priority=0,
     )

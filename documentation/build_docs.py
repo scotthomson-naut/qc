@@ -8,13 +8,13 @@ from extract_check_metadata import generate_metadata
 from generate_html_pages import generate_site
 
 ROOT = Path(__file__).parent
-QC_MODULES = ROOT.parent / "qc_checker" / "qc_modules"
+CHECKS = ROOT.parent / "qc_checker" / "checks"
 TEMPLATE = ROOT / "template"
 OUTPUT = ROOT / "site"
 VERSION = "1.0"
 
 def build_docs(
-    qc_modules_dir: str | Path,
+    checks_dir: str | Path,
     template_site: str | Path,
     output_dir: str | Path,
     version: str = "1.0",
@@ -27,7 +27,7 @@ def build_docs(
     data_js = build_data_dir / "checks-data.js"
 
     records = generate_metadata(
-        qc_modules_dir=qc_modules_dir,
+        checks_dir=checks_dir,
         output_json=data_json,
         output_js=data_js,
     )
@@ -46,7 +46,7 @@ def main() -> int:
     """
     """
     build_docs(
-        qc_modules_dir=QC_MODULES,
+        checks_dir=CHECKS,
         template_site=TEMPLATE,
         output_dir=OUTPUT,
         version=VERSION,
