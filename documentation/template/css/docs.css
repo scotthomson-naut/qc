@@ -113,8 +113,8 @@ img { max-width: 100%; margin-right: 4px;}
 }
 
 
-/* Groups */
-.i-group {
+/* Groups About */
+.i-group, .i-about:hover {
     filter: brightness(0) saturate(100%) invert(60%) sepia(72%) saturate(1794%) hue-rotate(340deg) brightness(100%) contrast(98%);
 }
 
