@@ -110,7 +110,7 @@ def get_objects_missing_start_end_keys(
 
     failed_objects = {}
 
-    for obj in objects:
+    for obj in get_qc_objects(objects):
         # Ignore directly linked library objects. They are read-only
         # in this file and should not be reported by local QC checks.
         if obj.library is not None:
@@ -206,7 +206,7 @@ def fix_objects_missing_start_end_keys(result_data=None):
     issues = []
 
     for object_name, object_data in failed_objects.items():
-        obj = bpy.data.objects.get(object_name)
+        obj = get_qc_object(object_name)
 
         if obj is None:
             issues.append(

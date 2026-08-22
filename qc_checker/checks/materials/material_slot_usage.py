@@ -210,7 +210,7 @@ def get_objects_with_unused_material_slots(
 
     failed_objects = {}
 
-    for obj in objects:
+    for obj in get_qc_objects(objects):
 
         if obj.library is not None:
             continue
@@ -365,7 +365,7 @@ def remove_unused_material_slots(
     issues = []
 
     for object_name in failed_objects:
-        obj = bpy.data.objects.get(
+        obj = get_qc_object(
             object_name
         )
 

@@ -98,7 +98,7 @@ def get_objects_with_unapplied_location(objects=None):
 
     failed_objects = {}
 
-    for obj in objects:
+    for obj in get_qc_objects(objects):
         if obj.type != "MESH":
             continue
 
@@ -236,10 +236,17 @@ def fix_objects_with_unapplied_location(
     candidate_objects = []
     candidate_names = set()
 
+    active_scene = bpy.context.scene
+
     def add_candidate(
             obj,
         ):
         if obj is None:
+            return
+
+        if not is_object_available_for_qc(
+            obj
+        ):
             return
 
         if obj.type != "MESH":
@@ -266,7 +273,7 @@ def fix_objects_with_unapplied_location(
 
     for object_name in failed_objects:
 
-        obj = bpy.data.objects.get(
+        obj = get_qc_object(
             object_name
         )
 

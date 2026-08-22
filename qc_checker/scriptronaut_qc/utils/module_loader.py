@@ -5,6 +5,11 @@ import os
 import sys
 from types import ModuleType
 from .settings import resolve_settings
+from ..core.object_filter import (
+    get_qc_object,
+    get_qc_objects,
+    is_object_available_for_qc,
+)
 
 
 def load_module_from_path(
@@ -63,6 +68,9 @@ def load_module_from_path(
 
     # Make shared framework helpers available inside QC modules.
     module.resolve_settings = resolve_settings
+    module.is_object_available_for_qc = is_object_available_for_qc
+    module.get_qc_objects = get_qc_objects
+    module.get_qc_object = get_qc_object
 
     # Register before execution so imports performed by the module can
     # resolve the module while it is initializing.

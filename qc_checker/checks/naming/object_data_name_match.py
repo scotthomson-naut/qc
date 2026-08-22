@@ -112,7 +112,7 @@ def get_objects_with_mismatched_data_names(
 
     failed_objects = {}
 
-    for obj in objects:
+    for obj in get_qc_objects(objects):
 
         # Directly linked library objects are read-only and are
         # outside the scope of local naming QC.
@@ -183,7 +183,7 @@ def fix_objects_with_mismatched_data_names(
 
     for object_name in failed_objects:
 
-        obj = bpy.data.objects.get(
+        obj = get_qc_object(
             object_name
         )
 

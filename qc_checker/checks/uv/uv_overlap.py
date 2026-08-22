@@ -279,7 +279,10 @@ def get_objects_with_overlapping_uv_faces(
         obj
         for obj in objects
         if (
-            obj.library is None
+            is_object_available_for_qc(
+                obj,
+                context=context,
+            )
             and obj.type == "MESH"
             and obj.data is not None
             and obj.data.polygons
@@ -357,7 +360,7 @@ def get_objects_with_overlapping_uv_faces(
             # Proven per-object fallback
             # -----------------------------------------------------
 
-            for obj in objects:
+            for obj in get_qc_objects(objects):
 
                 object_start_time = (
                     time.perf_counter()
@@ -479,7 +482,7 @@ def get_active_uv_overlap_batched(
 
     mesh_groups = {}
 
-    for obj in objects:
+    for obj in get_qc_objects(objects):
 
         mesh_groups.setdefault(
             obj.data,
@@ -917,9 +920,9 @@ def run_active_uv_overlap_batch(
     objects = [
         obj
         for obj in objects
-        if (
-            obj is not None
-            and obj.library is None
+        if is_object_available_for_qc(
+            obj,
+            context=context,
         )
     ]
 
@@ -967,7 +970,7 @@ def run_active_uv_overlap_batch(
 
         selectable_objects = []
 
-        for obj in objects:
+        for obj in get_qc_objects(objects):
 
             if not object_in_view_layer(
                 obj,
@@ -1347,7 +1350,7 @@ def run_active_uv_overlap_batch(
 
         if entered_edit_mode:
 
-            for obj in objects:
+            for obj in get_qc_objects(objects):
 
                 mesh = obj.data
 

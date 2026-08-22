@@ -78,7 +78,7 @@ def get_objects_rotation(
 
     Args:
         objects (list): List of Blender objects.
-                        Defaults to bpy.data.objects.
+                        Defaults to objects in the active scene.
         exclude_types (list): Object type to exclude.
 
     Returns:
@@ -94,7 +94,7 @@ def get_objects_rotation(
         }
     """
     if objects is None:
-        objects = bpy.data.objects
+        objects = bpy.context.scene.objects
 
     if exclude_types is None:
         # Skip cameras and lights
@@ -102,7 +102,7 @@ def get_objects_rotation(
 
     results = {}
 
-    for obj in objects:
+    for obj in get_qc_objects(objects):
         # Ignore directly linked library objects. They are read-only
         # in this file and cannot be safely fixed by this QC check.
         if obj.library is not None:
@@ -257,10 +257,17 @@ def fix_objects_rotation(
     candidate_objects = []
     candidate_names = set()
 
+    active_scene = bpy.context.scene
+
     def add_candidate(
             obj,
         ):
         if obj is None:
+            return
+
+        if not is_object_available_for_qc(
+            obj
+        ):
             return
 
         if obj.type != "MESH":
@@ -285,7 +292,7 @@ def fix_objects_rotation(
 
     for object_name in failed_objects:
 
-        obj = bpy.data.objects.get(
+        obj = get_qc_object(
             object_name
         )
 

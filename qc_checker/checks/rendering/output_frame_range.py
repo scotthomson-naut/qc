@@ -311,7 +311,7 @@ def get_scene_animation_range(
 
     animated_objects = {}
 
-    for obj in scene.objects:
+    for obj in get_qc_objects(scene.objects):
 
         if obj.library is not None:
             continue

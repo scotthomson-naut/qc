@@ -195,7 +195,7 @@ def get_failed_colorspace_objects(failed_materials, scene=None):
 
     failed_objects = {}
 
-    for obj in scene.objects:
+    for obj in get_qc_objects(scene.objects):
 
         if obj.library is not None:
             continue
@@ -906,7 +906,7 @@ def get_scene_materials(scene=None):
     materials = []
     seen = set()
 
-    for obj in scene.objects:
+    for obj in get_qc_objects(scene.objects):
 
         if obj.library is not None:
             continue

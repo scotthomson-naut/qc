@@ -139,7 +139,7 @@ def get_objects_with_trailing_spaces(
 
     failed_objects = {}
 
-    for obj in objects:
+    for obj in get_qc_objects(objects):
 
         # Directly linked library objects are read-only and are
         # outside the scope of local naming QC.
@@ -294,7 +294,7 @@ def fix_objects_with_trailing_spaces(
         failed_objects.items()
     ):
 
-        obj = bpy.data.objects.get(
+        obj = get_qc_object(
             old_object_name
         )
 

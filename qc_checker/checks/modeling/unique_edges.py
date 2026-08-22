@@ -91,7 +91,7 @@ def get_objects_with_duplicate_edges(objects=None):
 
     failed_objects = {}
 
-    for obj in objects:
+    for obj in get_qc_objects(objects):
         # Ignore directly linked library objects. They are read-only
         # in this file and cannot be safely fixed by this QC check.
         if obj.library is not None:
@@ -147,7 +147,7 @@ def fix_duplicate_edges(result_data):
     issues = []
 
     for object_name in failed_objects:
-        obj = bpy.data.objects.get(object_name)
+        obj = get_qc_object(object_name)
 
         if obj is None:
             issues.append(

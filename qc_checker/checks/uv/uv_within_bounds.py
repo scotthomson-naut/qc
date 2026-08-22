@@ -128,7 +128,7 @@ def get_objects_with_uvs_outside_01(
             mode="OBJECT"
         )
 
-    for obj in objects:
+    for obj in get_qc_objects(objects):
 
         # Directly linked library objects are read-only and outside
         # the scope of local UV QC.

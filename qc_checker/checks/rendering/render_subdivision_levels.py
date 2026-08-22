@@ -248,7 +248,7 @@ def get_objects_with_excessive_render_subdivision(
 
     failed_objects = {}
 
-    for obj in objects:
+    for obj in get_qc_objects(objects):
 
         if obj.library is not None:
             continue
@@ -457,7 +457,7 @@ def reduce_excessive_render_subdivision(
     issues = []
 
     for object_name, object_data in failed_objects.items():
-        obj = bpy.data.objects.get(
+        obj = get_qc_object(
             object_name
         )
 

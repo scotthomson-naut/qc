@@ -148,7 +148,7 @@ def get_objects_exceeding_poly_budget(
     failed_objects = {}
     total_triangles = 0
 
-    for obj in objects:
+    for obj in get_qc_objects(objects):
 
         if obj.library is not None:
             continue

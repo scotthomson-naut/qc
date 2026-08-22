@@ -121,7 +121,7 @@ def get_objects_with_non_manifold_geometry(
 
     mesh_cache = {}
 
-    for obj in objects:
+    for obj in get_qc_objects(objects):
         # Ignore directly linked library objects. They are read-only
         # in this file and cannot be safely fixed by this QC check.
         if obj.library is not None:

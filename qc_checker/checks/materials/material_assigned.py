@@ -84,7 +84,7 @@ def get_objects_with_missing_materials(
 
     failed_objects = {}
 
-    for obj in objects:
+    for obj in get_qc_objects(objects):
 
         if obj.library is not None:
             continue
@@ -223,7 +223,7 @@ def assign_placeholder_materials(
 
     for object_name, object_data in failed_objects.items():
 
-        obj = bpy.data.objects.get(
+        obj = get_qc_object(
             object_name
         )
 

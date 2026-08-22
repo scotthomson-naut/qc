@@ -307,7 +307,7 @@ def get_objects_using_failed_images(
 
     failed_objects = {}
 
-    for obj in objects:
+    for obj in get_qc_objects(objects):
 
         # Directly linked objects are read-only and outside local QC scope.
         if obj.library is not None:

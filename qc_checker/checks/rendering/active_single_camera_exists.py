@@ -357,18 +357,16 @@ def get_camera_status(scene=None):
 
     camera_objects = [
         obj
-        for obj in scene.objects
-        if (
-            obj.type == "CAMERA"
-            and obj.library is None
+        for obj in get_qc_objects(
+            scene.objects
         )
+        if obj.type == "CAMERA"
     ]
 
     active_camera = scene.camera
 
-    if (
-        active_camera is not None
-        and active_camera.library is not None
+    if not is_object_available_for_qc(
+        active_camera
     ):
         active_camera = None
 

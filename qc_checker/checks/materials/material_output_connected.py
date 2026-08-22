@@ -668,7 +668,7 @@ def get_scene_materials(scene=None):
     materials = []
     seen_materials = set()
 
-    for obj in scene.objects:
+    for obj in get_qc_objects(scene.objects):
 
         if obj.library is not None:
             continue
@@ -742,7 +742,7 @@ def get_objects_using_failed_materials(
 
     failed_objects = {}
 
-    for obj in scene.objects:
+    for obj in get_qc_objects(scene.objects):
 
         if obj.library is not None:
             continue

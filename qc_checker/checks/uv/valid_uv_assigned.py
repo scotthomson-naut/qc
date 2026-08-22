@@ -148,7 +148,7 @@ def get_meshes_with_unmapped_polygons(
             mode="OBJECT"
         )
 
-    for obj in objects:
+    for obj in get_qc_objects(objects):
 
         # Directly linked library objects are read-only and outside
         # the scope of local UV QC.

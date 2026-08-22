@@ -152,7 +152,7 @@ def get_objects_with_muted_nla_items(
 
     failed_objects = {}
 
-    for obj in objects:
+    for obj in get_qc_objects(objects):
         # Ignore directly linked library objects. They are read-only
         # in this file and should not be reported by local QC checks.
         if obj.library is not None:
@@ -284,7 +284,7 @@ def unmute_nla_items(
     issues = []
 
     for object_name, object_data in failed_objects.items():
-        obj = bpy.data.objects.get(
+        obj = get_qc_object(
             object_name
         )
 

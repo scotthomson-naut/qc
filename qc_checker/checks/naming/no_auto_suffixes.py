@@ -150,14 +150,14 @@ def get_objects_with_auto_increment_names(
         }
     """
     if objects is None:
-        objects = bpy.data.objects
+        objects = bpy.context.scene.objects
 
     if exclude_types is None:
         exclude_types = set()
 
     failed_objects = {}
 
-    for obj in objects:
+    for obj in get_qc_objects(objects):
 
         # Directly linked library objects are read-only and are
         # outside the scope of local naming QC.

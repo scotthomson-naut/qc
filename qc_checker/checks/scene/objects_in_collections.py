@@ -89,6 +89,11 @@ def get_objects_in_scene_root(scene=None):
 
     for obj in scene.collection.objects:
 
+        if not is_object_available_for_qc(
+            obj
+        ):
+            continue
+
         # Ignore externally linked/library objects. These are read-only
         # from the current file and should not fail local organization QC.
         if is_linked_object(

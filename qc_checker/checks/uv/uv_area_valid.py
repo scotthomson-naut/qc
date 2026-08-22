@@ -109,7 +109,7 @@ def get_objects_with_zero_area_uv_faces(
     if bpy.context.object and bpy.context.object.mode == 'EDIT':
         bpy.ops.object.mode_set(mode='OBJECT')
 
-    for obj in objects:
+    for obj in get_qc_objects(objects):
 
         # Directly linked library objects are read-only and outside
         # the scope of local UV QC.
