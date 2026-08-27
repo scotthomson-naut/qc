@@ -67,7 +67,7 @@ SETTINGS = {
         "type": "bool",
         "label": "Ignore Disconnected Faces",
         "description": (
-            "Ignore disconnected components containing one or more faces."
+            "Ignore disconnected components containing one or more faces. "
         ),
         "default": False,
     },
@@ -1030,6 +1030,55 @@ def analyze_mesh_components_fast(
     loose_edge_indices.sort()
     loose_face_indices.sort()
 
+    # -----------------------------------------------------------
+    # Split fixable (no faces - safe to auto-remove) from
+    # non-fixable (has faces - a real disconnected island, review
+    # only) components, using the same per-component can_auto_fix
+    # classification as serialize_index_component().
+    # -----------------------------------------------------------
+
+    fixable_components = [
+        component
+        for component in loose_components
+        if component["can_auto_fix"]
+    ]
+
+    unfixable_components = [
+        component
+        for component in loose_components
+        if not component["can_auto_fix"]
+    ]
+
+    fixable_vertex_indices = sorted(
+        index
+        for component in fixable_components
+        for index in component["vertex_indices"]
+    )
+
+    fixable_edge_indices = sorted(
+        index
+        for component in fixable_components
+        for index in component["edge_indices"]
+    )
+
+    review_vertex_indices = sorted(
+        index
+        for component in unfixable_components
+        for index in component["vertex_indices"]
+    )
+
+    review_edge_indices = sorted(
+        index
+        for component in unfixable_components
+        for index in component["edge_indices"]
+    )
+
+    review_face_indices = sorted(
+        index
+        for component in unfixable_components
+        for index in component["face_indices"]
+    )
+
     return {
         "object_type":
             "MESH",
@@ -1085,6 +1134,23 @@ def analyze_mesh_components_fast(
         "loose_components":
             loose_components,
 
+        # Object-level summary of the per-component classification
+        # above - True only when at least one component here is
+        # actually safe to auto-remove. A mixed object (some
+        # fixable, some not) still reports True here, since Fix
+        # will genuinely remove the fixable ones - it just won't
+        # touch the face-island components, regardless of this flag.
+        "can_auto_fix":
+            bool(fixable_components),
+
+        "fixable_component_count":
+            len(fixable_components),
+
+        "unfixable_component_count":
+            len(unfixable_components),
+
+        # Original combined selection, kept for compatibility with
+        # anything already reading it.
         "selection": {
             "mode":
                 "MIXED",
@@ -1097,6 +1163,37 @@ def analyze_mesh_components_fast(
 
             "face_indices":
                 loose_face_indices,
+        },
+
+        # Safe-to-remove components only (no faces).
+        "fixable_selection": {
+            "mode":
+                "MIXED",
+
+            "vertex_indices":
+                fixable_vertex_indices,
+
+            "edge_indices":
+                fixable_edge_indices,
+
+            "face_indices":
+                [],
+        },
+
+        # Face-island components only - review/select, never
+        # auto-removed.
+        "review_selection": {
+            "mode":
+                "MIXED",
+
+            "vertex_indices":
+                review_vertex_indices,
+
+            "edge_indices":
+                review_edge_indices,
+
+            "face_indices":
+                review_face_indices,
         },
     }
 
@@ -1193,12 +1290,26 @@ def serialize_index_component(
             "ISOLATED_VERTICES"
         )
 
+    # A component with faces is a real disconnected chunk of mesh -
+    # could be legitimate content, not safe to auto-delete. A
+    # component with no faces (isolated verts or loose edges only)
+    # has nothing to lose by removing it - safe by definition. This
+    # is decided per-component, not per-check, so a single object can
+    # legitimately report both fixable and non-fixable components
+    # side by side.
+    can_auto_fix = not bool(
+        face_indices
+    )
+
     return {
         "component_index":
             component_index,
 
         "component_type":
             component_type,
+
+        "can_auto_fix":
+            can_auto_fix,
 
         "vertex_count":
             len(
@@ -1229,6 +1340,20 @@ def serialize_index_component(
             list(
                 face_indices
             ),
+
+        "selection": {
+            "mode":
+                "MIXED",
+
+            "vertex_indices":
+                list(vertex_indices),
+
+            "edge_indices":
+                list(edge_indices),
+
+            "face_indices":
+                list(face_indices),
+        },
     }
 
 
@@ -1584,6 +1709,17 @@ def remove_object_loose_components(
             components
         ):
             if component_index == main_component_index:
+                continue
+
+            # Hard safety rule, not settings-gated: a component with
+            # faces is a real disconnected chunk of mesh that could
+            # be legitimate content. This is never auto-removed,
+            # regardless of ignore_face_components - that setting
+            # only controls whether face islands get REPORTED as an
+            # issue at all, not whether Fix is allowed to delete
+            # them. Deleting them still requires an artist to select
+            # and remove manually after reviewing.
+            if component["faces"]:
                 continue
 
             if should_ignore_component(
