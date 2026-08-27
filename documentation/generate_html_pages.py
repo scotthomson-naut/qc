@@ -173,26 +173,104 @@ def relative_prefix(depth: int) -> str:
     return "../" * depth
 
 
-def navigation(records: list[dict[str, Any]], depth: int, active_category: str = "") -> str:
+def navigation(
+        records: list[dict[str, Any]],
+        depth: int,
+        tier: str,
+        active_category: str = "",
+        has_panel: bool = False,
+        features: list[dict[str, Any]] | None = None,
+        active_feature: str = "",
+) -> str:
     prefix = relative_prefix(depth)
-    counts = Counter(record["category"] for record in records)
-    links = []
-    for category in sorted(counts, key=str.lower):
-        active = " active" if category == active_category else ""
-        links.append(
-            f'<a class="nav-link{active}" href="{prefix}categories/{category_slug(category)}.html">'
+    counts = Counter(
+        record["category"]
+        for record in records
+    )
+
+    features = features or []
+
+    category_links = []
+
+    for category in sorted(
+        counts,
+        key=str.lower,
+    ):
+        active = (
+            " active"
+            if category == active_category
+            else ""
+        )
+
+        category_links.append(
+            f'<a class="nav-link{active}" '
+            f'href="{prefix}categories/{category_slug(category)}.html">'
             f'{esc(category)}<span>{counts[category]}</span></a>'
         )
+
+    panel_link = (
+        f'<a class="nav-link" href="{prefix}panel.html">Panel guide</a>'
+        if has_panel
+        else ""
+    )
+
+    feature_section = ""
+
+    if features:
+        feature_links = []
+
+        for feature in features:
+            feature_id = str(
+                feature.get(
+                    "id",
+                    "",
+                )
+            )
+
+            active = (
+                " active"
+                if feature_id == active_feature
+                else ""
+            )
+
+            feature_links.append(
+                f'<a class="nav-link{active}" '
+                f'href="{prefix}features/{esc(feature_id)}.html">'
+                f'{esc(feature.get("label", feature_id))}</a>'
+            )
+
+        feature_section = (
+            '<div class="nav-section">'
+            f'<div class="nav-title"><b class="hilite-{tier}">'
+            f'{esc(tier.title())}</b> Features</div>'
+            + "".join(
+                feature_links
+            )
+            + '</div>'
+        )
+
     return (
         '<aside class="sidebar">'
-        '<div class="search-wrap"><input data-site-search type="search" placeholder="Search documentation"></div>'
-        '<nav><div class="nav-section"><div class="nav-title">Start</div>'
+        '<div class="search-wrap">'
+        '<input data-site-search type="search" placeholder="Search documentation">'
+        '</div>'
+        '<nav>'
+        '<div class="nav-section">'
+        '<div class="nav-title">Start</div>'
         f'<a class="nav-link" href="{prefix}index.html">Overview</a>'
-        f'<a class="nav-link" href="{prefix}panel.html">Panel guide</a>'
+        f'{panel_link}'
         f'<a class="nav-link" href="{prefix}search.html">Search</a>'
-        '</div><div class="nav-section"><div class="nav-title"><b class="hilite-core">Core</b> checks</div>'
-        + "".join(links)
-        + '</div></nav></aside>'
+        '</div>'
+        + feature_section
+        + '<div class="nav-section">'
+        f'<div class="nav-title"><b class="hilite-{tier}">'
+        f'{esc(tier.title())}</b> Checks</div>'
+        + "".join(
+            category_links
+        )
+        + '</div>'
+        '</nav>'
+        '</aside>'
     )
 
 
@@ -204,22 +282,19 @@ def page_shell(
     records: list[dict[str, Any]],
     depth: int = 0,
     active_category: str = "",
+    tier: str,
+    product_id: str,
+    has_panel: bool = False,
+    features: list[dict[str, Any]] | None = None,
+    active_feature: str = "",
     version: str = "1.0",
 ) -> str:
-    """
-    Builds a QC Checker documentation page shell.
-
-    depth is relative to /site/docs/qc_checker:
-        0 = /docs/qc_checker/index.html
-        1 = /docs/qc_checker/categories/*.html
-        2 = /docs/qc_checker/checks/<category>/*.html
-    """
-    qc_prefix = relative_prefix(depth)
+    """Build one product documentation page under docs/qc_checker/<product>."""
+    product_prefix = relative_prefix(depth)
+    qc_prefix = "../" + product_prefix
+    site_prefix = "../../../" + product_prefix
     current_year = datetime.now().year
-
-    # /docs/qc_checker is two levels below /site.
-    site_prefix = "../../" + qc_prefix
-
+    data_script = f"{qc_prefix}assets/js/{product_id}-checks-data.js"
     return (
         '<!doctype html><html lang="en"><head>'
         '<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
@@ -229,20 +304,24 @@ def page_shell(
         '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
         '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">'
         f'<link rel="stylesheet" href="{site_prefix}css/docs.css"></head><body>'
-        '<div class="stars"></div>'
-        '<div class="stars stars-medium"></div>'
-        '<div class="stars stars-faint"></div>'
+        '<div class="stars"></div><div class="stars stars-medium"></div><div class="stars stars-faint"></div>'
         '<header class="topbar">'
-        f'<a class="brand" href="{site_prefix}index.html">'
-        '<!--<span class="brand-mark">#</span>-->'
-        f'<img src="{site_prefix}svg/scriptronaut_name.svg" alt="Scriptronaut"></a>'
+        f'<a class="brand" href="{site_prefix}index.html"><img src="{site_prefix}svg/scriptronaut_name.svg" alt="Scriptronaut"></a>'
         '<div class="top-actions"><span class="hide-mobile"><b>QC Checker</b> Documentation</span>'
-        f'<span class="badge hilite-core"><b>Core</b> {esc(version)}</span></div></header>'
+        f'<span class="badge hilite-{tier}"><b>{esc(tier.title())}</b> {esc(version)}</span></div></header>'
         '<div class="shell">'
-        + navigation(records, depth, active_category)
-        + f'<main class="content">{body}<footer class="footer"><b>Scriptronaut</b> | QC Checker <b class="hilite-core">Core</b> documentation.'
+        + navigation(
+            records,
+            depth,
+            tier,
+            active_category,
+            has_panel=has_panel,
+            features=features,
+            active_feature=active_feature,
+        )
+        + f'<main class="content">{body}<footer class="footer"><b>Scriptronaut</b> | QC Checker <b class="hilite-{tier}">{esc(tier.title())}</b> documentation.'
         f'<span style="float:right;">&copy; {current_year}</span></footer></main></div>'
-        f'<script src="{qc_prefix}assets/js/checks-data.js"></script>'
+        f'<script src="{data_script}"></script>'
         f'<script src="{qc_prefix}assets/js/docs.js"></script></body></html>'
     )
 
@@ -272,53 +351,38 @@ def settings_table(settings: list[dict[str, Any]]) -> str:
     )
 
 
-def generate_site(
+def generate_product_site(
     data_path: str | Path,
-    template_site: str | Path,
     output_dir: str | Path,
+    product_id: str,
+    product_name: str,
+    tier: str,
+    product_path: str | Path,
+    features: list[dict[str, Any]] | None = None,
     version: str = "1.0",
 ) -> None:
+    """Generate one Core, Pro, or Pack documentation subtree."""
     data_path = Path(data_path).resolve()
-    template_site = Path(template_site).resolve()
     output_dir = Path(output_dir).resolve()
-    records = json.loads(data_path.read_text(encoding="utf-8"))
-
-    required_template_files = (
-        template_site / "css/docs.css",
-        template_site / "svg/scriptronaut_name.svg",
-        template_site / "svg/scriptronaut_character.svg",
-        template_site / "index.html",
-        template_site / "docs/qc_checker/panel.html",
-        template_site / "docs/qc_checker/assets/js/docs.js",
+    product_path = Path(product_path)
+    records = json.loads(
+        data_path.read_text(
+            encoding="utf-8"
+        )
     )
-    missing_template_files = [
-        path for path in required_template_files if not path.is_file()
-    ]
-    if missing_template_files:
-        missing_text = "\n".join(
-            "  - {}".format(path) for path in missing_template_files
-        )
-        raise FileNotFoundError(
-            "The documentation template is missing required style/assets:\n"
-            + missing_text
-        )
 
-    if output_dir.exists():
-        shutil.rmtree(output_dir)
-    shutil.copytree(template_site, output_dir)
+    features = features or []
 
-    # Generated QC Checker documentation lives here.
-    qc_output = output_dir / "docs" / "qc_checker"
-    qc_output.mkdir(parents=True, exist_ok=True)
+    qc_root = output_dir / "docs" / "qc_checker"
+    product_output = qc_root / product_path
+    product_output.mkdir(parents=True, exist_ok=True)
+    has_panel = (product_output / "panel.html").is_file()
 
-    categories = sorted({record["category"] for record in records}, key=str.lower)
-    counts = Counter(record["category"] for record in records)
-
-    # Generated data files.
-    data_out = qc_output / "assets/data/checks.json"
+    # Shared QC assets; product datasets remain separate.
+    data_out = qc_root / "assets" / "data" / product_path / "checks.json"
     data_out.parent.mkdir(parents=True, exist_ok=True)
     data_out.write_text(json.dumps(records, indent=4, ensure_ascii=False) + "\n", encoding="utf-8")
-    js_out = qc_output / "assets/js/checks-data.js"
+    js_out = qc_root / "assets" / "js" / f"{product_id}-checks-data.js"
     js_out.parent.mkdir(parents=True, exist_ok=True)
     js_out.write_text(
         "/* Auto-generated. Do not edit manually. */\n\n"
@@ -326,41 +390,59 @@ def generate_site(
         encoding="utf-8",
     )
 
+    categories = sorted({record["category"] for record in records}, key=str.lower)
+    counts = Counter(record["category"] for record in records)
+
+    def tier_badge(item: dict[str, Any]) -> str:
+        source_tier = str(item.get("sourceTier") or tier).lower()
+        if tier == "pro" and source_tier == "pro":
+            return '<span class="pill hilite-pro">Pro</span>'
+        if tier == "pack":
+            return '<span class="pill">Pack</span>'
+        return ""
+
     category_cards = "".join(
         f'<a class="card" href="categories/{category_slug(category)}.html"><h3>{esc(category)}</h3>'
-        f'<p>Browse the {esc(category.lower())} checks included with QC Checker <b class="hilite-core">Core</b>.</p>'
+        f'<p>Browse the {esc(category.lower())} checks included with {esc(product_name)}.</p>'
         f'<span class="count">{counts[category]} checks →</span></a>'
         for category in categories
     )
+    panel_action = '<a class="button primary" href="panel.html">Open panel guide →</a>' if has_panel else ''
+    first_category = category_slug(categories[0]) if categories else ""
+    browse_action = f'<a class="button" href="categories/{first_category}.html">Browse checks</a>' if first_category else ''
     index_body = (
-        '<div class="eyebrow">Official Documentation</div><h1>QC Checker <b class="hilite-core">Core</b></h1>'
-        f'<p class="lead">Production-focused documentation for the QC Checker interface and the <b class="hilite-core">{len(records)}</b> checks included with the <b class="hilite-core">Core</b> edition.</p>'
-        '<section class="hero-card"><div><h2 style="margin-top:0">Start with the panel</h2>'
-        '<p class="lead" style="font-size:1rem">Learn how to run checks, read severity, inspect failures, select affected geometry, apply fixes and edit check settings.</p>'
-        '<div class="actions"><a class="button primary" href="panel.html">Open panel guide →</a>'
-        '<a class="button" href="categories/animation.html">Browse checks</a></div></div>'
+        f'<div class="eyebrow">Official Documentation</div><h1 class="hilite-{tier}">{esc(product_name)}</h1>'
+        f'<p class="lead">Production-focused documentation for the <b class="hilite-{tier}">{len(records)}</b> checks included with {esc(product_name)}.</p>'
+        '<section class="hero-card"><div><h2 style="margin-top:0">Documentation</h2>'
+        '<p class="lead" style="font-size:1rem">Browse checks by category, search the documentation, and review check behavior, settings, severity and fix support.</p>'
+        f'<div class="actions">{panel_action}{browse_action}</div></div>'
         '<div class="astronaut-wrap" id="astronaut">'
-        '<img src="../../svg/scriptronaut_character.svg" alt="Scriptronaut character">'
-        '</div>'
-        '</section>'
-        '<h2><b class="hilite-core">Core</b> categories</h2><div class="grid">' + category_cards + '</div>'
-        '<!--<h2>Check Packs</h2><div class="callout">Future Packs can use the same generated page system while remaining separate from Core.</div>-->'
-        '<!--<h2>Pro edition</h2><p class="lead">The same documentation structure can later cover batch reports, studio profiles, pipeline integrations and advanced automation.</p>-->'
+        '<img src="../../../svg/scriptronaut_character.svg" alt="Scriptronaut character"></div></section>'
+        + (
+            f'<h2><b class="hilite-{tier}">{esc(product_name)}</b> Features</h2>'
+            '<div class="grid">'
+            + "".join(
+                f'<a class="card" href="features/{esc(feature.get("id"))}.html">'
+                f'<h3>{esc(feature.get("label"))}</h3>'
+                f'<p>{esc(feature.get("description"))}</p>'
+                f'<span class="count hilite-{tier}">Learn more →</span></a>'
+                for feature in features
+            )
+            + '</div>'
+            if features
+            else ""
+        )
+        + f'<h2><b class="hilite-{tier}">{esc(product_name)}</b> Categories</h2>'
+        f'<div class="grid">{category_cards}</div>'
     )
     write_html_file(
-        qc_output / "index.html",
-        page_shell(
-            title="QC Checker Core",
-            description="Scriptronaut . QC Checker documentation",
-            body=index_body,
-            records=records,
-            version=version,
-        ),
+        product_output / "index.html",
+        page_shell(title=product_name, description=f"Scriptronaut {product_name} documentation", body=index_body,
+                   records=records, tier=tier, product_id=product_id, has_panel=has_panel, features=features, version=version),
     )
 
-    # Category and check pages.
-    (qc_output / "categories").mkdir(parents=True, exist_ok=True)
-    (qc_output / "checks").mkdir(parents=True, exist_ok=True)
+    (product_output / "categories").mkdir(parents=True, exist_ok=True)
+    (product_output / "checks").mkdir(parents=True, exist_ok=True)
     for category in categories:
         items = sorted((record for record in records if record["category"] == category), key=lambda item: item["label"].lower())
         cards = []
@@ -372,75 +454,188 @@ def generate_site(
                 f'<span class="pill"><span class="dot {esc(item.get("severity", "warning"))}"></span>{esc(severity_label(item.get("severity", "warning")))}</span>'
                 f'<span class="pill">Fix: {yes_no(item.get("hasFix"))}</span>'
                 f'<span class="pill">Settings: {yes_no(item.get("hasSettings"))}</span>'
-                '</div></a>'
+                f'{tier_badge(item)}</div></a>'
             )
         category_body = (
-            '<div class="breadcrumbs"><a href="../index.html">Documentation</a><span>›</span><b class="hilite-core">Core</b> checks</div>'
+            f'<div class="breadcrumbs"><a href="../index.html">{esc(product_name)}</a><span>›</span>{esc(category)}</div>'
             '<div class="eyebrow">Category</div>'
-            f'<h1>{esc(category)}</h1><p class="lead"><b class="hilite-core">{len(items)}</b> checks, listed alphabetically. Open a check for purpose, severity, fix availability, settings and selection behavior.</p>'
+            f'<h1>{esc(category)}</h1><p class="lead"><b class="hilite-{tier}">{len(items)}</b> checks, listed alphabetically.</p>'
             '<div class="grid">' + "".join(cards) + '</div>'
         )
         write_html_file(
-            qc_output / "categories" / f"{category_slug(category)}.html",
-            page_shell(
-                title=f"{category} Checks",
-                description=f"{category} QC checks",
-                body=category_body,
-                records=records,
-                depth=1,
-                active_category=category,
-                version=version,
-            ),
+            product_output / "categories" / f"{category_slug(category)}.html",
+            page_shell(title=f"{category} Checks", description=f"{category} QC checks", body=category_body,
+                       records=records, depth=1, active_category=category, tier=tier, product_id=product_id,
+                       has_panel=has_panel, features=features, version=version),
         )
 
-        check_dir = qc_output / "checks" / category_slug(category)
+        check_dir = product_output / "checks" / category_slug(category)
         check_dir.mkdir(parents=True, exist_ok=True)
         for item in items:
             why = item.get("why") or "This check protects scene quality and helps catch production issues before publishing or rendering."
             notes = item.get("notes") or []
-            notes_html = ""
-            if notes:
-                notes_html = '<h2>Notes</h2><ul>' + "".join(f'<li>{esc(note)}</li>' for note in notes) + '</ul>'
-            fix_details = item.get("fixDescription") or (
-                "An automatic fix is available." if item.get("hasFix") else "This check requires manual review or correction."
-            )
+            notes_html = '<h2>Notes</h2><ul>' + "".join(f'<li>{esc(note)}</li>' for note in notes) + '</ul>' if notes else ""
+            fix_details = item.get("fixDescription") or ("An automatic fix is available." if item.get("hasFix") else "This check requires manual review or correction.")
             check_body = (
-                '<div class="breadcrumbs"><a href="../../index.html">Documentation</a><span>›</span>'
+                '<div class="breadcrumbs"><a href="../../index.html">' + esc(product_name) + '</a><span>›</span>'
                 f'<a href="../../categories/{category_slug(category)}.html">{esc(category)}</a><span>›</span>{esc(item["label"])}</div>'
                 f'<div class="eyebrow">{esc(category)} check</div><h1>{esc(item["label"])}</h1>'
-                f'<p class="lead">{esc(item.get("description"))}</p>'
-                '<div class="meta-row">'
+                f'<p class="lead">{esc(item.get("description"))}</p><div class="meta-row">'
                 f'<span class="pill"><span class="dot {esc(item.get("severity", "warning"))}"></span>{esc(severity_label(item.get("severity", "warning")))}</span>'
                 f'<span class="pill">Automatic fix: {yes_no(item.get("hasFix"))}</span>'
                 f'<span class="pill">Settings: {yes_no(item.get("hasSettings"))}</span>'
-                f'<span class="pill">Selection: {esc(item.get("selection", "Object"))}</span></div>'
+                f'<span class="pill">Selection: {esc(item.get("selection", "Object"))}</span>{tier_badge(item)}</div>'
                 '<section class="detail-card"><h2 style="margin-top:0">Why this check exists</h2>'
-                f'<p>{esc(why)}</p></section>'
-                '<h2>Behavior</h2><table class="feature-table"><tbody>'
+                f'<p>{esc(why)}</p></section><h2>Behavior</h2><table class="feature-table"><tbody>'
                 f'<tr><th>Module</th><td><code>{esc(item.get("source"))}</code></td></tr>'
+                f'<tr><th>Included with</th><td>{esc(str(item.get("sourceTier", tier)).title())}</td></tr>'
                 f'<tr><th>Severity</th><td>{esc(severity_label(item.get("severity", "warning")))}</td></tr>'
                 f'<tr><th>Automatic fix</th><td>{yes_no(item.get("hasFix"))}</td></tr>'
                 f'<tr><th>Fix behavior</th><td>{esc(fix_details)}</td></tr>'
                 f'<tr><th>User settings</th><td>{yes_no(item.get("hasSettings"))}</td></tr>'
                 f'<tr><th>Selection support</th><td>{esc(item.get("selection", "Object"))}</td></tr>'
-                '</tbody></table><h2>Settings</h2>'
-                + settings_table(item.get("settings") or [])
-                + notes_html
+                '</tbody></table><h2>Settings</h2>' + settings_table(item.get("settings") or []) + notes_html
             )
             write_html_file(
                 check_dir / f'{item["id"]}.html',
+                page_shell(title=item["label"], description=item.get("description") or item["label"], body=check_body,
+                           records=records, depth=2, active_category=category, tier=tier, product_id=product_id,
+                           has_panel=has_panel, features=features, version=version),
+            )
+
+    # ---------------------------------------------------------
+    # Product Features
+    # ---------------------------------------------------------
+
+    if features:
+        feature_dir = (
+            product_output
+            / "features"
+        )
+
+        feature_dir.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+        for feature in features:
+            feature_id = str(
+                feature.get(
+                    "id",
+                    "",
+                )
+            )
+
+            feature_label = str(
+                feature.get(
+                    "label",
+                    feature_id,
+                )
+            )
+
+            highlights = feature.get(
+                "highlights",
+                [],
+            ) or []
+
+            workflow = feature.get(
+                "workflow",
+                [],
+            ) or []
+
+            notes = feature.get(
+                "notes",
+                [],
+            ) or []
+
+            highlights_html = (
+                '<h2>Capabilities</h2><ul>'
+                + "".join(
+                    f'<li>{esc(item)}</li>'
+                    for item in highlights
+                )
+                + '</ul>'
+                if highlights
+                else ""
+            )
+
+            workflow_html = (
+                '<h2>Workflow</h2><ol>'
+                + "".join(
+                    f'<li>{esc(item)}</li>'
+                    for item in workflow
+                )
+                + '</ol>'
+                if workflow
+                else ""
+            )
+
+            storage_html = (
+                '<section class="detail-card">'
+                '<h2 style="margin-top:0">Storage and behavior</h2>'
+                f'<p>{esc(feature.get("storage"))}</p>'
+                '</section>'
+                if feature.get(
+                    "storage"
+                )
+                else ""
+            )
+
+            notes_html = (
+                '<h2>Notes</h2><ul>'
+                + "".join(
+                    f'<li>{esc(item)}</li>'
+                    for item in notes
+                )
+                + '</ul>'
+                if notes
+                else ""
+            )
+
+            feature_body = (
+                '<div class="breadcrumbs">'
+                f'<a href="../index.html">{esc(product_name)}</a>'
+                '<span>›</span>'
+                'Features'
+                '<span>›</span>'
+                f'{esc(feature_label)}'
+                '</div>'
+                f'<div class="eyebrow">{esc(tier.title())} Feature</div>'
+                f'<h1 class="hilite-{tier}">{esc(feature_label)}</h1>'
+                f'<p class="lead">{esc(feature.get("description"))}</p>'
+                '<section class="detail-card">'
+                '<h2 style="margin-top:0">Overview</h2>'
+                f'<p>{esc(feature.get("summary"))}</p>'
+                '</section>'
+                + highlights_html
+                + workflow_html
+                + storage_html
+                + notes_html
+            )
+
+            write_html_file(
+                feature_dir
+                / f"{feature_id}.html",
                 page_shell(
-                    title=item["label"],
-                    description=item.get("description") or item["label"],
-                    body=check_body,
+                    title=feature_label,
+                    description=(
+                        feature.get(
+                            "description"
+                        )
+                        or feature_label
+                    ),
+                    body=feature_body,
                     records=records,
-                    depth=2,
-                    active_category=category,
+                    depth=1,
+                    tier=tier,
+                    product_id=product_id,
+                    has_panel=has_panel,
+                    features=features,
+                    active_feature=feature_id,
                     version=version,
                 ),
             )
 
-    # Search page is generic and powered by checks-data.js.
     search_body = (
         '<div class="eyebrow">Documentation Search</div><h1>Search QC checks</h1>'
         '<p class="lead">Search by check name, category, description, severity, setting or source module.</p>'
@@ -448,43 +643,39 @@ def generate_site(
         '<div data-search-results class="search-results"></div></div>'
     )
     write_html_file(
-        qc_output / "search.html",
-        page_shell(
-            title="Search",
-            description="Search Scriptronaut QC checks",
-            body=search_body,
-            records=records,
-            version=version,
-        ),
+        product_output / "search.html",
+        page_shell(title="Search", description=f"Search {product_name} checks", body=search_body, records=records,
+                   tier=tier, product_id=product_id, has_panel=has_panel, features=features, version=version),
     )
 
-    # Lightweight all-checks page.
     all_cards = "".join(
-        f'<a class="card" href="checks/{category_slug(item["category"])}/{esc(item["id"])}.html"><h3>{esc(item["label"])}</h3><p>{esc(item["category"])}</p></a>'
+        f'<a class="card" href="checks/{category_slug(item["category"])}/{esc(item["id"])}.html"><h3>{esc(item["label"])}</h3>'
+        f'<p>{esc(item["category"])}</p><div class="meta-row">{tier_badge(item)}</div></a>'
         for item in sorted(records, key=lambda record: (record["category"].lower(), record["label"].lower()))
     )
-    checks_body = '<div class="eyebrow">Core Checks</div><h1>All checks</h1><div class="grid">' + all_cards + '</div>'
+    checks_body = f'<div class="eyebrow">{esc(product_name)} Checks</div><h1>All checks</h1><div class="grid">{all_cards}</div>'
     write_html_file(
-        qc_output / "checks.html",
-        page_shell(
-            title="All Checks",
-            description="All Scriptronaut QC checks",
-            body=checks_body,
-            records=records,
-            version=version,
-        ),
+        product_output / "checks.html",
+        page_shell(title="All Checks", description=f"All {product_name} checks", body=checks_body, records=records,
+                   tier=tier, product_id=product_id, has_panel=has_panel, features=features, version=version),
     )
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Generate the themed QC documentation site.")
+    parser = argparse.ArgumentParser(description="Generate one QC documentation product subtree.")
     parser.add_argument("data_path")
-    parser.add_argument("template_site")
     parser.add_argument("output_dir")
+    parser.add_argument("product_id")
+    parser.add_argument("product_name")
+    parser.add_argument("tier")
+    parser.add_argument("product_path")
     parser.add_argument("--version", default="1.0")
     args = parser.parse_args()
-    generate_site(args.data_path, args.template_site, args.output_dir, version=args.version)
-    print(f"Generated documentation website: {Path(args.output_dir).resolve()}")
+    generate_product_site(
+        args.data_path, args.output_dir, args.product_id, args.product_name,
+        args.tier, args.product_path, features=[], version=args.version,
+    )
+    print(f"Generated documentation product: {args.product_name}")
     return 0
 
 

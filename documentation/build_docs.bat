@@ -1,26 +1,62 @@
 @echo off
-setlocal
+setlocal EnableExtensions
+cls
 
 echo ============================================
 echo Scriptronaut QC Documentation Builder
 echo ============================================
 echo.
 
-REM Root folder (folder this BAT is in)
-set ROOT=%~dp0
+set "bat_path=%~dp0"
 
-set CHECKS=%ROOT%..\qc_checker\checks
-set TEMPLATE=%ROOT%\template
-set OUTPUT=%ROOT%\site
+echo Build Documentation:
+echo 1. Core
+echo 2. Pro
+echo 3. Core + Pro
+echo.
+choice /c 123 /n /m "Select 1, 2 or 3: "
 
-python "%ROOT%\build_docs.py" ^
-    "%CHECKS%" ^
-    "%TEMPLATE%" ^
-    "%OUTPUT%" ^
-    --version 1.1
+if errorlevel 3 (
+    set "product=all"
+) else if errorlevel 2 (
+    set "product=pro"
+) else (
+    set "product=core"
+)
+
+echo.
+echo Building: %product%
+echo.
+
+python "%bat_path%build_docs.py" --product %product% --version 1.0
+
+if errorlevel 1 (
+    echo.
+    echo ============================================
+    echo Documentation Build Failed
+    echo ============================================
+    goto :end
+)
 
 echo.
 echo ============================================
 echo Documentation Complete
 echo ============================================
+echo Site:
+echo %bat_path%site
+
+
+:end
+echo.
 pause
+
+echo.
+rmdir /s /q "%bat_path%.site_build"
+rmdir /s /q "%bat_path%__pycache__"
+echo.
+echo ============================================
+echo Cleaned Up Temp folders
+echo ============================================
+echo.
+
+endlocal

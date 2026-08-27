@@ -35,11 +35,7 @@ def module_assignments(tree: ast.Module) -> dict[str, Any]:
 
 
 def top_level_functions(tree: ast.Module) -> set[str]:
-    return {
-        node.name
-        for node in tree.body
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-    }
+    return {node.name for node in tree.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
 
 
 def ast_dict_mapping(node: ast.Dict) -> dict[str, ast.AST]:
@@ -60,18 +56,12 @@ def detect_selection(tree: ast.Module) -> str:
         selection_node = mapping.get("selection")
         if not isinstance(selection_node, ast.Dict):
             continue
-        selection_mapping = ast_dict_mapping(selection_node)
-        mode = literal_value(selection_mapping.get("mode"))
+        mode = literal_value(ast_dict_mapping(selection_node).get("mode"))
         if isinstance(mode, str):
             modes.add(mode.upper())
-
     labels = {
-        "VERT": "Vertices",
-        "VERTEX": "Vertices",
-        "EDGE": "Edges",
-        "FACE": "Faces",
-        "MIXED": "Vertices, edges and faces",
-        "OBJECT": "Object",
+        "VERT": "Vertices", "VERTEX": "Vertices", "EDGE": "Edges",
+        "FACE": "Faces", "MIXED": "Vertices, edges and faces", "OBJECT": "Object",
     }
     if not modes:
         return "Object"
@@ -83,15 +73,7 @@ def normalize_identifier(value: str) -> str:
 
 
 def title_from_identifier(value: str) -> str:
-    special = {
-        "ascii": "ASCII",
-        "nla": "NLA",
-        "qc": "QC",
-        "uv": "UV",
-        "uvs": "UVs",
-        "ngons": "N-Gons",
-        "cycles": "Cycles",
-    }
+    special = {"ascii":"ASCII", "nla":"NLA", "qc":"QC", "uv":"UV", "uvs":"UVs", "ngons":"N-Gons", "cycles":"Cycles"}
     words = re.sub(r"[_\-]+", " ", str(value).strip()).split()
     return " ".join(special.get(word.lower(), word.capitalize()) for word in words)
 
@@ -117,25 +99,21 @@ def normalize_settings(value: Any) -> list[dict[str, Any]]:
     return settings
 
 
-def parse_check(script_path: Path, category: str, root: Path) -> dict[str, Any]:
+def parse_check(script_path: Path, category: str, root: Path, *, source_tier: str, source_product: str) -> dict[str, Any]:
     source = script_path.read_text(encoding="utf-8")
     tree = ast.parse(source, filename=str(script_path))
     assigned = module_assignments(tree)
     functions = top_level_functions(tree)
-
     check_id = script_path.stem
     severity = str(assigned.get("SEVERITY") or "warning").lower()
     if severity not in VALID_SEVERITIES:
         severity = "warning"
-
     settings = normalize_settings(assigned.get("SETTINGS"))
     explicit_fix = assigned.get("has_fix")
     has_fix = "fix" in functions
     if isinstance(explicit_fix, bool):
         has_fix = explicit_fix and has_fix
-
     docs = assigned.get("DOCS") if isinstance(assigned.get("DOCS"), dict) else {}
-
     return {
         "category": title_from_identifier(category),
         "categoryId": normalize_identifier(category),
@@ -151,29 +129,20 @@ def parse_check(script_path: Path, category: str, root: Path) -> dict[str, Any]:
         "settings": settings,
         "selection": detect_selection(tree),
         "source": script_path.relative_to(root).as_posix(),
+        "sourceTier": normalize_identifier(source_tier),
+        "sourceProduct": normalize_identifier(source_product),
     }
 
 
-def generate_metadata(
-    checks_dir: str | Path,
-    output_json: str | Path,
-    output_js: str | Path | None = None,
-    categories: Iterable[str] | None = None,
-) -> list[dict[str, Any]]:
+def scan_checks(checks_dir: str | Path, *, source_tier: str, source_product: str, categories: Iterable[str] | None = None) -> list[dict[str, Any]]:
     root = Path(checks_dir).resolve()
     if not root.is_dir():
         raise FileNotFoundError(f"QC checks directory does not exist: {root}")
-
     category_names = (
         sorted(normalize_identifier(name) for name in categories)
-        if categories
-        else sorted(
-            path.name
-            for path in root.iterdir()
-            if path.is_dir() and path.name != "__pycache__" and not path.name.startswith(".")
-        )
+        if categories else
+        sorted(path.name for path in root.iterdir() if path.is_dir() and path.name != "__pycache__" and not path.name.startswith("."))
     )
-
     records: list[dict[str, Any]] = []
     for category in category_names:
         category_dir = root / category
@@ -184,17 +153,39 @@ def generate_metadata(
             if script_path.name in IGNORED_FILENAMES:
                 continue
             try:
-                records.append(parse_check(script_path, category, root))
+                records.append(parse_check(script_path, category, root, source_tier=source_tier, source_product=source_product))
             except Exception as error:
                 print(f"Warning: could not parse {script_path}: {error}")
+    return records
 
+
+def generate_metadata(
+    sources: Iterable[dict[str, Any]],
+    output_json: str | Path,
+    output_js: str | Path | None = None,
+) -> list[dict[str, Any]]:
+    """Merge one or more check roots into one product documentation dataset."""
+    records: list[dict[str, Any]] = []
+    seen: dict[tuple[str, str], Path] = {}
+    for source in sources:
+        checks_dir = Path(source["checks_dir"]).resolve()
+        tier = str(source.get("tier") or "core")
+        product = str(source.get("product") or tier)
+        source_records = scan_checks(checks_dir, source_tier=tier, source_product=product)
+        for record in source_records:
+            key = (record["categoryId"], record["id"])
+            if key in seen:
+                raise ValueError(
+                    "Duplicate documentation check '{} / {}' in '{}' and '{}'.".format(
+                        record["categoryId"], record["id"], seen[key], checks_dir
+                    )
+                )
+            seen[key] = checks_dir
+            records.append(record)
     records.sort(key=lambda record: (record["categoryId"], record["label"].lower()))
-
     json_path = Path(output_json)
     json_path.parent.mkdir(parents=True, exist_ok=True)
-    json_text = json.dumps(records, indent=4, ensure_ascii=False) + "\n"
-    json_path.write_text(json_text, encoding="utf-8")
-
+    json_path.write_text(json.dumps(records, indent=4, ensure_ascii=False) + "\n", encoding="utf-8")
     if output_js:
         js_path = Path(output_js)
         js_path.parent.mkdir(parents=True, exist_ok=True)
@@ -203,23 +194,21 @@ def generate_metadata(
             f"window.QC_CHECKS = {json.dumps(records, indent=4, ensure_ascii=False)};\n",
             encoding="utf-8",
         )
-
     return records
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Extract QC metadata from check modules.")
+    parser = argparse.ArgumentParser(description="Extract QC metadata from one check root.")
     parser.add_argument("checks_dir")
     parser.add_argument("output_json")
     parser.add_argument("--js", dest="output_js")
-    parser.add_argument("--categories", nargs="*")
+    parser.add_argument("--tier", default="core")
+    parser.add_argument("--product", default="core")
     args = parser.parse_args()
-
     records = generate_metadata(
-        args.checks_dir,
+        [{"checks_dir": args.checks_dir, "tier": args.tier, "product": args.product}],
         args.output_json,
         output_js=args.output_js,
-        categories=args.categories,
     )
     print(f"Extracted {len(records)} QC checks.")
     return 0
