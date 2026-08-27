@@ -9,9 +9,9 @@ import bpy
 SEVERITY = "info"
 LABEL = "Material Slot Usage"
 DESCRIPTION = (
-    "Checks for redundant material slots that are not assigned to any face. "
-    "At least one material slot is preserved so this check does not undo "
-    "the Material Assigned check."
+    "Checks for material slots that are not assigned to any face. "
+    "Unused empty slots can be fixed automatically; populated unused slots "
+    "are reported for manual review."
 )
 WHY = (
     "Helps you keep your project clean, prevents export errors, and saves"
@@ -36,13 +36,6 @@ SETTINGS = {
 }
 
 
-# Materials that should never be automatically deleted if removing an
-# unused slot causes the material datablock to become orphaned.
-PROTECTED_MATERIAL_NAMES = {
-    "Dots Stroke",
-}
-
-
 # -------------------------------------------------------------------------
 # Main
 # -------------------------------------------------------------------------
@@ -51,28 +44,32 @@ def main(preferences=None):
     """
     Finds mesh objects with unused material slots.
 
+    Empty unused slots are safe to remove automatically.
+
+    Populated unused slots are intentionally reported but not automatically
+    removed because polygon material indices alone cannot prove that the
+    material slot is unused by the wider production setup.
+
     Args:
         preferences (dict | None):
             User-configured check preferences.
 
     Returns:
-        dict:
-        {
-            "issues": list[str],
-            "failed_objects": dict,
-            "settings": dict,
-        }
+        dict
     """
     settings = resolve_settings(
         SETTINGS,
         preferences
     )
 
-    failed_objects = get_objects_with_unused_material_slots(
-        settings=settings,
+    failed_objects = (
+        get_objects_with_unused_material_slots(
+            settings=settings,
+        )
     )
 
     issues = []
+    auto_fixable_slot_count = 0
 
     for object_name, object_data in sorted(
         failed_objects.items()
@@ -82,50 +79,106 @@ def main(preferences=None):
             [],
         )
 
-        slot_labels = []
-
-        for slot_data in unused_slots:
-            slot_index = slot_data.get(
-                "slot_index",
-                -1,
+        empty_slots = [
+            slot_data
+            for slot_data in unused_slots
+            if slot_data.get(
+                "is_empty",
+                False,
             )
+        ]
 
-            material_name = slot_data.get(
-                "material_name",
-                None,
+        populated_slots = [
+            slot_data
+            for slot_data in unused_slots
+            if not slot_data.get(
+                "is_empty",
+                False,
             )
+        ]
 
-            if material_name:
-                slot_labels.append(
-                    '{} "{}"'.format(
-                        slot_index,
-                        material_name,
-                    )
-                )
-            else:
-                slot_labels.append(
-                    "{} (empty)".format(
-                        slot_index
-                    )
-                )
-
-        issues.append(
-            (
-                'Object "{}" has {} unused material slot{}: {}.'
-            ).format(
-                object_name,
-                len(unused_slots),
-                ""
-                if len(unused_slots) == 1
-                else "s",
-                ", ".join(slot_labels),
-            )
+        auto_fixable_slot_count += len(
+            empty_slots
         )
 
+        if empty_slots:
+            issues.append(
+                (
+                    'Object "{}" has {} unused empty material slot{}: {}. '
+                    "Automatic Fix can remove {}."
+                ).format(
+                    object_name,
+                    len(
+                        empty_slots
+                    ),
+                    ""
+                    if len(
+                        empty_slots
+                    ) == 1
+                    else "s",
+                    ", ".join(
+                        str(
+                            slot_data.get(
+                                "slot_index",
+                                -1,
+                            )
+                        )
+                        for slot_data in empty_slots
+                    ),
+                    "it"
+                    if len(
+                        empty_slots
+                    ) == 1
+                    else "them",
+                )
+            )
+
+        if populated_slots:
+            issues.append(
+                (
+                    'Object "{}" has {} populated material slot{} not '
+                    "assigned to any face: {}. Manual review is required; "
+                    "QC will not remove populated material slots automatically."
+                ).format(
+                    object_name,
+                    len(
+                        populated_slots
+                    ),
+                    ""
+                    if len(
+                        populated_slots
+                    ) == 1
+                    else "s",
+                    ", ".join(
+                        '{} "{}"'.format(
+                            slot_data.get(
+                                "slot_index",
+                                -1,
+                            ),
+                            slot_data.get(
+                                "material_name",
+                                "Unknown",
+                            ),
+                        )
+                        for slot_data in populated_slots
+                    ),
+                )
+            )
+
     return {
-        "issues": issues,
-        "failed_objects": failed_objects,
-        "settings": settings,
+        "issues":
+            issues,
+
+        "failed_objects":
+            failed_objects,
+
+        "settings":
+            settings,
+
+        "can_auto_fix":
+            bool(
+                auto_fixable_slot_count
+            ),
     }
 
 
@@ -134,7 +187,9 @@ def fix(
         preferences=None,
     ):
     """
-    Removes unused material slots reported by the check.
+    Removes only unused EMPTY material slots reported by the check.
+
+    Populated unused material slots are never removed automatically.
 
     Args:
         result_data (dict | None):
@@ -357,27 +412,22 @@ def remove_unused_material_slots(
         settings=None,
     ):
     """
-    Removes unused material slots reported by the check.
+    Removes only unused EMPTY material slots.
 
-    Slots are recalculated before removal and deleted from highest index
-    to lowest index so lower material-slot indices remain valid.
+    Populated slots are deliberately preserved even when no polygon currently
+    references them. Such slots may be intentional or used indirectly by
+    production tools, modifiers, Geometry Nodes, exporters or scripts.
 
-    Args:
-        result_data (dict | None):
-            Result returned by main().
-
-        settings (dict | None):
-            Resolved settings.
+    Slots are recalculated immediately before removal and deleted from highest
+    index to lowest index so lower material-slot indices remain valid.
 
     Returns:
-        dict:
-        {
-            "fixed_objects": dict,
-            "issues": list[str],
-        }
+        dict
     """
     if settings is None:
-        settings = resolve_settings(SETTINGS)
+        settings = resolve_settings(
+            SETTINGS
+        )
 
     if not isinstance(
         result_data,
@@ -406,7 +456,7 @@ def remove_unused_material_slots(
 
         if obj is None:
             issues.append(
-                'Object "{}" no longer exists.'.format(
+                'Object "{}" is no longer available.'.format(
                     object_name
                 )
             )
@@ -423,42 +473,47 @@ def remove_unused_material_slots(
             )
             continue
 
-        current_unused_indices = (
-            get_current_unused_slot_indices(
+        current_unused_slots = (
+            get_current_unused_slots(
                 obj=obj,
                 settings=settings,
             )
         )
 
-        if not current_unused_indices:
+        empty_unused_indices = [
+            slot_data[
+                "slot_index"
+            ]
+            for slot_data in current_unused_slots
+            if (
+                isinstance(
+                    slot_data,
+                    dict,
+                )
+                and slot_data.get(
+                    "is_empty",
+                    False,
+                )
+                and "slot_index"
+                in slot_data
+            )
+        ]
+
+        if not empty_unused_indices:
             continue
 
         removed_slots = []
 
         for slot_index in sorted(
-            current_unused_indices,
+            empty_unused_indices,
             reverse=True,
         ):
-            # Never remove the final material slot. This is a defensive
-            # guard in addition to the finder rule above, so stale result
-            # data cannot make Material Assigned fail again.
+            # Material Assigned owns the requirement that a mesh retains
+            # at least one valid material slot.
             if len(
                 obj.material_slots
             ) <= 1:
                 break
-
-            material = None
-            material_name = None
-
-            if 0 <= slot_index < len(
-                obj.material_slots
-            ):
-                material = obj.material_slots[
-                    slot_index
-                ].material
-
-                if material is not None:
-                    material_name = material.name
 
             success, error_message = (
                 remove_material_slot_by_index(
@@ -470,7 +525,7 @@ def remove_unused_material_slots(
             if not success:
                 issues.append(
                     (
-                        "Could not remove material slot {} "
+                        "Could not remove empty material slot {} "
                         'from object "{}": {}'
                     ).format(
                         slot_index,
@@ -480,71 +535,41 @@ def remove_unused_material_slots(
                 )
                 continue
 
-            removed_material = None
-
-            # -----------------------------------------------------
-            # Prevent Material Usage from newly failing
-            # -----------------------------------------------------
-            #
-            # Removing an unused material slot can reduce that
-            # material datablock to zero users. In that case this fix
-            # would immediately create a new Material Usage failure.
-            #
-            # Clean up only the material that became orphaned because
-            # of this slot removal, and only when it is safe to delete.
-            # -----------------------------------------------------
-
-            if (
-                material is not None
-                and material.users == 0
-                and can_remove_orphan_material(
-                    material
-                )
-            ):
-                removed_material = material.name
-
-                try:
-                    bpy.data.materials.remove(
-                        material,
-                        do_unlink=True,
-                    )
-
-                except Exception as error:
-                    issues.append(
-                        (
-                            'Removed slot {}, but could not remove '
-                            'new orphan material "{}": {}'
-                        ).format(
-                            slot_index,
-                            material_name,
-                            error,
-                        )
-                    )
-
-                    removed_material = None
-
             removed_slots.append({
-                "slot_index": slot_index,
-                "material_name": material_name,
-                "removed_orphan_material": removed_material,
+                "slot_index":
+                    slot_index,
+
+                "material_name":
+                    None,
+
+                "is_empty":
+                    True,
             })
 
         if removed_slots:
-            fixed_objects[object_name] = {
-                "removed_slot_count": len(
-                    removed_slots
-                ),
-                "removed_slots": sorted(
-                    removed_slots,
-                    key=lambda item: item[
-                        "slot_index"
-                    ],
-                ),
+            fixed_objects[
+                object_name
+            ] = {
+                "removed_slot_count":
+                    len(
+                        removed_slots
+                    ),
+
+                "removed_slots":
+                    sorted(
+                        removed_slots,
+                        key=lambda item: item[
+                            "slot_index"
+                        ],
+                    ),
             }
 
     return {
-        "fixed_objects": fixed_objects,
-        "issues": issues,
+        "fixed_objects":
+            fixed_objects,
+
+        "issues":
+            issues,
     }
 
 
@@ -552,22 +577,12 @@ def remove_unused_material_slots(
 # Helpers
 # -------------------------------------------------------------------------
 
-def get_current_unused_slot_indices(
+def get_current_unused_slots(
         obj,
         settings=None,
     ):
     """
-    Recalculates the object's currently unused material slot indices.
-
-    Args:
-        obj (bpy.types.Object):
-            Mesh object to inspect.
-
-        settings (dict | None):
-            Resolved settings.
-
-    Returns:
-        list[int]
+    Recalculates the object's current unused material-slot data.
     """
     if (
         obj is None
@@ -576,9 +591,13 @@ def get_current_unused_slot_indices(
     ):
         return []
 
-    results = get_objects_with_unused_material_slots(
-        objects=[obj],
-        settings=settings,
+    results = (
+        get_objects_with_unused_material_slots(
+            objects=[
+                obj
+            ],
+            settings=settings,
+        )
     )
 
     object_data = results.get(
@@ -591,57 +610,13 @@ def get_current_unused_slot_indices(
         [],
     )
 
-    return [
-        slot_data["slot_index"]
-        for slot_data in unused_slots
-        if isinstance(slot_data, dict)
-        and "slot_index" in slot_data
-    ]
-
-
-def can_remove_orphan_material(
-        material,
+    if not isinstance(
+        unused_slots,
+        list,
     ):
-    """
-    Returns True when an orphan material created by this fix can be
-    safely removed.
+        return []
 
-    This mirrors the protection rules used by the Material Usage check
-    so fixing Material Slot Usage does not create a new failure there.
-    """
-    if material is None:
-        return False
-
-    if material.users != 0:
-        return False
-
-    if material.name in PROTECTED_MATERIAL_NAMES:
-        return False
-
-    if material.use_fake_user:
-        return False
-
-    if getattr(
-        material,
-        "use_extra_user",
-        False,
-    ):
-        return False
-
-    if material.library is not None:
-        return False
-
-    if material.asset_data is not None:
-        return False
-
-    if getattr(
-        material,
-        "is_library_indirect",
-        False,
-    ):
-        return False
-
-    return True
+    return unused_slots
 
 
 def remove_material_slot_by_index(
