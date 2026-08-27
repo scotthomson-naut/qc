@@ -113,11 +113,12 @@ class SCRIPTRONAUT_UL_QC_Checks(UIList):
         #
         # Name         ~70%
         # Status       ~15%
-        # Fix button   remaining
+        # Settings     dedicated column
+        # Fix          dedicated column
         # ---------------------------------------------------------
 
         main_split = row.split(
-            factor=0.7,
+            factor=0.70,
             align=True,
         )
 
@@ -130,7 +131,7 @@ class SCRIPTRONAUT_UL_QC_Checks(UIList):
         )
 
         status_split = right_side.split(
-            factor=0.50,
+            factor=0.52,
             align=True,
         )
 
@@ -138,7 +139,20 @@ class SCRIPTRONAUT_UL_QC_Checks(UIList):
             align=True
         )
 
-        action_column = status_split.row(
+        action_side = status_split.row(
+            align=True
+        )
+
+        action_split = action_side.split(
+            factor=0.50,
+            align=True,
+        )
+
+        settings_column = action_split.row(
+            align=True
+        )
+
+        fix_column = action_split.row(
             align=True
         )
 
@@ -210,24 +224,39 @@ class SCRIPTRONAUT_UL_QC_Checks(UIList):
         )
 
         # ---------------------------------------------------------
-        # Inline Settings / Fix
+        # Inline Settings column
         # ---------------------------------------------------------
 
         if item.has_settings:
-            settings_operator = action_column.operator(
+            settings_operator = settings_column.operator(
                 "scriptronaut.qc_check_settings",
                 text="",
                 icon="GREASEPENCIL",
             )
-            settings_operator.check_id = item.check_id
-            settings_operator.script_path = item.script_path
+
+            settings_operator.check_id = (
+                item.check_id
+            )
+
+            settings_operator.script_path = (
+                item.script_path
+            )
+
+        else:
+            settings_column.label(
+                text=""
+            )
+
+        # ---------------------------------------------------------
+        # Inline Fix column
+        # ---------------------------------------------------------
 
         if (
             item.status == "FAIL"
             and item.has_fix
             and item.can_auto_fix
         ):
-            fix_operator = action_column.operator(
+            fix_operator = fix_column.operator(
                 "scriptronaut.qc_fix_check_inline",
                 text="",
                 icon="TOOL_SETTINGS",
@@ -237,8 +266,10 @@ class SCRIPTRONAUT_UL_QC_Checks(UIList):
                 index
             )
 
-        elif not item.has_settings:
-            action_column.label(text="")
+        else:
+            fix_column.label(
+                text=""
+            )
 
 
 class SCRIPTRONAUT_UL_QC_FailedObjects(UIList):
@@ -359,7 +390,7 @@ class SCRIPTRONAUT_UL_QC_ObjectChecks(UIList):
         # ---------------------------------------------------------
 
         split = row.split(
-            factor=0.88,
+            factor=0.82,
             align=True,
         )
 
@@ -367,7 +398,20 @@ class SCRIPTRONAUT_UL_QC_ObjectChecks(UIList):
             align=True
         )
 
-        action_column = split.row(
+        action_side = split.row(
+            align=True
+        )
+
+        action_split = action_side.split(
+            factor=0.50,
+            align=True,
+        )
+
+        settings_column = action_split.row(
+            align=True
+        )
+
+        fix_column = action_split.row(
             align=True
         )
 
@@ -414,24 +458,42 @@ class SCRIPTRONAUT_UL_QC_ObjectChecks(UIList):
         )
 
         # ---------------------------------------------------------
-        # Settings / Fix
+        # Settings column
         # ---------------------------------------------------------
 
-        if item.has_settings and source_check is not None:
-            settings_operator = action_column.operator(
+        if (
+            item.has_settings
+            and source_check is not None
+        ):
+            settings_operator = settings_column.operator(
                 "scriptronaut.qc_check_settings",
                 text="",
                 icon="GREASEPENCIL",
             )
-            settings_operator.check_id = source_check.check_id
-            settings_operator.script_path = source_check.script_path
+
+            settings_operator.check_id = (
+                source_check.check_id
+            )
+
+            settings_operator.script_path = (
+                source_check.script_path
+            )
+
+        else:
+            settings_column.label(
+                text=""
+            )
+
+        # ---------------------------------------------------------
+        # Fix column
+        # ---------------------------------------------------------
 
         if (
             item.has_fix
             and item.can_auto_fix
         ):
             operator = (
-                action_column.operator(
+                fix_column.operator(
                     "scriptronaut.qc_fix_object_inline",
                     text="",
                     icon="TOOL_SETTINGS",
@@ -444,7 +506,7 @@ class SCRIPTRONAUT_UL_QC_ObjectChecks(UIList):
 
         else:
             manual_row = (
-                action_column.row(
+                fix_column.row(
                     align=True
                 )
             )

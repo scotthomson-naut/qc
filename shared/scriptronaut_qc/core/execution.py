@@ -144,6 +144,8 @@ def call_check_fix(
         check_id
     )
 
+    start_time = time.perf_counter()
+
     try:
         return fix_function(
             *args,
@@ -153,6 +155,30 @@ def call_check_fix(
     finally:
         pop_qc_object_filter_context(
             filter_tokens
+        )
+
+        elapsed = (
+            time.perf_counter()
+            - start_time
+        )
+
+        check_name = getattr(
+            module,
+            "LABEL",
+            check_id,
+        )
+
+        print(
+            "{:<40} {:>15}".format(
+                "Fix: {}".format(
+                    str(
+                        check_name
+                    )
+                ),
+                format_elapsed_time(
+                    elapsed
+                ),
+            )
         )
 
 
