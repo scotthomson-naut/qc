@@ -36,6 +36,13 @@ SETTINGS = {
 }
 
 
+# Materials that should never be automatically deleted if removing an
+# unused slot causes the material datablock to become orphaned.
+PROTECTED_MATERIAL_NAMES = {
+    "Dots Stroke",
+}
+
+
 # -------------------------------------------------------------------------
 # Main
 # -------------------------------------------------------------------------
@@ -440,6 +447,7 @@ def remove_unused_material_slots(
             ) <= 1:
                 break
 
+            material = None
             material_name = None
 
             if 0 <= slot_index < len(
@@ -472,9 +480,53 @@ def remove_unused_material_slots(
                 )
                 continue
 
+            removed_material = None
+
+            # -----------------------------------------------------
+            # Prevent Material Usage from newly failing
+            # -----------------------------------------------------
+            #
+            # Removing an unused material slot can reduce that
+            # material datablock to zero users. In that case this fix
+            # would immediately create a new Material Usage failure.
+            #
+            # Clean up only the material that became orphaned because
+            # of this slot removal, and only when it is safe to delete.
+            # -----------------------------------------------------
+
+            if (
+                material is not None
+                and material.users == 0
+                and can_remove_orphan_material(
+                    material
+                )
+            ):
+                removed_material = material.name
+
+                try:
+                    bpy.data.materials.remove(
+                        material,
+                        do_unlink=True,
+                    )
+
+                except Exception as error:
+                    issues.append(
+                        (
+                            'Removed slot {}, but could not remove '
+                            'new orphan material "{}": {}'
+                        ).format(
+                            slot_index,
+                            material_name,
+                            error,
+                        )
+                    )
+
+                    removed_material = None
+
             removed_slots.append({
                 "slot_index": slot_index,
                 "material_name": material_name,
+                "removed_orphan_material": removed_material,
             })
 
         if removed_slots:
@@ -545,6 +597,51 @@ def get_current_unused_slot_indices(
         if isinstance(slot_data, dict)
         and "slot_index" in slot_data
     ]
+
+
+def can_remove_orphan_material(
+        material,
+    ):
+    """
+    Returns True when an orphan material created by this fix can be
+    safely removed.
+
+    This mirrors the protection rules used by the Material Usage check
+    so fixing Material Slot Usage does not create a new failure there.
+    """
+    if material is None:
+        return False
+
+    if material.users != 0:
+        return False
+
+    if material.name in PROTECTED_MATERIAL_NAMES:
+        return False
+
+    if material.use_fake_user:
+        return False
+
+    if getattr(
+        material,
+        "use_extra_user",
+        False,
+    ):
+        return False
+
+    if material.library is not None:
+        return False
+
+    if material.asset_data is not None:
+        return False
+
+    if getattr(
+        material,
+        "is_library_indirect",
+        False,
+    ):
+        return False
+
+    return True
 
 
 def remove_material_slot_by_index(
