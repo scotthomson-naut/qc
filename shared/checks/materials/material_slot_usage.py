@@ -9,7 +9,9 @@ import bpy
 SEVERITY = "info"
 LABEL = "Material Slot Usage"
 DESCRIPTION = (
-    "Checks for material slots that are not assigned to any face."
+    "Checks for redundant material slots that are not assigned to any face. "
+    "At least one material slot is preserved so this check does not undo "
+    "the Material Assigned check."
 )
 WHY = (
     "Helps you keep your project clean, prevents export errors, and saves"
@@ -262,10 +264,36 @@ def get_objects_with_unused_material_slots(
         unused_slots = []
         last_slot_index = slot_count - 1
 
+        # ---------------------------------------------------------
+        # Preserve one material slot
+        # ---------------------------------------------------------
+        #
+        # Material Assigned owns the requirement that a mesh has a
+        # valid material slot. If this object has no polygons, every
+        # slot is technically unused. Removing all of them here would
+        # make Material Assigned fail again after it had already been
+        # fixed.
+        #
+        # Therefore Material Slot Usage only reports/removes redundant
+        # unused slots and never reduces a mesh below one slot.
+        # ---------------------------------------------------------
+
+        preserve_slot_index = (
+            0
+            if not used_slot_indices
+            else None
+        )
+
         for slot_index in range(
             slot_count
         ):
             if slot_index in used_slot_indices:
+                continue
+
+            if (
+                preserve_slot_index is not None
+                and slot_index == preserve_slot_index
+            ):
                 continue
 
             material = materials[
@@ -404,6 +432,14 @@ def remove_unused_material_slots(
             current_unused_indices,
             reverse=True,
         ):
+            # Never remove the final material slot. This is a defensive
+            # guard in addition to the finder rule above, so stale result
+            # data cannot make Material Assigned fail again.
+            if len(
+                obj.material_slots
+            ) <= 1:
+                break
+
             material_name = None
 
             if 0 <= slot_index < len(
