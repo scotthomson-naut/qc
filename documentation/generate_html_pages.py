@@ -173,15 +173,57 @@ def relative_prefix(depth: int) -> str:
     return "../" * depth
 
 
+
+def get_hilite_class(
+        tier: str,
+        product_id: str,
+) -> str:
+    """
+    Return the CSS highlight class for a documentation product.
+
+    Core / Pro:
+        hilite-core
+        hilite-pro
+
+    Packs:
+        hilite-pack-rigging
+        hilite-pack-animation
+        hilite-pack-lighting
+    """
+    tier = str(tier).strip().lower()
+
+    product_id = re.sub(
+        r"[^a-z0-9_-]+",
+        "-",
+        str(product_id).strip().lower(),
+    ).strip("-")
+
+    if tier == "pack":
+        return "hilite-pack-{}".format(
+            product_id
+        )
+
+    return "hilite-{}".format(
+        tier
+    )
+
 def navigation(
         records: list[dict[str, Any]],
         depth: int,
         tier: str,
+        product_id: str,
+        product_name: str,
         active_category: str = "",
         has_panel: bool = False,
         features: list[dict[str, Any]] | None = None,
         active_feature: str = "",
+        product_depth: int = 1,
 ) -> str:
+    hilite_class = get_hilite_class(
+        tier,
+        product_id,
+    )
+
     prefix = relative_prefix(depth)
     counts = Counter(
         record["category"]
@@ -189,6 +231,12 @@ def navigation(
     )
 
     features = features or []
+
+    product_label = (
+        product_name
+        if tier == "pack"
+        else tier.title()
+    )
 
     category_links = []
 
@@ -241,7 +289,7 @@ def navigation(
 
         feature_section = (
             '<div class="nav-section">'
-            f'<div class="nav-title"><b class="hilite-{tier}">'
+            f'<div class="nav-title"><b class="{hilite_class}">'
             f'{esc(tier.title())}</b> Features</div>'
             + "".join(
                 feature_links
@@ -257,14 +305,15 @@ def navigation(
         '<nav>'
         '<div class="nav-section">'
         '<div class="nav-title">Start</div>'
+        f'<a class="nav-link" href="{relative_prefix(product_depth + depth)}index.html">All Products</a>'
         f'<a class="nav-link" href="{prefix}index.html">Overview</a>'
         f'{panel_link}'
         f'<a class="nav-link" href="{prefix}search.html">Search</a>'
         '</div>'
         + feature_section
         + '<div class="nav-section">'
-        f'<div class="nav-title"><b class="hilite-{tier}">'
-        f'{esc(tier.title())}</b> Checks</div>'
+        f'<div class="nav-title"><b class="{hilite_class}">'
+        f'{esc(product_name)}</b> Checks</div>'
         + "".join(
             category_links
         )
@@ -284,16 +333,42 @@ def page_shell(
     active_category: str = "",
     tier: str,
     product_id: str,
+    product_name: str,
     has_panel: bool = False,
     features: list[dict[str, Any]] | None = None,
     active_feature: str = "",
+    product_depth: int = 1,
     version: str = "1.0",
 ) -> str:
+
+    hilite_class = get_hilite_class(
+        tier,
+        product_id,
+    )
+
     """Build one product documentation page under docs/qc_checker/<product>."""
-    product_prefix = relative_prefix(depth)
-    qc_prefix = "../" + product_prefix
-    site_prefix = "../../../" + product_prefix
+    product_prefix = relative_prefix(
+        depth
+    )
+
+    qc_prefix = relative_prefix(
+        product_depth
+        + depth
+    )
+
+    site_prefix = relative_prefix(
+        2
+        + product_depth
+        + depth
+    )
     current_year = datetime.now().year
+
+    product_label = (
+        product_name
+        if tier == "pack"
+        else tier.title()
+    )
+
     data_script = f"{qc_prefix}assets/js/{product_id}-checks-data.js"
     return (
         '<!doctype html><html lang="en"><head>'
@@ -308,18 +383,21 @@ def page_shell(
         '<header class="topbar">'
         f'<a class="brand" href="{site_prefix}index.html"><img src="{site_prefix}svg/scriptronaut_name.svg" alt="Scriptronaut"></a>'
         '<div class="top-actions"><span class="hide-mobile"><b>QC Checker</b> Documentation</span>'
-        f'<span class="badge hilite-{tier}"><b>{esc(tier.title())}</b> {esc(version)}</span></div></header>'
+        f'<span class="badge {hilite_class}"><b>{esc(product_label)}</b> {esc(version)}</span></div></header>'
         '<div class="shell">'
         + navigation(
             records,
             depth,
             tier,
+            product_id,
+            product_name,
             active_category,
             has_panel=has_panel,
             features=features,
             active_feature=active_feature,
+            product_depth=product_depth,
         )
-        + f'<main class="content">{body}<footer class="footer"><b>Scriptronaut</b> | QC Checker <b class="hilite-{tier}">{esc(tier.title())}</b> documentation.'
+        + f'<main class="content">{body}<footer class="footer"><b>Scriptronaut</b> | QC Checker <b class="{hilite_class}">{esc(product_label)}</b> documentation.'
         f'<span style="float:right;">&copy; {current_year}</span></footer></main></div>'
         f'<script src="{data_script}"></script>'
         f'<script src="{qc_prefix}assets/js/docs.js"></script></body></html>'
@@ -364,7 +442,32 @@ def generate_product_site(
     """Generate one Core, Pro, or Pack documentation subtree."""
     data_path = Path(data_path).resolve()
     output_dir = Path(output_dir).resolve()
-    product_path = Path(product_path)
+    product_path = Path(
+        product_path
+    )
+
+    # Number of directory levels between docs/qc_checker and this product.
+    #
+    # Core / Pro:
+    #     core                 -> 1
+    #     pro                  -> 1
+    #
+    # Packs:
+    #     packs/rigging        -> 2
+    product_depth = len(
+        product_path.parts
+    )
+
+    product_site_prefix = relative_prefix(
+        2
+        + product_depth
+    )
+
+    product_hilite_class = get_hilite_class(
+        tier,
+        product_id,
+    )
+
     records = json.loads(
         data_path.read_text(
             encoding="utf-8"
@@ -411,15 +514,16 @@ def generate_product_site(
     first_category = category_slug(categories[0]) if categories else ""
     browse_action = f'<a class="button" href="categories/{first_category}.html">Browse checks</a>' if first_category else ''
     index_body = (
-        f'<div class="eyebrow">Official Documentation</div><h1 class="hilite-{tier}">{esc(product_name)}</h1>'
-        f'<p class="lead">Production-focused documentation for the <b class="hilite-{tier}">{len(records)}</b> checks included with {esc(product_name)}.</p>'
+        f'<div class="eyebrow">Official Documentation</div><h1 class="{product_hilite_class}">{esc(product_name)}</h1>'
+        f'<p class="lead">Production-focused documentation for the <b class="{product_hilite_class}">{len(records)}</b> checks included with {esc(product_name)}.</p>'
         '<section class="hero-card"><div><h2 style="margin-top:0">Documentation</h2>'
         '<p class="lead" style="font-size:1rem">Browse checks by category, search the documentation, and review check behavior, settings, severity and fix support.</p>'
         f'<div class="actions">{panel_action}{browse_action}</div></div>'
         '<div class="astronaut-wrap" id="astronaut">'
-        '<img src="../../../svg/scriptronaut_character.svg" alt="Scriptronaut character"></div></section>'
+        f'<img src="{product_site_prefix}svg/scriptronaut_character.svg" '
+        'alt="Scriptronaut character"></div></section>'
         + (
-            f'<h2><b class="hilite-{tier}">{esc(product_name)}</b> Features</h2>'
+            f'<h2><b class="{product_hilite_class}">{esc(product_name)}</b> Features</h2>'
             '<div class="grid">'
             + "".join(
                 f'<a class="card" href="features/{esc(feature.get("id"))}.html">'
@@ -432,13 +536,13 @@ def generate_product_site(
             if features
             else ""
         )
-        + f'<h2><b class="hilite-{tier}">{esc(product_name)}</b> Categories</h2>'
+        + f'<h2><b class="{product_hilite_class}">{esc(product_name)}</b> Categories</h2>'
         f'<div class="grid">{category_cards}</div>'
     )
     write_html_file(
         product_output / "index.html",
         page_shell(title=product_name, description=f"Scriptronaut {product_name} documentation", body=index_body,
-                   records=records, tier=tier, product_id=product_id, has_panel=has_panel, features=features, version=version),
+                   records=records, tier=tier, product_id=product_id, product_name=product_name, has_panel=has_panel, features=features, product_depth=product_depth, version=version),
     )
 
     (product_output / "categories").mkdir(parents=True, exist_ok=True)
@@ -459,14 +563,14 @@ def generate_product_site(
         category_body = (
             f'<div class="breadcrumbs"><a href="../index.html">{esc(product_name)}</a><span>›</span>{esc(category)}</div>'
             '<div class="eyebrow">Category</div>'
-            f'<h1>{esc(category)}</h1><p class="lead"><b class="hilite-{tier}">{len(items)}</b> checks, listed alphabetically.</p>'
+            f'<h1>{esc(category)}</h1><p class="lead"><b class="{product_hilite_class}">{len(items)}</b> checks, listed alphabetically.</p>'
             '<div class="grid">' + "".join(cards) + '</div>'
         )
         write_html_file(
             product_output / "categories" / f"{category_slug(category)}.html",
             page_shell(title=f"{category} Checks", description=f"{category} QC checks", body=category_body,
-                       records=records, depth=1, active_category=category, tier=tier, product_id=product_id,
-                       has_panel=has_panel, features=features, version=version),
+                       records=records, depth=1, active_category=category, tier=tier, product_id=product_id, product_name=product_name,
+                       has_panel=has_panel, features=features, product_depth=product_depth, version=version),
         )
 
         check_dir = product_output / "checks" / category_slug(category)
@@ -499,8 +603,8 @@ def generate_product_site(
             write_html_file(
                 check_dir / f'{item["id"]}.html',
                 page_shell(title=item["label"], description=item.get("description") or item["label"], body=check_body,
-                           records=records, depth=2, active_category=category, tier=tier, product_id=product_id,
-                           has_panel=has_panel, features=features, version=version),
+                           records=records, depth=2, active_category=category, tier=tier, product_id=product_id, product_name=product_name,
+                           has_panel=has_panel, features=features, product_depth=product_depth, version=version),
             )
 
     # ---------------------------------------------------------
@@ -601,7 +705,7 @@ def generate_product_site(
                 f'{esc(feature_label)}'
                 '</div>'
                 f'<div class="eyebrow">{esc(tier.title())} Feature</div>'
-                f'<h1 class="hilite-{tier}">{esc(feature_label)}</h1>'
+                f'<h1 class="{product_hilite_class}">{esc(feature_label)}</h1>'
                 f'<p class="lead">{esc(feature.get("description"))}</p>'
                 '<section class="detail-card">'
                 '<h2 style="margin-top:0">Overview</h2>'
@@ -629,9 +733,11 @@ def generate_product_site(
                     depth=1,
                     tier=tier,
                     product_id=product_id,
+                    product_name=product_name,
                     has_panel=has_panel,
                     features=features,
                     active_feature=feature_id,
+                    product_depth=product_depth,
                     version=version,
                 ),
             )
@@ -645,7 +751,7 @@ def generate_product_site(
     write_html_file(
         product_output / "search.html",
         page_shell(title="Search", description=f"Search {product_name} checks", body=search_body, records=records,
-                   tier=tier, product_id=product_id, has_panel=has_panel, features=features, version=version),
+                   tier=tier, product_id=product_id, product_name=product_name, has_panel=has_panel, features=features, product_depth=product_depth, version=version),
     )
 
     all_cards = "".join(
@@ -657,9 +763,184 @@ def generate_product_site(
     write_html_file(
         product_output / "checks.html",
         page_shell(title="All Checks", description=f"All {product_name} checks", body=checks_body, records=records,
-                   tier=tier, product_id=product_id, has_panel=has_panel, features=features, version=version),
+                   tier=tier, product_id=product_id, product_name=product_name, has_panel=has_panel, features=features, product_depth=product_depth, version=version),
     )
 
+
+
+def generate_product_catalog(
+        output_dir: str | Path,
+        products: list[dict[str, Any]],
+        version: str = "1.0",
+) -> None:
+    """
+    Generate docs/qc_checker/index.html for the products built in this run.
+
+    This page is intentionally generated because its contents depend on the
+    selected Core / Pro / Pack documentation products.
+    """
+    output_dir = Path(
+        output_dir
+    ).resolve()
+
+    qc_root = (
+        output_dir
+        / "docs"
+        / "qc_checker"
+    )
+
+    qc_root.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    current_year = (
+        datetime.now().year
+    )
+
+    cards = []
+
+    for product in products:
+        tier = str(
+            product.get(
+                "tier",
+                "core",
+            )
+        ).lower()
+
+        name = str(
+            product.get(
+                "name",
+                product.get(
+                    "id",
+                    "QC Product",
+                ),
+            )
+        )
+
+        href = str(
+            product.get(
+                "href",
+                "#",
+            )
+        )
+
+        check_count = int(
+            product.get(
+                "check_count",
+                0,
+            )
+        )
+
+        feature_count = int(
+            product.get(
+                "feature_count",
+                0,
+            )
+        )
+
+        detail_parts = [
+            "{} check{}".format(
+                check_count,
+                ""
+                if check_count == 1
+                else "s",
+            )
+        ]
+
+        if feature_count:
+            detail_parts.append(
+                "{} feature{}".format(
+                    feature_count,
+                    ""
+                    if feature_count == 1
+                    else "s",
+                )
+            )
+
+        cards.append(
+            '<a class="card" href="{}">'
+            '<div class="eyebrow">{} Documentation</div>'
+            '<h3 class="hilite-{}">{}</h3>'
+            '<p>{}</p>'
+            '<span class="count hilite-{}">Open documentation →</span>'
+            '</a>'.format(
+                esc(
+                    href
+                ),
+                esc(
+                    tier.title()
+                ),
+                esc(
+                    tier
+                ),
+                esc(
+                    name
+                ),
+                esc(
+                    " · ".join(
+                        detail_parts
+                    )
+                ),
+                esc(
+                    tier
+                ),
+            )
+        )
+
+    body = (
+        '<!doctype html>'
+        '<html lang="en">'
+        '<head>'
+        '<meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        '<meta name="description" content="Scriptronaut QC Checker documentation products">'
+        '<title>QC Checker Documentation — Scriptronaut</title>'
+        '<link rel="preconnect" href="https://fonts.googleapis.com">'
+        '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
+        '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">'
+        '<link rel="stylesheet" href="../../css/docs.css">'
+        '</head>'
+        '<body>'
+        '<div class="stars"></div>'
+        '<div class="stars stars-medium"></div>'
+        '<div class="stars stars-faint"></div>'
+        '<header class="topbar">'
+        '<a class="brand" href="../../index.html">'
+        '<img src="../../svg/scriptronaut_name.svg" alt="Scriptronaut">'
+        '</a>'
+        '<div class="top-actions">'
+        '<span><b>QC Checker</b> Documentation</span>'
+        '<span class="badge">v{}</span>'
+        '</div>'
+        '</header>'
+        '<main class="content" style="margin-left:0;max-width:1200px;margin-right:auto;padding-top:110px;">'
+        '<div class="eyebrow">Documentation Products</div>'
+        '<h1>QC Checker Documentation</h1>'
+        '<p class="lead">Choose a Core, Pro, or Pack documentation product.</p>'
+        '<div class="grid">{}</div>'
+        '<footer class="footer">'
+        '<b>Scriptronaut</b> | QC Checker Documentation'
+        '<span style="float:right;">&copy; {}</span>'
+        '</footer>'
+        '</main>'
+        '</body>'
+        '</html>'
+    ).format(
+        esc(
+            version
+        ),
+        "".join(
+            cards
+        ),
+        current_year,
+    )
+
+    write_html_file(
+        qc_root
+        / "index.html",
+        body,
+    )
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Generate one QC documentation product subtree.")

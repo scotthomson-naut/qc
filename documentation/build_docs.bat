@@ -9,26 +9,78 @@ echo.
 
 set "bat_path=%~dp0"
 
-echo Build Documentation:
-echo 1. Core
-echo 2. Pro
-echo 3. Core + Pro
-echo.
-choice /c 123 /n /m "Select 1, 2 or 3: "
+rem ------------------------------------------------------------
+rem Core
+rem ------------------------------------------------------------
 
-if errorlevel 3 (
-    set "product=all"
-) else if errorlevel 2 (
-    set "product=pro"
+choice /c YN /n /m "Build Core documentation? [Y/N]: "
+
+if errorlevel 2 (
+    set "build_core=0"
 ) else (
-    set "product=core"
+    set "build_core=1"
+)
+
+rem ------------------------------------------------------------
+rem Pro
+rem ------------------------------------------------------------
+
+choice /c YN /n /m "Build Pro documentation? [Y/N]: "
+
+if errorlevel 2 (
+    set "build_pro=0"
+) else (
+    set "build_pro=1"
+)
+
+rem ------------------------------------------------------------
+rem Packs
+rem ------------------------------------------------------------
+
+choice /c YN /n /m "Build all discovered Pack documentation? [Y/N]: "
+
+if errorlevel 2 (
+    set "packs=none"
+) else (
+    set "packs=all"
+)
+
+rem ------------------------------------------------------------
+rem Resolve Core / Pro selection
+rem ------------------------------------------------------------
+
+if "%build_core%"=="1" (
+    if "%build_pro%"=="1" (
+        set "product=all"
+    ) else (
+        set "product=core"
+    )
+) else (
+    if "%build_pro%"=="1" (
+        set "product=pro"
+    ) else (
+        set "product=none"
+    )
+)
+
+if "%product%"=="none" if "%packs%"=="none" (
+    echo.
+    echo Error: Nothing was selected to build.
+    goto :end
 )
 
 echo.
-echo Building: %product%
+echo ============================================
+echo Build Selection
+echo ============================================
+echo Core / Pro: %product%
+echo Packs:      %packs%
 echo.
 
-python "%bat_path%build_docs.py" --product %product% --version 1.0
+python "%bat_path%build_docs.py" ^
+    --product %product% ^
+    --packs %packs% ^
+    --version 1.0
 
 if errorlevel 1 (
     echo.
@@ -44,18 +96,19 @@ echo Documentation Complete
 echo ============================================
 echo Site:
 echo %bat_path%site
+echo.
 
 
 :end
 echo.
 pause
 
-echo.
-rmdir /s /q "%bat_path%.site_build"
-rmdir /s /q "%bat_path%__pycache__"
+rmdir /s /q "%bat_path%.site_build" >nul 2>&1
+rmdir /s /q "%bat_path%__pycache__" >nul 2>&1
+
 echo.
 echo ============================================
-echo Cleaned Up Temp folders
+echo Cleaned Up Temp Folders
 echo ============================================
 echo.
 
