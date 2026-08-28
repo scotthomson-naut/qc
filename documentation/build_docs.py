@@ -8,7 +8,6 @@ from pathlib import Path
 
 from extract_check_metadata import generate_metadata
 from generate_html_pages import (
-    generate_product_catalog,
     generate_product_site,
 )
 from product_features import get_product_features
@@ -652,12 +651,6 @@ def main() -> int:
                 version=args.version,
             )
         )
-
-    generate_product_catalog(
-        output_dir=OUTPUT,
-        products=built_products,
-        version=args.version,
-    )
 
     print(
         "Documentation site: {}".format(
