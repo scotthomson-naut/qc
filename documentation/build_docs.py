@@ -11,6 +11,10 @@ from generate_html_pages import (
     generate_product_site,
 )
 from product_features import get_product_features
+from generate_product_pages import (
+    generate_product_page,
+    generate_qc_checker_product_index,
+)
 
 
 ROOT = Path(__file__).resolve().parent
@@ -468,6 +472,39 @@ def build_pack(
     }
 
 
+def build_product_pages(
+        products: list[dict],
+        *,
+        version: str = VERSION,
+) -> None:
+    """Generate product/marketing pages for built QC products and packs."""
+    if not products:
+        return
+
+    generate_qc_checker_product_index(
+        output_dir=OUTPUT,
+        products=products,
+        version=version,
+    )
+
+    for product in products:
+        generate_product_page(
+            output_dir=OUTPUT,
+            product_id=product["id"],
+            product_name=product["name"],
+            tier=product["tier"],
+            check_count=product.get("check_count", 0),
+            feature_count=product.get("feature_count", 0),
+            version=version,
+        )
+
+        print(
+            "Built product page for {}.".format(
+                product["name"]
+            )
+        )
+
+
 def resolve_pack_selection(
         selection: str,
         discovered_packs: dict[str, dict],
@@ -571,6 +608,19 @@ def main() -> int:
     )
 
     parser.add_argument(
+        "--product-pages",
+        choices=(
+            "none",
+            "selected",
+        ),
+        default="selected",
+        help=(
+            "Generate product/marketing pages for the same Core, Pro, and "
+            "Pack products selected for documentation."
+        ),
+    )
+
+    parser.add_argument(
         "--version",
         default=VERSION,
     )
@@ -650,6 +700,12 @@ def main() -> int:
                 pack,
                 version=args.version,
             )
+        )
+
+    if args.product_pages == "selected":
+        build_product_pages(
+            built_products,
+            version=args.version,
         )
 
     print(

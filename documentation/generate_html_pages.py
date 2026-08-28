@@ -207,6 +207,21 @@ def get_hilite_class(
         tier
     )
 
+
+def get_product_page_href(
+        tier: str,
+        product_id: str,
+) -> str:
+    """Return the site-root-relative marketing/product page for a doc product."""
+    if str(tier).strip().lower() == "pack":
+        return "products/qc_checker/packs/{}/index.html".format(
+            product_id
+        )
+
+    return "products/qc_checker/{}/index.html".format(
+        product_id
+    )
+
 def navigation(
         records: list[dict[str, Any]],
         depth: int,
@@ -305,7 +320,8 @@ def navigation(
         '<nav>'
         '<div class="nav-section">'
         '<div class="nav-title">Start</div>'
-        f'<a class="nav-link" href="{relative_prefix(2 + product_depth + depth)}index.html">All Products</a>'
+        f'<a class="nav-link" href="{relative_prefix(2 + product_depth + depth)}products/qc_checker/index.html">All Products</a>'
+        f'<a class="nav-link" href="{relative_prefix(2 + product_depth + depth)}{get_product_page_href(tier, product_id)}">Product Page</a>'
         f'<a class="nav-link" href="{prefix}index.html">Overview</a>'
         f'{panel_link}'
         f'<a class="nav-link" href="{prefix}search.html">Search</a>'

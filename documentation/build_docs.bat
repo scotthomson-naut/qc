@@ -45,6 +45,19 @@ if errorlevel 2 (
     set "packs=all"
 )
 
+
+rem ------------------------------------------------------------
+rem Product Pages
+rem ------------------------------------------------------------
+
+choice /c YN /n /m "Build product pages for the selected products? [Y/N]: "
+
+if errorlevel 2 (
+    set "product_pages=none"
+) else (
+    set "product_pages=selected"
+)
+
 rem ------------------------------------------------------------
 rem Resolve Core / Pro selection
 rem ------------------------------------------------------------
@@ -75,11 +88,13 @@ echo Build Selection
 echo ============================================
 echo Core / Pro: %product%
 echo Packs:      %packs%
+echo Product pages: %product_pages%
 echo.
 
 python "%bat_path%build_docs.py" ^
     --product %product% ^
     --packs %packs% ^
+    --product-pages %product_pages% ^
     --version 1.0
 
 if errorlevel 1 (
