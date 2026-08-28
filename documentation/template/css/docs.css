@@ -16,7 +16,7 @@
   --hilite-core: #409ce8;
   --hilite-pro: #54ec54;
   --hilite-pack-animation: #ae2d4b;
-  --hilite-pack-rigging: #3fb13f;
+  --hilite-pack-rigging: #b482cd;
   --hilite-pack-lighting: #aeab30;
   --max: 100%
 }
@@ -328,7 +328,15 @@ img { max-width: 100%; margin-right: 4px;}
 .pro-dot {
     background: var(--hilite-pro);
 }
-
+.pack-animation-dot {
+    background: var(--hilite-pack-animation);
+}
+.pack-rigging-dot {
+    background: var(--hilite-pack-rigging);
+}
+.pack-lighting-dot {
+    background: var(--hilite-pack-lighting);
+}
 
 
 /* Display column */
