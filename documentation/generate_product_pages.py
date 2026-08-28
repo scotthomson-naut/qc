@@ -31,7 +31,7 @@ def documentation_href(product_id: str, tier: str) -> str:
     return "docs/qc_checker/{}/index.html".format(product_id)
 
 
-def _benefits_html(benefits: list[dict[str, Any]]) -> str:
+def _benefits_html(benefits: list[dict[str, Any]], css_class: str) -> str:
     if not benefits:
         return ""
 
@@ -47,10 +47,10 @@ def _benefits_html(benefits: list[dict[str, Any]]) -> str:
 
     return (
         '<section class="product-section">'
-        '<h2>Features → benefits</h2>'
+        '<h2 class="{}">Features → benefits</h2>'
         '<div class="grid">{}</div>'
         '</section>'
-    ).format("".join(cards))
+    ).format(css_class, "".join(cards))
 
 
 def generate_product_page(
@@ -127,12 +127,12 @@ def generate_product_page(
         '<p>Choose the product when it fits your workflow, or review the technical documentation first.</p></div>',
         '<div class="actions">{}<a class="button" href="{}">Documentation</a></div>'.format(buy_button, docs_href),
         '</div></section>',
-        '<section class="product-section"><h2>The problem</h2><p>{}</p></section>'.format(esc(content.get("problem"))),
-        '<section class="product-section"><h2>Before / after workflow</h2><p>{}</p></section>'.format(esc(content.get("before_after"))),
-        _benefits_html(content.get("benefits") or []),
-        '<section class="product-section"><h2>Who it is for</h2><p>{}</p></section>'.format(esc(content.get("who_for"))),
-        '<section class="product-section"><h2>Requirements / compatibility</h2><p>{}</p></section>'.format(esc(content.get("requirements"))),
-        '<section class="product-final-cta"><h2>Ready to inspect the details?</h2>',
+        '<section class="product-section"><h2 class="{}">The problem</h2><p>{}</p></section>'.format(css_class, esc(content.get("problem"))),
+        '<section class="product-section"><h2 class="{}">Before / after workflow</h2><p>{}</p></section>'.format(css_class, esc(content.get("before_after"))),
+        _benefits_html(content.get("benefits") or [], css_class),
+        '<section class="product-section"><h2 class="{}">Who it is for</h2><p>{}</p></section>'.format(css_class, esc(content.get("who_for"))),
+        '<section class="product-section"><h2 class="{}">Requirements / compatibility</h2><p>{}</p></section>'.format(css_class, esc(content.get("requirements"))),
+        '<section class="product-final-cta"><h2 class="{}">Ready to inspect the details?</h2>'.format(css_class),
         '<div class="actions">{}<a class="button" href="{}">Open Documentation</a></div></section>'.format(buy_button, docs_href),
         '<footer class="footer"><b>Scriptronaut</b> | <b class="{}">{}</b><span style="float:right;">&copy; {}</span></footer>'.format(css_class, esc(product_name), year),
         '</main></body></html>',
