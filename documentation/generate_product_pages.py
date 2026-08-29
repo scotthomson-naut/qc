@@ -54,6 +54,58 @@ def _benefits_html(benefits: list[dict[str, Any]], css_class: str) -> str:
     ).format(css_class, "".join(cards))
 
 
+
+def product_hero_html(content: dict[str, Any]) -> str:
+    """
+    Build the product hero visual.
+
+    When ``hero_youtube_id`` is defined in product_pages.py, use YouTube's
+    privacy-enhanced embed. Otherwise retain the existing text placeholder.
+    """
+    youtube_id = str(
+        content.get(
+            "hero_youtube_id",
+            "",
+        )
+        or ""
+    ).strip()
+
+    if youtube_id:
+        return (
+            '<div class="product-visual product-video">'
+            '<iframe '
+            'src="https://www.youtube-nocookie.com/embed/{}?rel=0" '
+            'title="{}" '
+            'loading="lazy" '
+            'referrerpolicy="strict-origin-when-cross-origin" '
+            'allow="accelerometer; autoplay; clipboard-write; encrypted-media; '
+            'gyroscope; picture-in-picture; web-share" '
+            'allowfullscreen></iframe>'
+            '</div>'
+        ).format(
+            esc(
+                youtube_id
+            ),
+            esc(
+                content.get(
+                    "hero_video_title",
+                    "Product video",
+                )
+            ),
+        )
+
+    return (
+        '<div class="product-visual">'
+        '<span>{}</span>'
+        '</div>'
+    ).format(
+        esc(
+            content.get(
+                "hero_label"
+            )
+        )
+    )
+
 def generate_product_page(
         output_dir: str | Path,
         product_id: str,
@@ -122,7 +174,9 @@ def generate_product_page(
         '<h1 class="{}">{}</h1>'.format(css_class, esc(product_name)),
         '<p class="lead"><b>Primary outcome:</b> {}</p>'.format(esc(content.get("primary_outcome"))),
         count_line,
-        '<div class="product-visual"><span>{}</span></div>'.format(esc(content.get("hero_label"))),
+        product_hero_html(
+            content
+        ),
         '<div class="product-cta">',
         '<div><div class="small">Primary Call To Action</div>',
         '<p>Choose the product when it fits your workflow, or review the technical documentation first.</p></div>',

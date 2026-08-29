@@ -18,6 +18,8 @@ PRODUCT_PAGE_CONTENT: dict[str, dict[str, Any]] = {
             "render, export, review, or publishing."
         ),
         "hero_label": "60 second QC Checker Core overview",
+        "hero_youtube_id": "FlJaF2XkR6k",
+        "hero_video_title": "NASA 4K Views from Space",
         "problem": (
             "Production problems are often discovered late, after they have "
             "already interrupted another artist, a render, or an export."
@@ -58,6 +60,8 @@ PRODUCT_PAGE_CONTENT: dict[str, dict[str, Any]] = {
             "production-control features."
         ),
         "hero_label": "60 second QC Checker Pro overview",
+        "hero_youtube_id": "FlJaF2XkR6k",
+        "hero_video_title": "NASA 4K Views from Space",
         "problem": (
             "Different teams and projects rarely use exactly the same QC "
             "rules. A fixed check list can become restrictive as production "
@@ -98,6 +102,8 @@ DEFAULT_PACK_CONTENT: dict[str, Any] = {
         "Add focused production checks to QC Checker for this specialist workflow."
     ),
     "hero_label": "60 second pack overview",
+        "hero_youtube_id": "FlJaF2XkR6k",
+        "hero_video_title": "NASA 4K Views from Space",
     "problem": (
         "Specialist departments have validation needs that go beyond the "
         "general-purpose checks included with QC Checker Core and Pro."
@@ -120,6 +126,8 @@ PACK_PAGE_CONTENT: dict[str, dict[str, Any]] = {
             "problems before animation or export."
         ),
         "hero_label": "60 second Rigging Pack overview",
+        "hero_youtube_id": "FlJaF2XkR6k",
+        "hero_video_title": "NASA 4K Views from Space",
         "problem": (
             "Rig problems can remain hidden until controls are animated, a rig "
             "is exported, or another artist starts working with the asset."
