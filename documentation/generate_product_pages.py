@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from product_pages import get_product_page_content
+from generate_html_pages import format_html
 
 
 def esc(value: Any) -> str:
@@ -138,7 +139,14 @@ def generate_product_page(
         '</main></body></html>',
     ]
 
-    output_path.write_text("".join(parts), encoding="utf-8")
+    output_path.write_text(
+        format_html(
+            "".join(
+                parts
+            )
+        ),
+        encoding="utf-8",
+    )
     return output_path
 
 
@@ -172,9 +180,14 @@ def generate_qc_checker_product_index(
 
         check_count = int(product.get("check_count", 0))
         cards.append(
-            '<a class="card" href="{}"><div class="eyebrow">{}</div>'
-            '<h3 class="{}">{}</h3><p>{} check{}</p>'
-            '<span class="count">View product →</span></a>'.format(
+            (
+                '            <a class="card" href="{}">\n'
+                '                <div class="eyebrow">{}</div>\n'
+                '                <h3 class="{}">{}</h3>\n'
+                '                <p>{} check{}</p>\n'
+                '                <span class="count">View product →</span>\n'
+                '            </a>'
+            ).format(
                 href,
                 esc("Pack" if tier == "pack" else tier.title()),
                 css_class,
@@ -185,19 +198,45 @@ def generate_qc_checker_product_index(
         )
 
     parts = [
-        '<!doctype html><html lang="en"><head><meta charset="utf-8">',
-        '<meta name="viewport" content="width=device-width,initial-scale=1">',
-        '<meta name="description" content="QC Checker products">',
-        '<title>QC Checker — Scriptronaut</title>',
-        '<link rel="stylesheet" href="{}css/docs.css"></head><body>'.format(site_prefix),
-        '<div class="stars"></div><div class="stars stars-medium"></div><div class="stars stars-faint"></div>',
-        '<header class="topbar"><a class="brand" href="{}index.html"><img src="{}svg/scriptronaut_name.svg" alt="Scriptronaut"></a>'.format(site_prefix, site_prefix),
-        '<div class="top-actions"><span class="badge">QC Checker {}</span></div></header>'.format(esc(version)),
-        '<main class="product-page"><div class="eyebrow">Product Family</div>',
-        '<h1>QC Checker</h1><p class="lead">Choose the QC Checker product or specialist Pack that fits your Blender workflow.</p>',
-        '<div class="grid">{}</div>'.format("".join(cards)),
-        '</main></body></html>',
+        '<!doctype html>',
+        '<html lang="en">',
+        '<head>',
+        '    <meta charset="utf-8">',
+        '    <meta name="viewport" content="width=device-width,initial-scale=1">',
+        '    <meta name="description" content="QC Checker products">',
+        '    <title>QC Checker — Scriptronaut</title>',
+        '    <link rel="stylesheet" href="{}css/docs.css">'.format(site_prefix),
+        '</head>',
+        '<body>',
+        '    <div class="stars"></div>',
+        '    <div class="stars stars-medium"></div>',
+        '    <div class="stars stars-faint"></div>',
+        '    <header class="topbar">',
+        '        <a class="brand" href="{}index.html">'.format(site_prefix),
+        '            <img src="{}svg/scriptronaut_name.svg" alt="Scriptronaut">'.format(site_prefix),
+        '        </a>',
+        '        <div class="top-actions">',
+        '            <span class="badge">QC Checker {}</span>'.format(esc(version)),
+        '        </div>',
+        '    </header>',
+        '    <main class="product-page">',
+        '        <div class="eyebrow">Product Family</div>',
+        '        <h1>QC Checker</h1>',
+        '        <p class="lead">Choose the QC Checker product or specialist Pack that fits your Blender workflow.</p>',
+        '        <div class="grid">',
+        "\n".join(cards),
+        '        </div>',
+        '    </main>',
+        '</body>',
+        '</html>',
     ]
 
-    output_path.write_text("".join(parts), encoding="utf-8")
+    output_path.write_text(
+        format_html(
+            "".join(
+                parts
+            )
+        ),
+        encoding="utf-8",
+    )
     return output_path
