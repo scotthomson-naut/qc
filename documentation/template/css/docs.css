@@ -113,7 +113,7 @@ img { max-width: 100%; margin-right: 4px;}
 }
 
 .i-youtube:hover {
-    filter: brightness(0) saturate(100%) invert(30%) sepia(60%) saturate(4294%) hue-rotate(345deg) brightness(121%) contrast(84%);
+    filter: brightness(0) saturate(100%) invert(16%) sepia(82%) saturate(4210%) hue-rotate(354deg) brightness(95%) contrast(93%);
 }
 
 
