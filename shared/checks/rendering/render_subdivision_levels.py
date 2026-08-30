@@ -31,7 +31,8 @@ SETTINGS = {
         "label": "Maximum Render Levels",
         "description": (
             "Fail when a Subdivision Surface modifier's render level "
-            "is above this value."
+            "is above this value, unless the viewport subdivision level "
+            "is already above the configured maximum."
         ),
         "default": 3,
         "min": 0,
@@ -313,7 +314,9 @@ def get_objects_with_excessive_render_subdivision(
             )
 
             above_absolute_limit = (
-                render_levels
+                viewport_levels
+                <= maximum_render_levels
+                and render_levels
                 > maximum_render_levels
             )
 
@@ -576,11 +579,21 @@ def reduce_excessive_render_subdivision(
                 - viewport_levels
             )
 
-            is_excessive = (
-                current_render_levels
+            above_absolute_limit = (
+                viewport_levels
+                <= maximum_render_levels
+                and current_render_levels
                 > maximum_render_levels
-                or level_difference
+            )
+
+            above_viewport_limit = (
+                level_difference
                 > maximum_levels_above_viewport
+            )
+
+            is_excessive = (
+                above_absolute_limit
+                or above_viewport_limit
             )
 
             if not is_excessive:
@@ -681,6 +694,16 @@ def get_recommended_render_levels(
         viewport_levels
         + maximum_levels_above_viewport
     )
+
+    if (
+        viewport_levels
+        > maximum_render_levels
+    ):
+        # The viewport is already above the configured absolute maximum.
+        # Because this check never lowers viewport subdivision and never
+        # sets render quality below viewport quality, only the relative
+        # render-vs-viewport limit can be enforced.
+        return relative_limit
 
     recommended = min(
         maximum_render_levels,
