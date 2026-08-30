@@ -178,8 +178,8 @@ def generate_product_page(
             content
         ),
         '<div class="product-cta">',
-        '<div><div class="small">Primary Call To Action</div>',
-        '<p>Choose the product when it fits your workflow, or review the technical documentation first.</p></div>',
+        '<div><div class="small">Ready?</div>',
+        '<p>Get the product for your workflow, or review the technical documentation first.</p></div>',
         '<div class="actions">{}<a class="button" href="{}">Documentation</a></div>'.format(buy_button, docs_href),
         '</div></section>',
         '<section class="product-section"><h2 class="{}">The problem</h2><p>{}</p></section>'.format(css_class, esc(content.get("problem"))),
