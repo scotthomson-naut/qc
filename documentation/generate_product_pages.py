@@ -119,6 +119,7 @@ def generate_product_page(
     tier = str(tier).lower()
     content = get_product_page_content(product_id, product_name, tier)
     css_class = hilite_class(tier, product_id)
+    product_item = product_id if product_id in["core", "pro"] else product_name
 
     output_path = output_dir / product_output_path(product_id, tier) / "index.html"
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -166,12 +167,12 @@ def generate_product_page(
         '<header class="topbar">',
         '<a class="brand" href="{}"><img src="{}svg/scriptronaut_name.svg" alt="Scriptronaut"></a>'.format(home_href, site_prefix),
         '<div class="top-actions"><a href="{}">QC Checker</a>'.format(family_href),
-        '<span class="badge {}"><b>{}</b> {}</span></div>'.format(css_class, esc(product_name), esc(version)),
+        '<span class="badge {}"><b>{}</b> {}</span></div>'.format(css_class, esc(product_item).title(), esc(version)),
         '</header>',
         '<main class="product-page">',
         '<section class="product-hero">',
         '<div class="eyebrow">{}</div>'.format(esc(content.get("eyebrow"))),
-        '<h1 class="{}">{}</h1>'.format(css_class, esc(product_name)),
+        '<h1 class="{}">{}</h1>'.format(css_class, esc(product_item).title()),
         '<p class="lead"><b>Primary outcome:</b> {}</p>'.format(esc(content.get("primary_outcome"))),
         count_line,
         product_hero_html(
