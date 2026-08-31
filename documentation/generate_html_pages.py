@@ -329,7 +329,7 @@ def navigation(
         + feature_section
         + '<div class="nav-section">'
         f'<div class="nav-title"><b class="{hilite_class}">'
-        f'{esc(product_name)}</b> Checks</div>'
+        f'{esc(product_label)}</b> Checks</div>'
         + "".join(
             category_links
         )
@@ -461,6 +461,7 @@ def generate_product_site(
     product_path = Path(
         product_path
     )
+    product_label = product_id if product_id in["core", "pro"] else product_name
 
     # Number of directory levels between docs/qc_checker and this product.
     #
@@ -530,7 +531,7 @@ def generate_product_site(
     first_category = category_slug(categories[0]) if categories else ""
     browse_action = f'<a class="button" href="categories/{first_category}.html">Browse checks</a>' if first_category else ''
     index_body = (
-        f'<div class="eyebrow">Official Documentation</div><h1 class="{product_hilite_class}">{esc(product_name)}</h1>'
+        f'<div class="eyebrow">Official Documentation</div><h1 class="{product_hilite_class}">{esc(product_label).title()}</h1>'
         f'<p class="lead">Production-focused documentation for the <b class="{product_hilite_class}">{len(records)}</b> checks included with {esc(product_name)}.</p>'
         '<section class="hero-card"><div><h2 style="margin-top:0">Documentation</h2>'
         '<p class="lead" style="font-size:1rem">Browse checks by category, search the documentation, and review check behavior, settings, severity and fix support.</p>'
@@ -539,7 +540,7 @@ def generate_product_site(
         f'<img src="{product_site_prefix}svg/scriptronaut_character.svg" '
         'alt="Scriptronaut character"></div></section>'
         + (
-            f'<h2><b class="{product_hilite_class}">{esc(product_name)}</b> Features</h2>'
+            f'<h2><b class="{product_hilite_class}">{esc(product_label).title()}</b> Features</h2>'
             '<div class="grid">'
             + "".join(
                 f'<a class="card" href="features/{esc(feature.get("id"))}.html">'
@@ -552,7 +553,7 @@ def generate_product_site(
             if features
             else ""
         )
-        + f'<h2><b class="{product_hilite_class}">{esc(product_name)}</b> Categories</h2>'
+        + f'<h2><b class="{product_hilite_class}">{esc(product_label).title()}</b> Categories</h2>'
         f'<div class="grid">{category_cards}</div>'
     )
     write_html_file(
