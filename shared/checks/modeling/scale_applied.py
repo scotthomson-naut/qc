@@ -144,20 +144,27 @@ def get_objects_scale(
 
 def fix_objects_scale(
         result_data=None,
-        max_passes=3,
+        max_retries=2,
     ):
     """
     Applies scale to failed mesh objects using Blender's built-in:
 
         Object > Apply > Scale
 
-    The objects are processed parent-first. This is important because
-    applying scale to a parent can change a child's local transform while
-    Blender preserves the child's world-space appearance.
+    All failed objects AND their mesh descendants are selected together and
+    passed to a SINGLE transform_apply() call - the same thing that happens
+    when a user selects a whole hierarchy and runs Object > Apply > Scale
+    manually. Blender's own operator already walks the selected hierarchy
+    and pushes any compensating scale into children as part of that one
+    call, however deep the hierarchy goes - there is no need to process
+    objects one at a time or guess how many passes a given hierarchy might
+    need.
 
-    A small verification/retry loop is also used. If applying scale to one
-    object causes another originally-failed object to become non-unit again,
-    only the still-failing objects are processed on the next pass.
+    A small retry loop is still included, but only as a safety net for
+    per-object selection problems (for example, an object that could not be
+    unhidden/selected on the first attempt) - not because the hierarchy
+    cascade itself requires multiple passes. Each retry re-selects whatever
+    is still failing, in bulk, rather than one object per pass.
 
     Location and rotation are preserved.
 
@@ -165,8 +172,10 @@ def fix_objects_scale(
         result_data (dict | None):
             Result returned by main().
 
-        max_passes (int):
-            Maximum number of parent-first fix/verification passes.
+        max_retries (int):
+            Maximum number of full batch apply attempts, purely as a
+            safety net. The hierarchy cascade itself resolves in a single
+            successful batch call regardless of hierarchy depth.
 
     Returns:
         dict:
@@ -325,15 +334,9 @@ def fix_objects_scale(
                 descendant
             )
 
-    # Parent-first ordering is still important, but now newly-affected
-    # descendants are also eligible for the internal retry passes.
-    candidate_objects.sort(
-        key=get_object_parent_depth
-    )
-
     # Preserve scales before this fix modifies anything. This lets the
-    # result explain when a previously-unit child became non-unit because
-    # of a parent apply and was then corrected automatically.
+    # result explain which objects actually changed, including children
+    # that were already unit-scale and never appear in "remaining" below.
     previous_scales = {
         obj.name:
             tuple(
@@ -346,18 +349,34 @@ def fix_objects_scale(
 
         # -----------------------------------------------------
         # Apply + verify.
+        #
+        # The whole candidate set is selected TOGETHER and passed to a
+        # single transform_apply() call, mirroring exactly what happens
+        # when a user selects a parent/child hierarchy and runs
+        # Object > Apply > Scale manually. Blender resolves the entire
+        # scale-compensation cascade internally as part of that one call,
+        # regardless of how many hierarchy levels are involved - there is
+        # no need to discover and re-process newly-affected children on
+        # separate passes.
         # -----------------------------------------------------
 
-        for pass_index in range(
+        for attempt in range(
             max(
                 1,
                 int(
-                    max_passes
+                    max_retries
                 ),
             )
         ):
 
-            remaining = [
+            # Only used to decide whether ANOTHER attempt is needed at
+            # all - NOT used to build the selection below. Narrowing the
+            # selection down to only currently-bad objects would only ever
+            # select whichever single object became bad most recently,
+            # discovering the next one a level down only on a LATER
+            # attempt - that is the exact one-level-per-pass bug this
+            # rewrite exists to eliminate.
+            still_needs_fix = [
                 obj
                 for obj in candidate_objects
                 if (
@@ -368,39 +387,37 @@ def fix_objects_scale(
                 )
             ]
 
-            if not remaining:
+            if not still_needs_fix:
                 break
 
-            # Re-sort every pass in case hierarchy changed.
-            remaining.sort(
-                key=get_object_parent_depth
-            )
+            # Select the FULL candidate set together - every originally
+            # failed object AND every one of its descendants, regardless
+            # of what their scale currently shows. This is what lets
+            # Blender resolve the entire parent-to-child compensation
+            # cascade in this single call, the same way it does when a
+            # user selects the whole hierarchy natively and hits Apply
+            # Scale - rather than only ever selecting one newly-affected
+            # object per attempt.
+            batch = [
+                obj
+                for obj in candidate_objects
+                if obj.name in bpy.data.objects
+            ]
 
-            for obj in remaining:
-
-                # A parent processed earlier in this pass may already
-                # have changed this object's scale back to unit.
-                if not object_has_unapplied_scale(
-                    obj
-                ):
-                    continue
-
-                # Blender applies scale to the Mesh datablock. Make
-                # shared meshes single-user first so other objects are
-                # not modified unintentionally.
+            # Blender applies scale to the Mesh datablock. Make shared
+            # meshes single-user first so other objects are not modified
+            # unintentionally.
+            for obj in batch:
                 if obj.data.users > 1:
                     obj.data = (
                         obj.data.copy()
                     )
 
-                original_hide_viewport = (
-                    obj.hide_viewport
-                )
+            # Temporarily reveal/unlock everything about to be batched,
+            # remembering original states so they can be restored after.
+            saved_visibility = {}
 
-                original_hide_select = (
-                    obj.hide_select
-                )
-
+            for obj in batch:
                 try:
                     original_hide_state = (
                         obj.hide_get()
@@ -408,54 +425,75 @@ def fix_objects_scale(
                 except RuntimeError:
                     original_hide_state = False
 
+                saved_visibility[obj.name] = (
+                    obj.hide_viewport,
+                    obj.hide_select,
+                    original_hide_state,
+                )
+
+                obj.hide_viewport = False
+                obj.hide_select = False
+
                 try:
-                    obj.hide_viewport = False
-                    obj.hide_select = False
+                    obj.hide_set(
+                        False
+                    )
+                except RuntimeError:
+                    pass
 
-                    try:
-                        obj.hide_set(
-                            False
-                        )
-                    except RuntimeError:
-                        pass
+            # Deselect everything currently selectable, then select the
+            # whole batch together.
+            for selected_obj in list(
+                context.selected_objects
+            ):
+                try:
+                    selected_obj.select_set(
+                        False
+                    )
+                except RuntimeError:
+                    pass
 
-                    # Deselect everything currently selectable.
-                    for selected_obj in list(
-                        context.selected_objects
-                    ):
-                        try:
-                            selected_obj.select_set(
-                                False
-                            )
-                        except RuntimeError:
-                            pass
+            selected_objects = []
 
-                    # The object must belong to the current View Layer
-                    # for an operator-based apply.
-                    if (
-                        view_layer.objects.get(
+            for obj in batch:
+                if (
+                    view_layer.objects.get(
+                        obj.name
+                    )
+                    is None
+                ):
+                    issues.append(
+                        (
+                            'Could not apply scale to "{}": '
+                            "object is not in the current View Layer."
+                        ).format(
                             obj.name
                         )
-                        is None
-                    ):
-                        issues.append(
-                            (
-                                'Could not apply scale to "{}": '
-                                "object is not in the current View Layer."
-                            ).format(
-                                obj.name
-                            )
-                        )
-                        continue
+                    )
+                    continue
 
+                try:
                     obj.select_set(
                         True
                     )
-
-                    view_layer.objects.active = (
+                    selected_objects.append(
                         obj
                     )
+                except RuntimeError as error:
+                    issues.append(
+                        'Could not select "{}": {}'.format(
+                            obj.name,
+                            error,
+                        )
+                    )
 
+            if selected_objects:
+
+                view_layer.objects.active = (
+                    selected_objects[0]
+                )
+
+                try:
                     operator_result = (
                         bpy.ops.object.transform_apply(
                             location=False,
@@ -470,36 +508,37 @@ def fix_objects_scale(
                         not in operator_result
                     ):
                         issues.append(
-                            "Could not apply scale to {}.".format(
-                                obj.name
-                            )
+                            "Could not apply scale to selected object(s)."
                         )
 
                 except Exception as error:
                     issues.append(
-                        (
-                            "Could not apply scale to {}: {}"
-                        ).format(
-                            obj.name,
-                            error,
+                        "Could not apply scale: {}".format(
+                            error
                         )
                     )
 
-                finally:
-                    obj.hide_viewport = (
-                        original_hide_viewport
-                    )
+            # Restore visibility/selectability for every object in this
+            # batch, regardless of outcome.
+            for obj in batch:
+                if obj.name not in bpy.data.objects:
+                    continue
 
-                    obj.hide_select = (
-                        original_hide_select
-                    )
+                (
+                    hide_viewport,
+                    hide_select,
+                    hide_state,
+                ) = saved_visibility[obj.name]
 
-                    try:
-                        obj.hide_set(
-                            original_hide_state
-                        )
-                    except RuntimeError:
-                        pass
+                obj.hide_viewport = hide_viewport
+                obj.hide_select = hide_select
+
+                try:
+                    obj.hide_set(
+                        hide_state
+                    )
+                except RuntimeError:
+                    pass
 
             view_layer.update()
 
@@ -576,7 +615,7 @@ def fix_objects_scale(
             issues.append(
                 (
                     "Scale is still unapplied on {} object(s) after "
-                    "{} pass(es): {}"
+                    "{} attempt(s): {}"
                 ).format(
                     len(
                         still_failing
@@ -584,7 +623,7 @@ def fix_objects_scale(
                     max(
                         1,
                         int(
-                            max_passes
+                            max_retries
                         ),
                     ),
                     ", ".join(

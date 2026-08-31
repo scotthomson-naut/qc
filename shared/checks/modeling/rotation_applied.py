@@ -159,29 +159,44 @@ def get_objects_rotation(
 
 def fix_objects_rotation(
         result_data=None,
-        max_passes=3,
+        max_retries=2,
     ):
     """
     Applies rotation to failed mesh objects using Blender's built-in:
 
         Object > Apply > Rotation
 
-    The fix is hierarchy-aware.
+    All failed objects AND their mesh descendants are selected together and
+    passed to a SINGLE transform_apply() call - the same thing that happens
+    when a user selects a whole hierarchy and runs Object > Apply > Rotation
+    manually. Blender's own operator already walks the selected hierarchy
+    and pushes any compensating rotation/location into children as part of
+    that one call, however deep the hierarchy goes - there is no need to
+    process objects one at a time or guess how many passes a given
+    hierarchy might need.
 
-    Applying rotation to a parent can change a child's local rotation while
-    Blender preserves the child's world-space appearance. Therefore the fix:
+    Processing objects one at a time (instead of together) does not just
+    risk leaving deep hierarchies unresolved - it also means Blender has no
+    clean way to absorb the change into the parent-child relationship
+    itself, and instead writes a compensating value directly into the
+    child's own visible properties (observed here as unwanted LOCATION
+    changes on children, even though only rotation was being applied).
+    Batching the whole hierarchy together in one call avoids this too.
 
-        1. Includes descendants of originally failed objects.
-        2. Processes parents before children.
-        3. Verifies the whole affected hierarchy after each pass.
-        4. Retries only objects that still have non-identity rotation.
+    A small retry loop is still included, but only as a safety net for
+    per-object selection problems (for example, an object that could not be
+    unhidden/selected on the first attempt) - not because the hierarchy
+    cascade itself requires multiple passes. Each retry re-selects the full
+    candidate set again, in bulk, rather than one object per pass.
 
     Args:
         result_data (dict | None):
             Result returned by main().
 
-        max_passes (int):
-            Maximum number of verification/retry passes.
+        max_retries (int):
+            Maximum number of full batch apply attempts, purely as a
+            safety net. The hierarchy cascade itself resolves in a single
+            successful batch call regardless of hierarchy depth.
 
     Returns:
         dict:
@@ -333,10 +348,6 @@ def fix_objects_rotation(
                 descendant
             )
 
-    candidate_objects.sort(
-        key=get_object_parent_depth
-    )
-
     original_rotations = {
         obj.name:
             get_object_rotation_tuple(
@@ -348,19 +359,33 @@ def fix_objects_rotation(
     try:
 
         # -----------------------------------------------------
-        # Apply + verify
+        # Apply + verify.
+        #
+        # The whole candidate set is selected TOGETHER and passed to a
+        # single transform_apply() call, mirroring exactly what happens
+        # when a user selects a parent/child hierarchy and runs
+        # Object > Apply > Rotation manually. Blender resolves the entire
+        # rotation-compensation cascade internally as part of that one
+        # call, regardless of how many hierarchy levels are involved.
         # -----------------------------------------------------
 
-        for _pass_index in range(
+        for attempt in range(
             max(
                 1,
                 int(
-                    max_passes
+                    max_retries
                 ),
             )
         ):
 
-            remaining = [
+            # Only used to decide whether ANOTHER attempt is needed at
+            # all - NOT used to build the selection below. Narrowing the
+            # selection down to only currently-bad objects would only ever
+            # select whichever single object became bad most recently,
+            # discovering the next one a level down only on a LATER
+            # attempt - the exact one-level-per-pass bug this rewrite
+            # exists to eliminate.
+            still_needs_fix = [
                 obj
                 for obj in candidate_objects
                 if (
@@ -371,35 +396,38 @@ def fix_objects_rotation(
                 )
             ]
 
-            if not remaining:
+            if not still_needs_fix:
                 break
 
-            remaining.sort(
-                key=get_object_parent_depth
-            )
+            # Select the FULL candidate set together - every originally
+            # failed object AND every one of its descendants, regardless
+            # of what their rotation currently shows. This is what lets
+            # Blender resolve the entire parent-to-child compensation
+            # cascade in this single call, the same way it does when a
+            # user selects the whole hierarchy natively and hits Apply
+            # Rotation - rather than only ever selecting one newly-affected
+            # object per attempt, which is also what was pushing unwanted
+            # compensating LOCATION values onto unselected children.
+            batch = [
+                obj
+                for obj in candidate_objects
+                if obj.name in bpy.data.objects
+            ]
 
-            for obj in remaining:
-
-                # A parent fixed earlier in the pass may already have
-                # resolved this object's local rotation.
-                if not object_has_rotation(
-                    obj
-                ):
-                    continue
-
+            # Blender applies rotation to the Mesh datablock. Make shared
+            # meshes single-user first so other objects are not modified
+            # unintentionally.
+            for obj in batch:
                 if obj.data.users > 1:
                     obj.data = (
                         obj.data.copy()
                     )
 
-                original_hide_viewport = (
-                    obj.hide_viewport
-                )
+            # Temporarily reveal/unlock everything about to be batched,
+            # remembering original states so they can be restored after.
+            saved_visibility = {}
 
-                original_hide_select = (
-                    obj.hide_select
-                )
-
+            for obj in batch:
                 try:
                     original_hide_state = (
                         obj.hide_get()
@@ -407,51 +435,75 @@ def fix_objects_rotation(
                 except RuntimeError:
                     original_hide_state = False
 
+                saved_visibility[obj.name] = (
+                    obj.hide_viewport,
+                    obj.hide_select,
+                    original_hide_state,
+                )
+
+                obj.hide_viewport = False
+                obj.hide_select = False
+
                 try:
-                    obj.hide_viewport = False
-                    obj.hide_select = False
+                    obj.hide_set(
+                        False
+                    )
+                except RuntimeError:
+                    pass
 
-                    try:
-                        obj.hide_set(
-                            False
-                        )
-                    except RuntimeError:
-                        pass
+            # Deselect everything currently selectable, then select the
+            # whole batch together.
+            for selected_obj in list(
+                context.selected_objects
+            ):
+                try:
+                    selected_obj.select_set(
+                        False
+                    )
+                except RuntimeError:
+                    pass
 
-                    for selected_obj in list(
-                        context.selected_objects
-                    ):
-                        try:
-                            selected_obj.select_set(
-                                False
-                            )
-                        except RuntimeError:
-                            pass
+            selected_objects = []
 
-                    if (
-                        view_layer.objects.get(
+            for obj in batch:
+                if (
+                    view_layer.objects.get(
+                        obj.name
+                    )
+                    is None
+                ):
+                    issues.append(
+                        (
+                            'Could not apply rotation to "{}": '
+                            "object is not in the current View Layer."
+                        ).format(
                             obj.name
                         )
-                        is None
-                    ):
-                        issues.append(
-                            (
-                                'Could not apply rotation to "{}": '
-                                "object is not in the current View Layer."
-                            ).format(
-                                obj.name
-                            )
-                        )
-                        continue
+                    )
+                    continue
 
+                try:
                     obj.select_set(
                         True
                     )
-
-                    view_layer.objects.active = (
+                    selected_objects.append(
                         obj
                     )
+                except RuntimeError as error:
+                    issues.append(
+                        'Could not select "{}": {}'.format(
+                            obj.name,
+                            error,
+                        )
+                    )
 
+            if selected_objects:
+
+                view_layer.objects.active = (
+                    selected_objects[0]
+                )
+
+                try:
                     result = (
                         bpy.ops.object.transform_apply(
                             location=False,
@@ -466,36 +518,37 @@ def fix_objects_rotation(
                         not in result
                     ):
                         issues.append(
-                            "Could not apply rotation to {}.".format(
-                                obj.name
-                            )
+                            "Could not apply rotation to selected object(s)."
                         )
 
                 except Exception as error:
                     issues.append(
-                        (
-                            "Could not apply rotation to {}: {}"
-                        ).format(
-                            obj.name,
-                            error,
+                        "Could not apply rotation: {}".format(
+                            error
                         )
                     )
 
-                finally:
-                    obj.hide_viewport = (
-                        original_hide_viewport
-                    )
+            # Restore visibility/selectability for every object in this
+            # batch, regardless of outcome.
+            for obj in batch:
+                if obj.name not in bpy.data.objects:
+                    continue
 
-                    obj.hide_select = (
-                        original_hide_select
-                    )
+                (
+                    hide_viewport,
+                    hide_select,
+                    hide_state,
+                ) = saved_visibility[obj.name]
 
-                    try:
-                        obj.hide_set(
-                            original_hide_state
-                        )
-                    except RuntimeError:
-                        pass
+                obj.hide_viewport = hide_viewport
+                obj.hide_select = hide_select
+
+                try:
+                    obj.hide_set(
+                        hide_state
+                    )
+                except RuntimeError:
+                    pass
 
             view_layer.update()
 
@@ -567,7 +620,7 @@ def fix_objects_rotation(
             issues.append(
                 (
                     "Rotation is still unapplied on {} object(s) after "
-                    "{} pass(es): {}"
+                    "{} attempt(s): {}"
                 ).format(
                     len(
                         still_failing
@@ -575,7 +628,7 @@ def fix_objects_rotation(
                     max(
                         1,
                         int(
-                            max_passes
+                            max_retries
                         ),
                     ),
                     ", ".join(

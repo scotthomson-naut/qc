@@ -5,239 +5,94 @@ import bpy
 
 
 # -------------------------------------------------------------------------
+# Helpers
+# -------------------------------------------------------------------------
+
+def ensure_object_mode():
+    """
+    Switches to Object Mode if something is actively in another mode.
+
+    Note:
+        bpy.ops.object.mode_set() requires an active object to even
+        run - Blender can't be in Edit Mode (or any non-Object mode)
+        with no active object, so if there's no active object at all,
+        the scene is already guaranteed to be in the state this
+        function exists to guarantee. Calling mode_set() anyway in
+        that situation throws "Context missing active object" -
+        this guard skips the call entirely in exactly the case where
+        it isn't needed anyway, avoiding the crash rather than just
+        working around it.
+    """
+    if bpy.context.active_object is not None:
+        bpy.ops.object.mode_set(mode='OBJECT')
+
+
+# -------------------------------------------------------------------------
 # Components
 # -------------------------------------------------------------------------
 
-def _get_available_scene_mesh_objects(
-        context=None,
-    ):
+def get_scene_vertices_count():
     """
-    Returns mesh objects that are available in the active Scene/View Layer.
-
-    This intentionally mirrors the Core QC eligibility rules that are
-    relevant to scene-size calculations without importing core.object_filter,
-    which would create an unnecessary dependency from utils back into core.
-
-    Excludes:
-        - Objects outside the active Scene.
-        - Directly linked library objects.
-        - Objects excluded from the active View Layer.
-        - Objects hidden/disabled in the active View Layer.
+    Returns int: The Total number of Vertices in the current Scene.
     """
-    if context is None:
-        context = bpy.context
+    # Put in Object mode
+    ensure_object_mode()
 
-    scene = getattr(
-        context,
-        "scene",
-        None,
-    )
+    # Pulls the exact statistics string used in Blender's viewport/status bar
+    stats = bpy.context.scene.statistics(bpy.context.view_layer)
 
-    view_layer = getattr(
-        context,
-        "view_layer",
-        None,
-    )
+    # Example string formatting: "Verts:1,200 | Edges:2,400 | Faces:1,200 | Tris:2,400"
+    vertices = int(stats.split("Verts:")[1].split(" |")[0].replace(",", ""))
 
-    if (
-        scene is None
-        or view_layer is None
-    ):
-        return []
-
-    mesh_objects = []
-
-    for obj in scene.objects:
-        if obj.type != "MESH":
-            continue
-
-        if getattr(
-            obj,
-            "library",
-            None,
-        ) is not None:
-            continue
-
-        try:
-            if view_layer.objects.get(
-                obj.name
-            ) is not obj:
-                continue
-
-        except Exception:
-            continue
-
-        try:
-            if not obj.visible_get(
-                view_layer=view_layer
-            ):
-                continue
-
-        except (
-            TypeError,
-            RuntimeError,
-        ):
-            try:
-                if not obj.visible_get():
-                    continue
-
-            except Exception:
-                continue
-
-        mesh_objects.append(
-            obj
-        )
-
-    return mesh_objects
+    return vertices
 
 
-def get_scene_vertices_count(
-        context=None,
-    ):
+def get_scene_edges_count():
     """
-    Returns the total number of mesh vertices available to QC in the
-    current Scene/View Layer.
-
-    This uses Blender mesh data directly instead of parsing the human-readable
-    ``Scene.statistics()`` string, whose contents can vary by scene, mode,
-    Blender version and viewport state.
+    Returns int: The Total number of Edges in the current scene.
     """
-    total = 0
+    # Put in Object mode
+    ensure_object_mode()
 
-    for obj in _get_available_scene_mesh_objects(
-        context=context,
-    ):
-        mesh = getattr(
-            obj,
-            "data",
-            None,
-        )
+    # Pulls the exact statistics string used in Blender's viewport/status bar
+    stats = bpy.context.scene.statistics(bpy.context.view_layer)
 
-        if mesh is None:
-            continue
+    # Example string formatting: "Verts:1,200 | Edges:2,400 | Faces:1,200 | Tris:2,400"
+    edges = int(stats.split("Edges:")[1].split(" |")[0].replace(",", ""))
 
-        total += len(
-            mesh.vertices
-        )
-
-    return total
+    return edges
 
 
-def get_scene_edges_count(
-        context=None,
-    ):
+def get_scene_faces_count():
     """
-    Returns the total number of mesh edges available to QC in the
-    current Scene/View Layer.
+    Returns int: The Total number of Faces in the current scene.
     """
-    total = 0
+    # Put in Object mode
+    ensure_object_mode()
 
-    for obj in _get_available_scene_mesh_objects(
-        context=context,
-    ):
-        mesh = getattr(
-            obj,
-            "data",
-            None,
-        )
+    # Pulls the exact statistics string used in Blender's viewport/status bar
+    stats = bpy.context.scene.statistics(bpy.context.view_layer)
 
-        if mesh is None:
-            continue
+    # Example string formatting: "Verts:1,200 | Edges:2,400 | Faces:1,200 | Tris:2,400"
+    faces = int(stats.split("Faces:")[1].split(" |")[0].replace(",", ""))
 
-        total += len(
-            mesh.edges
-        )
-
-    return total
+    return faces
 
 
-def get_scene_faces_count(
-        context=None,
-    ):
+def get_scene_triangles_count():
     """
-    Returns the total number of mesh polygons available to QC in the
-    current Scene/View Layer.
+    Returns int: The Total number of Triangles in the current scene.
     """
-    total = 0
+    # Put in Object mode
+    ensure_object_mode()
 
-    for obj in _get_available_scene_mesh_objects(
-        context=context,
-    ):
-        mesh = getattr(
-            obj,
-            "data",
-            None,
-        )
+    # Pulls the exact statistics string used in Blender's viewport/status bar
+    stats = bpy.context.scene.statistics(bpy.context.view_layer)
 
-        if mesh is None:
-            continue
+    # Example string formatting: "Verts:1,200 | Edges:2,400 | Faces:1,200 | Tris:2,400"
+    triangles = int(stats.split("Tris:")[1].split(" |")[0].replace(",", ""))
 
-        total += len(
-            mesh.polygons
-        )
-
-    return total
-
-
-def get_scene_triangles_count(
-        context=None,
-    ):
-    """
-    Returns the total number of mesh triangles available to QC in the
-    current Scene/View Layer.
-
-    Blender's ``Scene.statistics()`` string is intended for display and does
-    not guarantee that a ``Tris:`` field is always present. Parsing it caused
-    availability checks such as Connected Geometry and UV Overlap to raise an
-    IndexError in some scenes.
-
-    Triangle counts are therefore calculated directly from each mesh's
-    loop-triangle cache.
-    """
-    total = 0
-
-    for obj in _get_available_scene_mesh_objects(
-        context=context,
-    ):
-        mesh = getattr(
-            obj,
-            "data",
-            None,
-        )
-
-        if mesh is None:
-            continue
-
-        try:
-            mesh.calc_loop_triangles()
-
-            total += len(
-                mesh.loop_triangles
-            )
-
-        except (
-            AttributeError,
-            RuntimeError,
-            TypeError,
-        ):
-            # A malformed/unavailable mesh should not prevent every QC check
-            # from running. Fall back to a polygon-based triangle estimate.
-            for polygon in getattr(
-                mesh,
-                "polygons",
-                (),
-            ):
-                vertex_count = len(
-                    polygon.vertices
-                )
-
-                if vertex_count >= 3:
-                    total += (
-                        vertex_count
-                        - 2
-                    )
-
-    return total
+    return triangles
 
 
 # -------------------------------------------------------------------------
@@ -344,4 +199,3 @@ def get_scene_light_count():
     Returns int: Number of lights in the current scene.
     """
     return len(get_scene_lights())
-
