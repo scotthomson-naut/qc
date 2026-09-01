@@ -79,20 +79,101 @@ def get_scene_faces_count():
     return faces
 
 
-def get_scene_triangles_count():
+
+def get_scene_triangles_count(
+        scene=None,
+    ):
     """
-    Returns int: The Total number of Triangles in the current scene.
+    Returns the number of mesh triangles in the current scene.
+
+    This intentionally does NOT parse:
+        scene.statistics(...)
+
+    Blender's statistics string is UI text and its fields vary with scene
+    contents, mode, object types, Blender version, and localization. In scenes
+    containing primarily Grease Pencil data, the string may not contain
+    "Tris:" at all.
+
+    Only Mesh objects contribute to this QC scene-triangle budget. Grease
+    Pencil, Curve, Text, Light, Camera, Empty, etc. are ignored.
+
+    Args:
+        scene (bpy.types.Scene | None):
+            Scene to inspect. Defaults to bpy.context.scene.
+
+    Returns:
+        int:
+            Total triangle count from Mesh datablocks used by eligible scene
+            objects.
     """
-    # Put in Object mode
-    ensure_object_mode()
+    if scene is None:
+        scene = bpy.context.scene
 
-    # Pulls the exact statistics string used in Blender's viewport/status bar
-    stats = bpy.context.scene.statistics(bpy.context.view_layer)
+    total_triangles = 0
 
-    # Example string formatting: "Verts:1,200 | Edges:2,400 | Faces:1,200 | Tris:2,400"
-    triangles = int(stats.split("Tris:")[1].split(" |")[0].replace(",", ""))
+    # Mesh datablocks can be shared by many objects. The availability limit is
+    # intended to estimate geometry processing cost, so count each unique Mesh
+    # datablock once. Connected Geometry itself also analyzes shared meshes once.
+    checked_meshes = set()
 
-    return triangles
+    for obj in scene.objects:
+
+        if obj is None:
+            continue
+
+        if obj.type != "MESH":
+            continue
+
+        # Directly linked objects are outside the local editable QC scope.
+        if obj.library is not None:
+            continue
+
+        mesh = getattr(
+            obj,
+            "data",
+            None,
+        )
+
+        if mesh is None:
+            continue
+
+        if getattr(
+            mesh,
+            "library",
+            None,
+        ) is not None:
+            continue
+
+        mesh_pointer = mesh.as_pointer()
+
+        if mesh_pointer in checked_meshes:
+            continue
+
+        checked_meshes.add(
+            mesh_pointer
+        )
+
+        # Synchronize edits before reading topology where possible.
+        if obj.mode == "EDIT":
+            try:
+                obj.update_from_editmode()
+            except Exception:
+                pass
+
+        try:
+            mesh.calc_loop_triangles()
+
+            total_triangles += len(
+                mesh.loop_triangles
+            )
+
+        except Exception:
+            # An availability helper should never crash the entire QC run.
+            # If one malformed mesh cannot be counted, skip that mesh and let
+            # the dedicated geometry validation checks report its problem.
+            continue
+
+    return total_triangles
 
 
 # -------------------------------------------------------------------------
