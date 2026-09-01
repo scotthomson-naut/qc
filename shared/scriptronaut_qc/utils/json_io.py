@@ -211,6 +211,25 @@ def build_result_summary(result_data):
                     )
                 ).upper()
 
+        object_can_auto_fix = None
+
+        if isinstance(
+            object_data,
+            dict,
+        ):
+            value = object_data.get(
+                "can_auto_fix",
+                None,
+            )
+
+            if isinstance(
+                value,
+                bool,
+            ):
+                object_can_auto_fix = (
+                    value
+                )
+
         summary[
             "failed_objects"
         ][
@@ -220,6 +239,12 @@ def build_result_summary(result_data):
         ] = {
             "selection_mode":
                 selection_mode,
+
+            # Keep object-level fixability in the lightweight UI summary.
+            # This lets Checks mode show a Fix icon only beside failures
+            # that the check explicitly says are safe to fix.
+            "can_auto_fix":
+                object_can_auto_fix,
         }
 
     summary[

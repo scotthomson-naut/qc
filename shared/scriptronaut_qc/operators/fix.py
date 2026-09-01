@@ -743,6 +743,296 @@ class SCRIPTRONAUT_OT_QC_FixCheckInline(
 
 
 # -------------------------------------------------------------------------
+# Fix Failed Object Inline (Checks Mode)
+# -------------------------------------------------------------------------
+
+class SCRIPTRONAUT_OT_QC_FixFailedObjectInline(
+    Operator
+):
+    """
+    Fixes the currently displayed QC check on one failed object directly
+    from the Checks-mode Issues list.
+
+    Unlike SCRIPTRONAUT_OT_QC_FixObjectInline, this operator does not depend
+    on the Objects-mode failed-object selection collections. The row itself
+    supplies both the check index and object name.
+    """
+
+    bl_idname = (
+        "scriptronaut.qc_fix_failed_object_inline"
+    )
+
+    bl_label = (
+        "Fix QC Failure On Object"
+    )
+
+    bl_description = (
+        "Fix this QC check only on this failed object"
+    )
+
+    check_index: IntProperty(
+        name="Check Index",
+        default=-1,
+    )
+
+    object_name: StringProperty(
+        name="Object Name",
+        default="",
+    )
+
+    def execute(
+        self,
+        context,
+    ):
+        scene = context.scene
+
+        settings = (
+            scene.scriptronaut_qc_settings
+        )
+
+        checks = (
+            scene.scriptronaut_qc_checks
+        )
+
+        if (
+            self.check_index < 0
+            or self.check_index >= len(
+                checks
+            )
+        ):
+            return {"CANCELLED"}
+
+        check_item = checks[
+            self.check_index
+        ]
+
+        if (
+            check_item.status != "FAIL"
+            or not check_item.has_fix
+        ):
+            self.report(
+                {"WARNING"},
+                "This check has no available automatic fix.",
+            )
+            return {"CANCELLED"}
+
+        result_data = (
+            result_data_from_json(
+                check_item.result_data
+            )
+        )
+
+        failed_objects = result_data.get(
+            "failed_objects",
+            {},
+        )
+
+        if (
+            not isinstance(
+                failed_objects,
+                dict,
+            )
+            or self.object_name
+            not in failed_objects
+        ):
+            self.report(
+                {"WARNING"},
+                (
+                    'Object "{}" is no longer a failure for this check.'
+                ).format(
+                    self.object_name
+                ),
+            )
+            return {"CANCELLED"}
+
+        object_data = failed_objects.get(
+            self.object_name
+        )
+
+        # Prefer explicit per-object fixability. This intentionally allows
+        # one fixable object in a mixed-result check to be fixed even when
+        # the check-level can_auto_fix flag is False because another object
+        # in the same result requires manual review.
+        object_can_auto_fix = (
+            check_item.can_auto_fix
+        )
+
+        if isinstance(
+            object_data,
+            dict,
+        ):
+            explicit_can_auto_fix = (
+                object_data.get(
+                    "can_auto_fix",
+                    None,
+                )
+            )
+
+            if isinstance(
+                explicit_can_auto_fix,
+                bool,
+            ):
+                object_can_auto_fix = (
+                    explicit_can_auto_fix
+                )
+
+        if not object_can_auto_fix:
+            self.report(
+                {"WARNING"},
+                (
+                    '"{}" requires manual review for this check.'
+                ).format(
+                    self.object_name
+                ),
+            )
+            return {"CANCELLED"}
+
+        try:
+            module = load_module_from_path(
+                "qc_failed_object_inline_{}_{}".format(
+                    check_item.name,
+                    self.object_name,
+                ),
+                check_item.script_path,
+            )
+
+            fix_function = getattr(
+                module,
+                "fix",
+                None,
+            )
+
+            if not callable(
+                fix_function
+            ):
+                check_item.has_fix = False
+
+                self.report(
+                    {"ERROR"},
+                    "Missing fix() function.",
+                )
+
+                return {"CANCELLED"}
+
+            filtered_result = (
+                get_filtered_result_for_object(
+                    result_data,
+                    self.object_name,
+                )
+            )
+
+            check_item.status = "FIXING"
+            check_item.issues = "Fixing..."
+
+            force_qc_redraw(
+                context
+            )
+
+            call_check_fix(
+                module,
+                get_check_id_for_item(
+                    check_item
+                ),
+                result_data=filtered_result,
+                require_result_data=True,
+            )
+
+            rerun_success = (
+                rerun_qc_check_item(
+                    check_item
+                )
+            )
+
+            if not rerun_success:
+                self.report(
+                    {"WARNING"},
+                    (
+                        "The fix ran, but the affected QC check "
+                        "could not be rerun."
+                    ),
+                )
+            else:
+                post_result = (
+                    result_data_from_json(
+                        check_item.result_data
+                    )
+                )
+
+                remaining_objects = (
+                    post_result.get(
+                        "failed_objects",
+                        {},
+                    )
+                )
+
+                if (
+                    isinstance(
+                        remaining_objects,
+                        dict,
+                    )
+                    and self.object_name
+                    in remaining_objects
+                ):
+                    self.report(
+                        {"WARNING"},
+                        (
+                            'Automatic fix ran on "{}", but that object '
+                            "still has unresolved components."
+                        ).format(
+                            self.object_name
+                        ),
+                    )
+                else:
+                    self.report(
+                        {"INFO"},
+                        (
+                            'Fixed "{}" on "{}".'
+                        ).format(
+                            check_item.display_name
+                            or check_item.name,
+                            self.object_name,
+                        ),
+                    )
+
+            settings.check_index = (
+                self.check_index
+            )
+
+            refresh_issues_display(
+                context
+            )
+
+            rebuild_failed_objects(
+                context
+            )
+
+            if settings.last_run_time:
+                settings.scene_modified_since_qc = (
+                    True
+                )
+
+        except Exception:
+            print(
+                traceback.format_exc()
+            )
+
+            self.report(
+                {"ERROR"},
+                (
+                    'Could not fix "{}" on "{}".'
+                ).format(
+                    check_item.display_name
+                    or check_item.name,
+                    self.object_name,
+                ),
+            )
+
+            return {"CANCELLED"}
+
+        return {"FINISHED"}
+
+
+# -------------------------------------------------------------------------
 # Fix Object Inline
 # -------------------------------------------------------------------------
 
@@ -1463,6 +1753,7 @@ class SCRIPTRONAUT_OT_QC_FixAllObjectChecks(
 CLASSES = (
     SCRIPTRONAUT_OT_QC_FixAll,
     SCRIPTRONAUT_OT_QC_FixCheckInline,
+    SCRIPTRONAUT_OT_QC_FixFailedObjectInline,
     SCRIPTRONAUT_OT_QC_FixObjectInline,
     SCRIPTRONAUT_OT_QC_FixAllObjectChecks,
 )

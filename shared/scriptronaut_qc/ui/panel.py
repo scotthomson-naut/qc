@@ -639,6 +639,61 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
                 )
 
                 # -------------------------------------------------
+                # Per-object Fix button
+                # -------------------------------------------------
+                #
+                # Some checks are only partially fixable. Connected
+                # Geometry is a good example: isolated vertices / loose
+                # edges are safe to remove, while disconnected face
+                # islands require manual review. The failed-object result
+                # can expose:
+                #
+                #     "can_auto_fix": True / False
+                #
+                # Prefer that object-level value. Older checks without
+                # object-level metadata fall back to the check-level flag.
+
+                object_can_auto_fix = (
+                    current_item.has_fix
+                    and current_item.can_auto_fix
+                )
+
+                if isinstance(
+                    object_data,
+                    dict,
+                ):
+                    explicit_can_auto_fix = (
+                        object_data.get(
+                            "can_auto_fix",
+                            None,
+                        )
+                    )
+
+                    if isinstance(
+                        explicit_can_auto_fix,
+                        bool,
+                    ):
+                        object_can_auto_fix = (
+                            current_item.has_fix
+                            and explicit_can_auto_fix
+                        )
+
+                if object_can_auto_fix:
+                    fix_operator = row.operator(
+                        "scriptronaut.qc_fix_failed_object_inline",
+                        text="",
+                        icon="TOOL_SETTINGS",
+                    )
+
+                    fix_operator.check_index = (
+                        settings.check_index
+                    )
+
+                    fix_operator.object_name = (
+                        object_name
+                    )
+
+                # -------------------------------------------------
                 # Details button
                 # -------------------------------------------------
 
