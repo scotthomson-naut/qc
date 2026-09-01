@@ -63,12 +63,23 @@ SETTINGS = {
         "default": True,
     },
 
+    "report_mixed_usage": {
+        "type": "bool",
+        "label": "Report Mixed-Usage Images",
+        "description": (
+            "Report images that are used for both color and non-color data. "
+            "These require manual material review because one global image "
+            "color-space setting cannot be correct for both uses."
+        ),
+        "default": False,
+    },
+
     "skip_mixed_usage_on_fix": {
         "type": "bool",
         "label": "Do Not Fix Mixed-Usage Images",
         "description": (
-            "Do not automatically change images that are used for both "
-            "color and non-color purposes."
+            "When mixed-usage reporting is enabled, do not automatically "
+            "change images that are used for both color and non-color purposes."
         ),
         "default": True,
     },
@@ -81,8 +92,12 @@ SETTINGS = {
 
 def main(preferences=None):
     """
-    Finds image textures used as non-color data that are not configured
-    with the required color space.
+    Finds image textures used exclusively as non-color data that are not
+    configured with the required color space.
+
+    Images used for both color and non-color purposes are ignored by default
+    because there is no single globally correct image color space for both
+    uses. They can optionally be reported for manual review.
 
     Returns:
         dict:
@@ -94,13 +109,19 @@ def main(preferences=None):
             "settings": dict,
         }
     """
-    settings = resolve_settings(SETTINGS, preferences)
+    settings = resolve_settings(
+        SETTINGS,
+        preferences,
+    )
 
     analysis = analyze_scene_texture_usage(
         settings=settings,
     )
 
-    failed_images = analysis["failed_images"]
+    failed_images = analysis[
+        "failed_images"
+    ]
+
     auto_fixable_images = [
         image_name
         for image_name, image_data
@@ -115,9 +136,11 @@ def main(preferences=None):
             ]
         )
     ]
+
     failed_materials = build_failed_materials(
         failed_images=failed_images,
     )
+
     failed_objects = get_failed_colorspace_objects(
         failed_materials=failed_materials,
     )
@@ -128,13 +151,23 @@ def main(preferences=None):
         failed_images.items()
     ):
         usages = sorted(
-            set(image_data.get("non_color_usages", []))
+            set(
+                image_data.get(
+                    "non_color_usages",
+                    [],
+                )
+            )
         )
 
         material_names = sorted(
             set(
-                usage["material_name"]
-                for usage in image_data.get("usages", [])
+                usage[
+                    "material_name"
+                ]
+                for usage in image_data.get(
+                    "usages",
+                    [],
+                )
             )
         )
 
@@ -143,42 +176,71 @@ def main(preferences=None):
             'expected "{}". Materials: {}.'
         ).format(
             image_name,
-            ", ".join(usages),
-            image_data.get("current_colorspace", "Unknown"),
-            image_data.get("required_colorspace", "Non-Color"),
-            ", ".join(material_names),
+            ", ".join(
+                usages
+            ),
+            image_data.get(
+                "current_colorspace",
+                "Unknown",
+            ),
+            image_data.get(
+                "required_colorspace",
+                "Non-Color",
+            ),
+            ", ".join(
+                material_names
+            ),
         )
 
-        if image_data.get("mixed_usage"):
+        if image_data.get(
+            "mixed_usage"
+        ):
             message += (
-                " The image is also used as color data, so changing its "
-                "global image color space may affect other materials."
+                " The image is also used as color data. No single global "
+                "image color-space setting is correct for both uses; manual "
+                "material/node-tree review is required."
             )
 
-        issues.append(message)
+        issues.append(
+            message
+        )
 
     return {
-        "issues": issues,
-        "failed_objects": failed_objects,
-        "failed_materials": failed_materials,
-        "failed_images": failed_images,
-        "settings": settings,
-        "can_auto_fix": bool(
-            auto_fixable_images
-        ),
+        "issues":
+            issues,
+
+        "failed_objects":
+            failed_objects,
+
+        "failed_materials":
+            failed_materials,
+
+        "failed_images":
+            failed_images,
+
+        "settings":
+            settings,
+
+        "can_auto_fix":
+            bool(
+                auto_fixable_images
+            ),
     }
 
 
-def fix(result_data=None, preferences=None):
+def fix(
+        result_data=None,
+        preferences=None,
+    ):
     """
-    Creates and assigns a placeholder material where needed.
+    Sets failed images to the required color space where safe.
 
     Returns:
         dict
     """
     return fix_color_space(
         result_data=result_data,
-        preferences=preferences
+        preferences=preferences,
     )
 
 
@@ -186,7 +248,10 @@ def fix(result_data=None, preferences=None):
 # Find
 # -------------------------------------------------------------------------
 
-def get_failed_colorspace_objects(failed_materials, scene=None):
+def get_failed_colorspace_objects(
+        failed_materials,
+        scene=None,
+    ):
     """
     Finds scene objects using materials with color-space mismatches.
     """
@@ -195,7 +260,9 @@ def get_failed_colorspace_objects(failed_materials, scene=None):
 
     failed_objects = {}
 
-    for obj in get_qc_objects(scene.objects):
+    for obj in get_qc_objects(
+        scene.objects
+    ):
 
         if obj.library is not None:
             continue
@@ -203,38 +270,65 @@ def get_failed_colorspace_objects(failed_materials, scene=None):
         material_results = []
 
         for slot_index, slot in enumerate(
-            getattr(obj, "material_slots", [])
+            getattr(
+                obj,
+                "material_slots",
+                [],
+            )
         ):
-            material = getattr(slot, "material", None)
+            material = getattr(
+                slot,
+                "material",
+                None,
+            )
 
             if material is None:
                 continue
 
-            if material.name not in failed_materials:
+            if (
+                material.name
+                not in failed_materials
+            ):
                 continue
 
-            material_data = failed_materials[
-                material.name
-            ]
+            material_data = (
+                failed_materials[
+                    material.name
+                ]
+            )
 
             material_results.append({
-                "slot_index": slot_index,
-                "material_name": material.name,
-                "image_count": material_data[
-                    "image_count"
-                ],
-                "images": material_data[
-                    "images"
-                ],
+                "slot_index":
+                    slot_index,
+
+                "material_name":
+                    material.name,
+
+                "image_count":
+                    material_data[
+                        "image_count"
+                    ],
+
+                "images":
+                    material_data[
+                        "images"
+                    ],
             })
 
         if material_results:
-            failed_objects[obj.name] = {
-                "object_type": obj.type,
-                "material_count": len(
-                    material_results
-                ),
-                "materials": material_results,
+            failed_objects[
+                obj.name
+            ] = {
+                "object_type":
+                    obj.type,
+
+                "material_count":
+                    len(
+                        material_results
+                    ),
+
+                "materials":
+                    material_results,
             }
 
     return failed_objects
@@ -325,10 +419,12 @@ def fix_color_space(
                     "Image is used for both color and "
                     "non-color data."
                 ),
+
                 "current_colorspace":
                     get_image_colorspace(
                         image
                     ),
+
                 "required_colorspace":
                     required_colorspace,
             }
@@ -374,9 +470,14 @@ def fix_color_space(
         }
 
     return {
-        "issues": issues,
-        "fixed_images": fixed_images,
-        "skipped_images": skipped_images,
+        "issues":
+            issues,
+
+        "fixed_images":
+            fixed_images,
+
+        "skipped_images":
+            skipped_images,
     }
 
 
@@ -384,35 +485,50 @@ def fix_color_space(
 # Helpers
 # -------------------------------------------------------------------------
 
-def analyze_scene_texture_usage(settings=None):
+def analyze_scene_texture_usage(
+        settings=None,
+    ):
     """
     Examines materials assigned to objects in the current scene.
 
     Each Image Texture node is traced forward through the node tree to
     determine whether it contributes to color data, non-color data, or both.
 
+    Genuine mixed-use images are excluded from failures by default. Set
+    report_mixed_usage=True to include them for manual review.
+
     Returns:
         dict
     """
     if settings is None:
-        settings = resolve_settings(SETTINGS)
+        settings = resolve_settings(
+            SETTINGS
+        )
 
     image_usage = {}
 
     for material in get_scene_materials():
+
         if not material.use_nodes:
             continue
 
-        node_tree = material.node_tree
+        node_tree = (
+            material.node_tree
+        )
 
         if node_tree is None:
             continue
 
         for node in node_tree.nodes:
+
             if node.type != "TEX_IMAGE":
                 continue
 
-            image = getattr(node, "image", None)
+            image = getattr(
+                node,
+                "image",
+                None,
+            )
 
             if image is None:
                 continue
@@ -420,59 +536,122 @@ def analyze_scene_texture_usage(settings=None):
             if image.library is not None:
                 continue
 
-            node_usage = classify_image_texture_usage(
-                node=node,
-                settings=settings,
+            node_usage = (
+                classify_image_texture_usage(
+                    node=node,
+                    settings=settings,
+                )
             )
 
-            if not node_usage["non_color_usages"]:
+            if not node_usage[
+                "non_color_usages"
+            ]:
                 continue
 
-            image_key = get_datablock_key(image)
+            image_key = (
+                get_datablock_key(
+                    image
+                )
+            )
 
             if image_key not in image_usage:
-                image_usage[image_key] = {
-                    "image": image,
-                    "image_name": image.name,
-                    "filepath": image.filepath,
-                    "current_colorspace": get_image_colorspace(image),
-                    "required_colorspace": settings[
-                        "required_colorspace"
-                    ],
-                    "non_color_usages": set(),
-                    "color_usages": set(),
-                    "usages": [],
+
+                image_usage[
+                    image_key
+                ] = {
+                    "image":
+                        image,
+
+                    "image_name":
+                        image.name,
+
+                    "filepath":
+                        image.filepath,
+
+                    "current_colorspace":
+                        get_image_colorspace(
+                            image
+                        ),
+
+                    "required_colorspace":
+                        settings[
+                            "required_colorspace"
+                        ],
+
+                    "non_color_usages":
+                        set(),
+
+                    "color_usages":
+                        set(),
+
+                    "usages":
+                        [],
                 }
 
-            record = image_usage[image_key]
+            record = image_usage[
+                image_key
+            ]
 
-            record["non_color_usages"].update(
-                node_usage["non_color_usages"]
-            )
-            record["color_usages"].update(
-                node_usage["color_usages"]
+            record[
+                "non_color_usages"
+            ].update(
+                node_usage[
+                    "non_color_usages"
+                ]
             )
 
-            record["usages"].append({
-                "material_name": material.name,
-                "node_name": node.name,
-                "node_label": node.label,
-                "non_color_usages": sorted(
-                    node_usage["non_color_usages"]
-                ),
-                "color_usages": sorted(
-                    node_usage["color_usages"]
-                ),
+            record[
+                "color_usages"
+            ].update(
+                node_usage[
+                    "color_usages"
+                ]
+            )
+
+            record[
+                "usages"
+            ].append({
+                "material_name":
+                    material.name,
+
+                "node_name":
+                    node.name,
+
+                "node_label":
+                    node.label,
+
+                "non_color_usages":
+                    sorted(
+                        node_usage[
+                            "non_color_usages"
+                        ]
+                    ),
+
+                "color_usages":
+                    sorted(
+                        node_usage[
+                            "color_usages"
+                        ]
+                    ),
             })
 
     failed_images = {}
 
-    required_colorspace = settings["required_colorspace"]
+    required_colorspace = settings[
+        "required_colorspace"
+    ]
 
     for record in image_usage.values():
-        image = record.pop("image")
 
-        current_colorspace = get_image_colorspace(image)
+        image = record.pop(
+            "image"
+        )
+
+        current_colorspace = (
+            get_image_colorspace(
+                image
+            )
+        )
 
         if colorspace_matches(
             current=current_colorspace,
@@ -480,22 +659,59 @@ def analyze_scene_texture_usage(settings=None):
         ):
             continue
 
-        record["current_colorspace"] = current_colorspace
-        record["non_color_usages"] = sorted(
-            record["non_color_usages"]
-        )
-        record["color_usages"] = sorted(
-            record["color_usages"]
-        )
-        record["mixed_usage"] = bool(
-            record["non_color_usages"]
-            and record["color_usages"]
+        record[
+            "current_colorspace"
+        ] = current_colorspace
+
+        record[
+            "non_color_usages"
+        ] = sorted(
+            record[
+                "non_color_usages"
+            ]
         )
 
-        failed_images[image.name] = record
+        record[
+            "color_usages"
+        ] = sorted(
+            record[
+                "color_usages"
+            ]
+        )
+
+        record[
+            "mixed_usage"
+        ] = bool(
+            record[
+                "non_color_usages"
+            ]
+            and record[
+                "color_usages"
+            ]
+        )
+
+        # A Blender Image datablock has one global color-space setting.
+        # Genuine mixed-use images therefore have no single automatically
+        # correct value. Ignore them by default and only surface them when
+        # the user explicitly enables Report Mixed-Usage Images.
+        if (
+            record[
+                "mixed_usage"
+            ]
+            and not settings.get(
+                "report_mixed_usage",
+                False,
+            )
+        ):
+            continue
+
+        failed_images[
+            image.name
+        ] = record
 
     return {
-        "failed_images": failed_images,
+        "failed_images":
+            failed_images,
     }
 
 
@@ -503,9 +719,16 @@ def analyze_scene_texture_usage(settings=None):
 # Usage classification
 # -------------------------------------------------------------------------
 
-def classify_image_texture_usage(node, settings=None):
+def classify_image_texture_usage(
+        node,
+        settings=None,
+    ):
     """
     Traces links forward from an Image Texture node.
+
+    Separate links from the same Image Texture are traced independently.
+    Therefore a texture genuinely used both as Base Color and as a mask/data
+    input is still classified as mixed usage.
 
     Returns:
         dict:
@@ -515,11 +738,16 @@ def classify_image_texture_usage(node, settings=None):
         }
     """
     if settings is None:
-        settings = resolve_settings(SETTINGS)
+        settings = resolve_settings(
+            SETTINGS
+        )
 
     result = {
-        "non_color_usages": set(),
-        "color_usages": set(),
+        "non_color_usages":
+            set(),
+
+        "color_usages":
+            set(),
     }
 
     visited = set()
@@ -545,42 +773,85 @@ def trace_socket_usage(
         visited,
     ):
     """
-    Traces a node graph forward and classifies the final usage.
+    Traces one image path forward and classifies its semantic usage.
 
-    The visited key includes the node and destination socket so a node can
-    still be analyzed through separate inputs.
+    Once a destination socket establishes a meaningful usage such as Base
+    Color, Roughness, Normal, Mask/Factor, etc., traversal stops for THAT
+    path. This prevents a non-color mask from being incorrectly reclassified
+    as color merely because the downstream shader eventually connects to
+    Material Output / Surface.
+
+    Separate links from the original Image Texture are still traced
+    independently, so genuine mixed usage is preserved.
     """
-    if node is None or input_socket is None:
+    if (
+        node is None
+        or input_socket is None
+    ):
         return
 
     key = (
-        get_datablock_key(node),
-        getattr(input_socket, "identifier", input_socket.name),
+        get_datablock_key(
+            node
+        ),
+        getattr(
+            input_socket,
+            "identifier",
+            input_socket.name,
+        ),
     )
 
     if key in visited:
         return
 
-    visited.add(key)
+    visited.add(
+        key
+    )
 
-    usage = classify_destination_socket(
-        node=node,
-        socket=input_socket,
-        settings=settings,
+    usage = (
+        classify_destination_socket(
+            node=node,
+            socket=input_socket,
+            settings=settings,
+        )
     )
 
     if usage is not None:
-        usage_type, usage_name = usage
+
+        usage_type, usage_name = (
+            usage
+        )
 
         if usage_type == "NON_COLOR":
-            result["non_color_usages"].add(usage_name)
-        elif usage_type == "COLOR":
-            result["color_usages"].add(usage_name)
+            result[
+                "non_color_usages"
+            ].add(
+                usage_name
+            )
 
-    # Continue through this node's outputs. This allows the check to trace
-    # through Mix, Math, Separate Color, Color Ramp, Reroute and node groups.
-    for output_socket in getattr(node, "outputs", []):
-        for link in getattr(output_socket, "links", []):
+        elif usage_type == "COLOR":
+            result[
+                "color_usages"
+            ].add(
+                usage_name
+            )
+
+        # The semantic purpose of this path is now known.
+        # Do not continue through the entire downstream shader graph.
+        return
+
+    # Continue only through nodes whose current input did not itself define
+    # a semantic color/non-color purpose.
+    for output_socket in getattr(
+        node,
+        "outputs",
+        [],
+    ):
+        for link in getattr(
+            output_socket,
+            "links",
+            [],
+        ):
             trace_socket_usage(
                 node=link.to_node,
                 input_socket=link.to_socket,
@@ -590,16 +861,29 @@ def trace_socket_usage(
             )
 
 
-def classify_destination_socket(node, socket, settings):
+def classify_destination_socket(
+        node,
+        socket,
+        settings,
+    ):
     """
     Classifies a destination socket as color, non-color, or unknown.
 
     Returns:
         tuple[str, str] | None
     """
-    node_type = getattr(node, "type", "")
+    node_type = getattr(
+        node,
+        "type",
+        "",
+    )
+
     socket_name = normalize_name(
-        getattr(socket, "name", "")
+        getattr(
+            socket,
+            "name",
+            "",
+        )
     )
 
     # ------------------------------------------------------------------
@@ -607,53 +891,119 @@ def classify_destination_socket(node, socket, settings):
     # ------------------------------------------------------------------
 
     if node_type == "NORMAL_MAP":
-        if settings["check_normal"] and socket_name in {
-            "color",
-            "strength",
-        }:
-            return "NON_COLOR", "Normal"
+
+        if (
+            settings[
+                "check_normal"
+            ]
+            and socket_name in {
+                "color",
+                "strength",
+            }
+        ):
+            return (
+                "NON_COLOR",
+                "Normal",
+            )
 
     if node_type == "BUMP":
-        if settings["check_height"] and socket_name in {
-            "height",
-            "distance",
-            "strength",
-        }:
-            return "NON_COLOR", "Height/Bump"
 
-        if settings["check_normal"] and socket_name == "normal":
-            return "NON_COLOR", "Normal"
+        if (
+            settings[
+                "check_height"
+            ]
+            and socket_name in {
+                "height",
+                "distance",
+                "strength",
+            }
+        ):
+            return (
+                "NON_COLOR",
+                "Height/Bump",
+            )
+
+        if (
+            settings[
+                "check_normal"
+            ]
+            and socket_name == "normal"
+        ):
+            return (
+                "NON_COLOR",
+                "Normal",
+            )
 
     # ------------------------------------------------------------------
     # Principled and other shader inputs
     # ------------------------------------------------------------------
 
-    if settings["check_roughness"] and is_roughness_socket(
-        socket_name
-    ):
-        return "NON_COLOR", "Roughness"
-
-    if settings["check_metallic"] and is_metallic_socket(
-        socket_name
-    ):
-        return "NON_COLOR", "Metallic"
-
-    if settings["check_normal"] and is_normal_socket(
-        socket_name
-    ):
-        return "NON_COLOR", "Normal"
-
-    if settings["check_height"] and is_height_socket(
-        socket_name
-    ):
-        return "NON_COLOR", "Height/Displacement"
-
-    if settings["check_masks"] and is_mask_or_data_socket(
-        node=node,
-        socket_name=socket_name,
-    ):
-        return "NON_COLOR", get_data_usage_label(
+    if (
+        settings[
+            "check_roughness"
+        ]
+        and is_roughness_socket(
             socket_name
+        )
+    ):
+        return (
+            "NON_COLOR",
+            "Roughness",
+        )
+
+    if (
+        settings[
+            "check_metallic"
+        ]
+        and is_metallic_socket(
+            socket_name
+        )
+    ):
+        return (
+            "NON_COLOR",
+            "Metallic",
+        )
+
+    if (
+        settings[
+            "check_normal"
+        ]
+        and is_normal_socket(
+            socket_name
+        )
+    ):
+        return (
+            "NON_COLOR",
+            "Normal",
+        )
+
+    if (
+        settings[
+            "check_height"
+        ]
+        and is_height_socket(
+            socket_name
+        )
+    ):
+        return (
+            "NON_COLOR",
+            "Height/Displacement",
+        )
+
+    if (
+        settings[
+            "check_masks"
+        ]
+        and is_mask_or_data_socket(
+            node=node,
+            socket_name=socket_name,
+        )
+    ):
+        return (
+            "NON_COLOR",
+            get_data_usage_label(
+                socket_name
+            ),
         )
 
     # ------------------------------------------------------------------
@@ -661,14 +1011,29 @@ def classify_destination_socket(node, socket, settings):
     # ------------------------------------------------------------------
 
     if node_type == "OUTPUT_MATERIAL":
-        if socket_name == "displacement" and settings["check_height"]:
-            return "NON_COLOR", "Displacement"
 
+        if (
+            socket_name == "displacement"
+            and settings[
+                "check_height"
+            ]
+        ):
+            return (
+                "NON_COLOR",
+                "Displacement",
+            )
+
+        # Surface and Volume sockets receive shader closures, not raw image
+        # color values. Real color usage should already have been established
+        # at a semantic shader input such as Base Color or Emission Color.
+        #
+        # Treating Surface as "Shader Color" caused false mixed-usage results
+        # for masks/factors that merely flowed through a shader network.
         if socket_name in {
             "surface",
             "volume",
         }:
-            return "COLOR", "Shader Color"
+            return None
 
     # ------------------------------------------------------------------
     # Clearly color-based shader inputs
@@ -678,8 +1043,11 @@ def classify_destination_socket(node, socket, settings):
         node=node,
         socket_name=socket_name,
     ):
-        return "COLOR", get_color_usage_label(
-            socket_name
+        return (
+            "COLOR",
+            get_color_usage_label(
+                socket_name
+            ),
         )
 
     return None
@@ -689,7 +1057,9 @@ def classify_destination_socket(node, socket, settings):
 # Socket rules
 # -------------------------------------------------------------------------
 
-def is_roughness_socket(socket_name):
+def is_roughness_socket(
+        socket_name,
+    ):
     return socket_name in {
         "roughness",
         "coat roughness",
@@ -700,14 +1070,18 @@ def is_roughness_socket(socket_name):
     }
 
 
-def is_metallic_socket(socket_name):
+def is_metallic_socket(
+        socket_name,
+    ):
     return socket_name in {
         "metallic",
         "metalness",
     }
 
 
-def is_normal_socket(socket_name):
+def is_normal_socket(
+        socket_name,
+    ):
     return socket_name in {
         "normal",
         "tangent",
@@ -716,7 +1090,9 @@ def is_normal_socket(socket_name):
     }
 
 
-def is_height_socket(socket_name):
+def is_height_socket(
+        socket_name,
+    ):
     return socket_name in {
         "height",
         "distance",
@@ -726,7 +1102,10 @@ def is_height_socket(socket_name):
     }
 
 
-def is_mask_or_data_socket(node, socket_name):
+def is_mask_or_data_socket(
+        node,
+        socket_name,
+    ):
     non_color_names = {
         "alpha",
         "fac",
@@ -756,24 +1135,28 @@ def is_mask_or_data_socket(node, socket_name):
     if socket_name in non_color_names:
         return True
 
-    node_type = getattr(node, "type", "")
+    node_type = getattr(
+        node,
+        "type",
+        "",
+    )
 
-    # Math inputs represent scalar data.
     if node_type == "MATH":
         return True
 
-    # Vector Math normally represents vectors/data rather than display color.
     if node_type == "VECT_MATH":
         return True
 
-    # Displacement nodes expect scalar height values.
     if node_type == "DISPLACEMENT":
         return True
 
     return False
 
 
-def is_color_socket(node, socket_name):
+def is_color_socket(
+        node,
+        socket_name,
+    ):
     color_names = {
         "base color",
         "color",
@@ -789,7 +1172,11 @@ def is_color_socket(node, socket_name):
     if socket_name not in color_names:
         return False
 
-    node_type = getattr(node, "type", "")
+    node_type = getattr(
+        node,
+        "type",
+        "",
+    )
 
     # These nodes can process either color or data. Do not finalize their
     # classification here; traversal should continue to their destination.
@@ -805,21 +1192,45 @@ def is_color_socket(node, socket_name):
         "GROUP",
     }
 
-    return node_type not in passthrough_types
+    return (
+        node_type
+        not in passthrough_types
+    )
 
 
-def get_data_usage_label(socket_name):
+def get_data_usage_label(
+        socket_name,
+    ):
     labels = {
-        "alpha": "Alpha",
-        "opacity": "Opacity",
-        "mask": "Mask",
-        "ambient occlusion": "Ambient Occlusion",
-        "occlusion": "Ambient Occlusion",
-        "ao": "Ambient Occlusion",
-        "fac": "Factor/Mask",
-        "factor": "Factor/Mask",
-        "weight": "Weight/Mask",
-        "value": "Scalar Data",
+        "alpha":
+            "Alpha",
+
+        "opacity":
+            "Opacity",
+
+        "mask":
+            "Mask",
+
+        "ambient occlusion":
+            "Ambient Occlusion",
+
+        "occlusion":
+            "Ambient Occlusion",
+
+        "ao":
+            "Ambient Occlusion",
+
+        "fac":
+            "Factor/Mask",
+
+        "factor":
+            "Factor/Mask",
+
+        "weight":
+            "Weight/Mask",
+
+        "value":
+            "Scalar Data",
     }
 
     return labels.get(
@@ -828,14 +1239,27 @@ def get_data_usage_label(socket_name):
     )
 
 
-def get_color_usage_label(socket_name):
+def get_color_usage_label(
+        socket_name,
+    ):
     labels = {
-        "base color": "Base Color",
-        "emission": "Emission Color",
-        "emission color": "Emission Color",
-        "subsurface color": "Subsurface Color",
-        "coat tint": "Coat Tint",
-        "sheen tint": "Sheen Tint",
+        "base color":
+            "Base Color",
+
+        "emission":
+            "Emission Color",
+
+        "emission color":
+            "Emission Color",
+
+        "subsurface color":
+            "Subsurface Color",
+
+        "coat tint":
+            "Coat Tint",
+
+        "sheen tint":
+            "Sheen Tint",
     }
 
     return labels.get(
@@ -848,55 +1272,101 @@ def get_color_usage_label(socket_name):
 # Result building
 # -------------------------------------------------------------------------
 
-def build_failed_materials(failed_images):
+def build_failed_materials(
+        failed_images,
+    ):
     """
     Converts image-based results into material-based results.
     """
     failed_materials = {}
 
-    for image_name, image_data in failed_images.items():
-        for usage in image_data.get("usages", []):
-            material_name = usage["material_name"]
+    for image_name, image_data in (
+        failed_images.items()
+    ):
 
-            material_result = failed_materials.setdefault(
-                material_name,
-                {
-                    "material_name": material_name,
-                    "image_count": 0,
-                    "images": [],
-                },
+        for usage in image_data.get(
+            "usages",
+            [],
+        ):
+            material_name = usage[
+                "material_name"
+            ]
+
+            material_result = (
+                failed_materials.setdefault(
+                    material_name,
+                    {
+                        "material_name":
+                            material_name,
+
+                        "image_count":
+                            0,
+
+                        "images":
+                            [],
+                    },
+                )
             )
 
-            material_result["images"].append({
-                "image_name": image_name,
-                "node_name": usage["node_name"],
-                "node_label": usage["node_label"],
-                "current_colorspace": image_data[
-                    "current_colorspace"
-                ],
-                "required_colorspace": image_data[
-                    "required_colorspace"
-                ],
-                "non_color_usages": usage[
-                    "non_color_usages"
-                ],
-                "color_usages": usage[
-                    "color_usages"
-                ],
-                "mixed_usage": image_data[
-                    "mixed_usage"
-                ],
+            material_result[
+                "images"
+            ].append({
+                "image_name":
+                    image_name,
+
+                "node_name":
+                    usage[
+                        "node_name"
+                    ],
+
+                "node_label":
+                    usage[
+                        "node_label"
+                    ],
+
+                "current_colorspace":
+                    image_data[
+                        "current_colorspace"
+                    ],
+
+                "required_colorspace":
+                    image_data[
+                        "required_colorspace"
+                    ],
+
+                "non_color_usages":
+                    usage[
+                        "non_color_usages"
+                    ],
+
+                "color_usages":
+                    usage[
+                        "color_usages"
+                    ],
+
+                "mixed_usage":
+                    image_data[
+                        "mixed_usage"
+                    ],
             })
 
-    for material_data in failed_materials.values():
-        material_data["image_count"] = len(
-            material_data["images"]
+    for material_data in (
+        failed_materials.values()
+    ):
+        material_data[
+            "image_count"
+        ] = len(
+            material_data[
+                "images"
+            ]
         )
 
     return failed_materials
 
 
-def get_scene_materials(scene=None):
+def get_scene_materials(
+        scene=None,
+    ):
     """
     Returns unique materials assigned to objects in the current scene.
     """
@@ -906,7 +1376,9 @@ def get_scene_materials(scene=None):
     materials = []
     seen = set()
 
-    for obj in get_qc_objects(scene.objects):
+    for obj in get_qc_objects(
+        scene.objects
+    ):
 
         if obj.library is not None:
             continue
@@ -928,51 +1400,90 @@ def get_scene_materials(scene=None):
             if material.library is not None:
                 continue
 
-            key = get_datablock_key(material)
+            key = (
+                get_datablock_key(
+                    material
+                )
+            )
 
             if key in seen:
                 continue
 
-            seen.add(key)
-            materials.append(material)
+            seen.add(
+                key
+            )
+
+            materials.append(
+                material
+            )
 
     return materials
 
 
-def get_image_colorspace(image):
+def get_image_colorspace(
+        image,
+    ):
     try:
-        return image.colorspace_settings.name
+        return (
+            image.colorspace_settings.name
+        )
+
     except Exception:
         return "Unknown"
 
 
-def colorspace_matches(current, required):
+def colorspace_matches(
+        current,
+        required,
+    ):
     """
     Handles minor naming variations such as Non-Color and Non-Colour.
     """
-    current = normalize_name(current).replace(
+    current = normalize_name(
+        current
+    ).replace(
         "colour",
         "color",
     )
-    required = normalize_name(required).replace(
+
+    required = normalize_name(
+        required
+    ).replace(
         "colour",
         "color",
     )
 
-    return current == required
+    return (
+        current == required
+    )
 
 
-def normalize_name(value):
+def normalize_name(
+        value,
+    ):
     return " ".join(
-        str(value).strip().lower().replace(
+        str(
+            value
+        )
+        .strip()
+        .lower()
+        .replace(
             "_",
             " ",
-        ).split()
+        )
+        .split()
     )
 
 
-def get_datablock_key(datablock):
+def get_datablock_key(
+        datablock,
+    ):
     try:
-        return datablock.as_pointer()
+        return (
+            datablock.as_pointer()
+        )
+
     except Exception:
-        return id(datablock)
+        return id(
+            datablock
+        )
