@@ -389,10 +389,52 @@ def refresh_object_failed_checks(context):
         if object_name not in check_failed_objects:
             continue
 
+        object_failure_data = (
+            check_failed_objects.get(
+                object_name,
+                {}
+            )
+        )
+
+        # Start with the check-level capability for backward compatibility.
+        # A check may then override it for this specific failed object by
+        # returning:
+        #
+        #     failed_objects[object_name]["can_auto_fix"] = True / False
+        #
+        # This is important for partially-fixable checks such as Connected
+        # Geometry, where loose verts/edges are fixable but face islands are
+        # manual-review only.
+        object_can_auto_fix = (
+            check_item.has_fix
+            and check_item.can_auto_fix
+        )
+
+        if isinstance(
+            object_failure_data,
+            dict,
+        ):
+            explicit_can_auto_fix = (
+                object_failure_data.get(
+                    "can_auto_fix",
+                    None,
+                )
+            )
+
+            if isinstance(
+                explicit_can_auto_fix,
+                bool,
+            ):
+                object_can_auto_fix = (
+                    check_item.has_fix
+                    and explicit_can_auto_fix
+                )
+
         item = object_checks.add()
         item.name = check_item.name
         item.script_path = check_item.script_path
         item.has_fix = check_item.has_fix
+        item.can_auto_fix = object_can_auto_fix
         item.has_settings = check_item.has_settings
         item.check_id = check_item.check_id
         item.check_index = check_index

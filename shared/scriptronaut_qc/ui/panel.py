@@ -976,15 +976,18 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
             text=current_object_check.name
         )
 
-        if current_object_check.has_fix:
+        if (
+            current_object_check.has_fix
+            and current_object_check.can_auto_fix
+        ):
             details_box.label(
-                text="Automatic fix available.",
+                text="Automatic fix available for this object.",
                 icon="TOOL_SETTINGS",
             )
 
         else:
             details_box.label(
-                text="Manual fix required.",
+                text="Manual fix required for this object.",
                 icon="INFO",
             )
 
