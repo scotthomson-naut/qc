@@ -68,6 +68,10 @@ SETTINGS = {
         "label": "Ignore Disconnected Faces",
         "description": (
             "Ignore disconnected components containing one or more faces. "
+            "Only affects whether these are REPORTED as an issue - "
+            "face-containing components are never auto-removed by Fix "
+            "regardless of this setting, since they could be legitimate "
+            "disconnected content, not a mistake."
         ),
         "default": False,
     },
@@ -1674,11 +1678,44 @@ def remove_object_loose_components(
 
     mesh = obj.data
 
-    if obj.mode == "EDIT":
+    # -----------------------------------------------------------
+    # Force Object Mode before writing via bmesh.
+    #
+    # bm.to_mesh(mesh) writes directly to the mesh datablock. If the
+    # object is still in Edit Mode when that happens, Blender's live
+    # Edit Mode buffer can overwrite the datablock right back on its
+    # next sync/redraw - silently undoing the fix even though this
+    # function reports success (confirmed: the tool showed "fix
+    # completed" while the object still failed on re-check).
+    #
+    # Same pattern as apply_scale.py's fix_objects_scale(): save
+    # what mode the object was actually in, force Object Mode, do
+    # the work, then restore the original mode afterward rather than
+    # leaving the artist unexpectedly dropped into Object Mode.
+    # -----------------------------------------------------------
+
+    view_layer = bpy.context.view_layer
+    was_in_edit_mode = obj.mode == "EDIT"
+
+    if was_in_edit_mode:
         try:
             obj.update_from_editmode()
         except Exception:
             pass
+
+        # mode_set() operates on the active object. An object can
+        # only be in Edit Mode if it's already active, so this is
+        # just making that explicit rather than assuming it.
+        view_layer.objects.active = obj
+
+        try:
+            bpy.ops.object.mode_set(mode="OBJECT")
+        except RuntimeError as error:
+            return {
+                "error": (
+                    "Could not exit Edit Mode to apply fix: {}"
+                ).format(error),
+            }
 
     bm = bmesh.new()
 
@@ -1791,3 +1828,16 @@ def remove_object_loose_components(
 
     finally:
         bm.free()
+
+        # Restore whatever mode the object was actually in before
+        # this function touched it, same reasoning as forcing Object
+        # Mode above - the artist shouldn't be unexpectedly left in
+        # Object Mode just because a Fix click happened to run while
+        # they were mid-edit.
+        if was_in_edit_mode:
+            view_layer.objects.active = obj
+
+            try:
+                bpy.ops.object.mode_set(mode="EDIT")
+            except RuntimeError:
+                pass
