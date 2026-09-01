@@ -61,23 +61,16 @@ def fix(
     """
     Fixes the CURRENT Object/Data Name Match failures.
 
-    Other naming checks may rename an object after this check was run.
-    Stored result_data is therefore not a safe object identifier for a
-    naming fix. Re-evaluating the inexpensive naming check here ensures
-    rename operations are built from the current object/datablock names.
+    Naming checks can rename objects between the QC run and this fix, so the
+    inexpensive finder is run again immediately before building rename work.
     """
     live_failed_objects = (
         get_objects_with_mismatched_data_names()
     )
 
-    live_result_data = {
-        "failed_objects":
-            live_failed_objects,
-    }
-
-    return fix_objects_with_mismatched_data_names(
-        live_result_data
-    )
+    return fix_objects_with_mismatched_data_names({
+        "failed_objects": live_failed_objects,
+    })
 
 
 # -------------------------------------------------------------------------
@@ -88,72 +81,143 @@ def get_objects_with_mismatched_data_names(
         objects=None,
     ):
     """
-    Finds single-user objects (of any type) whose object name does
-    not match their datablock name.
+    Finds single-user objects whose object name does not match their
+    datablock name.
 
-    Note:
-        Unlike the original version of this check, this is no longer
-        restricted to obj.type == "MESH" - every object type with a
-        datablock (Camera, Curve, Armature, Light, Lattice, Metaball,
-        Speaker, GreasePencil, etc.) is checked the same way, since
-        every datablock type shares the same .name and .users
-        properties (inherited from Blender's base ID type), and the
-        comparison logic and severity don't actually differ by
-        object type. Empty objects (obj.data is always None) are
-        naturally skipped, same as before.
+    Important conflict rule:
+        Blender datablock names are unique inside each bpy.data namespace.
 
-        Shared datablocks are intentionally ignored because one
-        datablock cannot match multiple differently named objects.
+        If an object's desired datablock name is already owned by another
+        live datablock outside this check's current rename set, an exact
+        automatic rename is impossible without touching unrelated live data.
 
-    Args:
-        objects (iterable[bpy.types.Object] | None):
-            Objects to inspect.
-            Defaults to all objects in the current scene.
+        Those external live-name conflicts are therefore ignored rather than
+        left as permanent QC failures.
+
+        Rename chains/cycles inside the current QC scope are still reported
+        and fixed normally. Zero-object-user/fake-user blockers are also still
+        reported because the fixer can safely move them aside.
 
     Returns:
-        dict:
-        {
-            "Cube": {
-                "object_name": "Cube",
-                "datablock_name": "Mesh.002",
-                "datablock_users": 1,
-            },
-            ...
-        }
+        dict
     """
     if objects is None:
         objects = bpy.context.scene.objects
 
-    failed_objects = {}
+    try:
+        qc_objects = list(
+            get_qc_objects(
+                objects
+            )
+        )
+    except NameError:
+        qc_objects = list(
+            objects
+        )
 
-    for obj in objects:
-        # Linked library objects and linked datablocks are outside the scope
-        # of local automatic naming fixes.
+    candidates = []
+
+    for obj in qc_objects:
+
         if obj.library is not None:
             continue
 
-        if obj.data is None:
+        datablock = getattr(
+            obj,
+            "data",
+            None,
+        )
+
+        if datablock is None:
             continue
 
         if getattr(
-            obj.data,
+            datablock,
             "library",
             None,
         ) is not None:
             continue
 
-        # Shared datablocks are valid and cannot necessarily match
-        # every object name.
-        if obj.data.users > 1:
+        if datablock.users > 1:
             continue
 
-        if obj.name == obj.data.name:
+        if obj.name == datablock.name:
             continue
 
-        failed_objects[obj.name] = {
-            "object_name": obj.name,
-            "datablock_name": obj.data.name,
-            "datablock_users": obj.data.users,
+        (
+            collection,
+            collection_key,
+        ) = get_datablock_collection(
+            datablock
+        )
+
+        candidates.append({
+            "object":
+                obj,
+
+            "datablock":
+                datablock,
+
+            "collection":
+                collection,
+
+            "collection_key":
+                collection_key,
+        })
+
+    candidate_datablocks = {
+        item[
+            "datablock"
+        ]
+        for item in candidates
+    }
+
+    failed_objects = {}
+
+    for item in candidates:
+
+        obj = item[
+            "object"
+        ]
+
+        datablock = item[
+            "datablock"
+        ]
+
+        collection = item[
+            "collection"
+        ]
+
+        if collection is not None:
+
+            blocker = collection.get(
+                obj.name
+            )
+
+            if (
+                blocker is not None
+                and blocker is not datablock
+                and blocker not in candidate_datablocks
+                and datablock_has_live_object_users(
+                    blocker
+                )
+            ):
+                # Another live datablock outside this rename set already owns
+                # the exact target name. Blender would only generate a
+                # suffix such as .001, so do not report an unfixable mismatch.
+                continue
+
+        failed_objects[
+            obj.name
+        ] = {
+            "object_name":
+                obj.name,
+
+            "datablock_name":
+                datablock.name,
+
+            "datablock_users":
+                datablock.users,
         }
 
     return failed_objects
@@ -167,63 +231,23 @@ def get_datablock_collection(
         datablock,
     ):
     """
-    Returns the bpy.data collection containing datablock.
+    Returns (bpy.data collection, stable collection key).
 
-    Important:
-        Do NOT key this from datablock.bl_rna.identifier.
-
-        Blender uses subtype RNA identifiers for several datablocks. For
-        example, lights can report identifiers such as SpotLight/AreaLight
-        and text data can report TextCurve instead of the base Light/Curve
-        identifiers. They still live in bpy.data.lights and bpy.data.curves.
-
-        isinstance() against Blender's base RNA types correctly handles
-        those subclasses.
+    isinstance() is used instead of bl_rna.identifier because Blender RNA
+    subclasses such as SpotLight, AreaLight and TextCurve still live in the
+    base bpy.data.lights / bpy.data.curves collections.
     """
     type_map = (
-        (
-            bpy.types.Mesh,
-            bpy.data.meshes,
-            "MESH",
-        ),
-        (
-            bpy.types.Curve,
-            bpy.data.curves,
-            "CURVE",
-        ),
-        (
-            bpy.types.Camera,
-            bpy.data.cameras,
-            "CAMERA",
-        ),
-        (
-            bpy.types.Light,
-            bpy.data.lights,
-            "LIGHT",
-        ),
-        (
-            bpy.types.Armature,
-            bpy.data.armatures,
-            "ARMATURE",
-        ),
-        (
-            bpy.types.Lattice,
-            bpy.data.lattices,
-            "LATTICE",
-        ),
-        (
-            bpy.types.MetaBall,
-            bpy.data.metaballs,
-            "METABALL",
-        ),
-        (
-            bpy.types.Speaker,
-            bpy.data.speakers,
-            "SPEAKER",
-        ),
+        (bpy.types.Mesh, bpy.data.meshes, "MESH"),
+        (bpy.types.Curve, bpy.data.curves, "CURVE"),
+        (bpy.types.Camera, bpy.data.cameras, "CAMERA"),
+        (bpy.types.Light, bpy.data.lights, "LIGHT"),
+        (bpy.types.Armature, bpy.data.armatures, "ARMATURE"),
+        (bpy.types.Lattice, bpy.data.lattices, "LATTICE"),
+        (bpy.types.MetaBall, bpy.data.metaballs, "METABALL"),
+        (bpy.types.Speaker, bpy.data.speakers, "SPEAKER"),
     )
 
-    # Volume is unavailable in some older Blender builds, so guard it.
     volume_type = getattr(
         bpy.types,
         "Volume",
@@ -232,17 +256,10 @@ def get_datablock_collection(
 
     if (
         volume_type is not None
-        and isinstance(
-            datablock,
-            volume_type,
-        )
+        and isinstance(datablock, volume_type)
     ):
-        return (
-            bpy.data.volumes,
-            "VOLUME",
-        )
+        return bpy.data.volumes, "VOLUME"
 
-    # Grease Pencil changed API/type names between Blender generations.
     grease_pencil_type = getattr(
         bpy.types,
         "GreasePencilv3",
@@ -265,34 +282,67 @@ def get_datablock_collection(
     if (
         grease_pencil_type is not None
         and grease_pencils is not None
-        and isinstance(
-            datablock,
-            grease_pencil_type,
-        )
+        and isinstance(datablock, grease_pencil_type)
     ):
-        return (
-            grease_pencils,
-            "GREASE_PENCIL",
+        return grease_pencils, "GREASE_PENCIL"
+
+    for datablock_type, collection, collection_key in type_map:
+        if isinstance(datablock, datablock_type):
+            return collection, collection_key
+
+    return None, None
+
+
+def get_datablock_object_users(
+        datablock,
+    ):
+    """
+    Returns Objects that directly use datablock as obj.data.
+
+    ID.users can include Fake User and other non-object references. Those
+    references should not make a harmless target-name holder permanently
+    block the naming fix.
+    """
+    if datablock is None:
+        return []
+
+    return [
+        obj
+        for obj in bpy.data.objects
+        if getattr(obj, "data", None) is datablock
+    ]
+
+
+def datablock_has_live_object_users(
+        datablock,
+    ):
+    """
+    Returns True only when one or more Blender Objects directly use datablock.
+
+    This intentionally does not rely on datablock.users because Fake User
+    and other ID references can increase that count without an Object
+    actually owning the datablock.
+    """
+    return bool(
+        get_datablock_object_users(
+            datablock
         )
+    )
 
-    for (
-        datablock_type,
-        collection,
-        collection_key,
-    ) in type_map:
 
-        if isinstance(
-            datablock,
-            datablock_type,
-        ):
-            return (
-                collection,
-                collection_key,
-            )
+def describe_datablock_object_users(
+        datablock,
+    ):
+    users = get_datablock_object_users(
+        datablock
+    )
 
-    return (
-        None,
-        None,
+    if not users:
+        return "no object users"
+
+    return ", ".join(
+        '"{}"'.format(obj.name)
+        for obj in users
     )
 
 # -------------------------------------------------------------------------
@@ -343,9 +393,14 @@ def fix_objects_with_mismatched_data_names(
     # ---------------------------------------------------------
 
     for object_name in failed_objects:
-        obj = bpy.data.objects.get(
-            object_name
-        )
+        try:
+            obj = get_qc_object(
+                object_name
+            )
+        except NameError:
+            obj = bpy.data.objects.get(
+                object_name
+            )
 
         if obj is None:
             issues.append(
@@ -398,9 +453,6 @@ def fix_objects_with_mismatched_data_names(
             "object": obj,
             "datablock": datablock,
             "collection": collection,
-            # Group by the actual bpy.data namespace, not the RNA subtype.
-            # SpotLight/AreaLight all share bpy.data.lights; TextCurve and
-            # other Curve subtypes all share bpy.data.curves.
             "collection_key": collection_key,
             "old_name": datablock.name,
             "target_name": obj.name,
@@ -489,7 +541,17 @@ def fix_objects_with_mismatched_data_names(
                 ]
                 continue
 
-            if blocker.users == 0:
+            blocker_object_users = (
+                get_datablock_object_users(
+                    blocker
+                )
+            )
+
+            # users > 0 does not necessarily mean another Object owns this
+            # datablock; Fake User is a common example. If there are no
+            # direct object users, move the blocker aside exactly like an
+            # orphan and free the desired name.
+            if not blocker_object_users:
                 item[
                     "orphan_blocker"
                 ] = blocker
@@ -503,15 +565,15 @@ def fix_objects_with_mismatched_data_names(
             ] = (
                 (
                     'Manual naming conflict for "{}": datablock "{}" '
-                    'cannot be renamed to "{}" because another live '
-                    'datablock already owns that exact name ({} user(s)). '
-                    'Running Fix again cannot resolve this safely; rename '
-                    'one of the conflicting datablocks/objects manually.'
+                    'cannot be renamed to "{}" because that exact datablock '
+                    'name is currently owned by object(s): {}.'
                 ).format(
                     item["object"].name,
                     datablock.name,
                     target_name,
-                    blocker.users,
+                    describe_datablock_object_users(
+                        blocker
+                    ),
                 )
             )
 
@@ -817,8 +879,34 @@ def fix_objects_with_mismatched_data_names(
 
     bpy.context.view_layer.update()
 
+    remaining = (
+        get_objects_with_mismatched_data_names()
+    )
+
+    for object_name, data in sorted(
+        remaining.items()
+    ):
+        if object_name in fixed_objects:
+            continue
+
+        message = (
+            'Still mismatched: object "{}" uses datablock "{}".'
+        ).format(
+            object_name,
+            data.get(
+                "datablock_name",
+                "Unknown",
+            ),
+        )
+
+        if message not in issues:
+            issues.append(
+                message
+            )
+
     return {
         "fixed_objects": fixed_objects,
         "issues": issues,
+        "remaining_failed_objects": remaining,
     }
 
