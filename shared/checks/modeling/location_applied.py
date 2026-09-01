@@ -27,7 +27,7 @@ WHY = (
 # Constants
 # -------------------------------------------------------------------------
 
-TOLERANCE = 1e-6
+TOLERANCE = 1e-5
 
 
 # -------------------------------------------------------------------------
@@ -251,36 +251,28 @@ def get_objects_with_unapplied_location(objects=None):
 
 def fix_objects_preserve_pivot(
         result_data=None,
-        max_passes=3,
     ):
     """
-    Moves normal Location values into Delta Location.
+    Moves normal Location directly into Delta Location.
 
-    The fix is hierarchy-aware.
+    This implementation intentionally does NOT use
+    bpy.ops.object.transforms_to_deltas().
 
-    Moving a parent's normal location into Delta Location can change a
-    child's local Location while Blender preserves the child's world-space
-    appearance. Therefore the fix:
+    For Location, Blender's normal Location and Delta Location are additive.
+    Moving the current normal Location value into Delta Location therefore
+    preserves the object's local/world transform while leaving normal
+    Location at exactly (0, 0, 0).
 
-        1. Includes descendants of originally failed objects.
-        2. Processes parents before children.
-        3. Verifies the whole affected hierarchy after each pass.
-        4. Retries only objects that still have non-zero normal Location.
+    This is more reliable than the operator for QC purposes because:
+        - it does not depend on selection/operator context,
+        - it does not create parent/child retry cascades,
+        - it produces an exact zero in the normal Location channels,
+        - it can explicitly detect animation/drivers that would immediately
+          restore the Location value after a fix.
 
-    This preserves:
-        - Geometry world position
-        - Origin/pivot world position
-        - Rotation
-        - Scale
-
-    This is not equivalent to Object > Apply > Location.
-
-    Args:
-        result_data (dict | None):
-            Result returned by main().
-
-        max_passes (int):
-            Maximum number of verification/retry passes.
+    Animated/driven Location channels are not modified automatically because
+    their F-Curves/drivers would re-evaluate the non-zero Location again.
+    Those objects are reported for manual review instead.
 
     Returns:
         dict:
@@ -312,82 +304,27 @@ def fix_objects_preserve_pivot(
     context = bpy.context
     view_layer = context.view_layer
 
-    # ---------------------------------------------------------
-    # Save current Blender state
-    # ---------------------------------------------------------
-
-    original_active = (
-        view_layer.objects.active
+    # Re-evaluate current failures so stale result payloads do not matter.
+    live_failed_objects = (
+        get_objects_with_unapplied_location()
     )
 
-    original_selected = list(
-        context.selected_objects
-    )
+    target_names = [
+        object_name
+        for object_name in failed_objects
+        if object_name in live_failed_objects
+    ]
 
-    original_mode = (
-        context.mode
-    )
+    for object_name in target_names:
 
-    if (
-        context.object is not None
-        and context.mode != "OBJECT"
-    ):
         try:
-            bpy.ops.object.mode_set(
-                mode="OBJECT"
+            obj = get_qc_object(
+                object_name
             )
-
-        except RuntimeError as error:
-            return {
-                "fixed_objects": {},
-                "issues": [
-                    "Could not enter Object Mode: {}".format(
-                        error
-                    )
-                ],
-            }
-
-    # ---------------------------------------------------------
-    # Resolve original failures and their mesh descendants.
-    # ---------------------------------------------------------
-
-    original_failed_objects = []
-    candidate_objects = []
-    candidate_names = set()
-
-    def add_candidate(
-            obj,
-        ):
-        if obj is None:
-            return
-
-        if obj.type != "MESH":
-            return
-
-        if obj.data is None:
-            return
-
-        if obj.name in candidate_names:
-            return
-
-        if is_linked_object(
-            obj
-        ):
-            return
-
-        candidate_names.add(
-            obj.name
-        )
-
-        candidate_objects.append(
-            obj
-        )
-
-    for object_name in failed_objects:
-
-        obj = bpy.data.objects.get(
-            object_name
-        )
+        except NameError:
+            obj = bpy.data.objects.get(
+                object_name
+            )
 
         if obj is None:
             issues.append(
@@ -397,343 +334,173 @@ def fix_objects_preserve_pivot(
             )
             continue
 
-        if obj.type != "MESH":
-            continue
-
-        if obj.data is None:
-            continue
-
-        if is_linked_object(
-            obj
-        ):
-            # Normally this should not be reached because linked objects
-            # are excluded by the Find stage, but keep the guard here in
-            # case an older/stale result_data payload is being fixed.
-            continue
-
-        original_failed_objects.append(
-            obj
-        )
-
-        add_candidate(
-            obj
-        )
-
-        for descendant in get_object_descendants(
-            obj
-        ):
-            add_candidate(
-                descendant
-            )
-
-    candidate_objects.sort(
-        key=get_object_parent_depth
-    )
-
-    original_locations = {
-        obj.name:
-            tuple(
-                obj.location
-            )
-        for obj in candidate_objects
-    }
-
-    try:
-
-        # -----------------------------------------------------
-        # Apply + verify
-        # -----------------------------------------------------
-
-        for _pass_index in range(
-            max(
-                1,
-                int(
-                    max_passes
-                ),
-            )
-        ):
-
-            remaining = [
+        if (
+            obj.type != "MESH"
+            or obj.data is None
+            or is_linked_object(
                 obj
-                for obj in candidate_objects
-                if (
-                    obj.name in bpy.data.objects
-                    and object_has_unapplied_location(
-                        obj
-                    )
+            )
+        ):
+            continue
+
+        animation_reason = (
+            get_location_animation_reason(
+                obj
+            )
+        )
+
+        if animation_reason:
+            issues.append(
+                (
+                    'Could not automatically apply Location on "{}": {}'
+                ).format(
+                    obj.name,
+                    animation_reason,
                 )
-            ]
+            )
+            continue
 
-            if not remaining:
-                break
+        previous_location = tuple(
+            obj.location
+        )
 
-            remaining.sort(
-                key=get_object_parent_depth
+        previous_delta_location = tuple(
+            obj.delta_location
+        )
+
+        previous_world_matrix = (
+            obj.matrix_world.copy()
+        )
+
+        try:
+            # Normal Location and Delta Location are additive. Transfer the
+            # exact channel values directly rather than relying on an operator.
+            obj.delta_location = (
+                obj.delta_location.x
+                + obj.location.x,
+
+                obj.delta_location.y
+                + obj.location.y,
+
+                obj.delta_location.z
+                + obj.location.z,
             )
 
-            for obj in remaining:
-
-                # A parent processed earlier in the pass may already
-                # have resolved this object's local location.
-                if not object_has_unapplied_location(
-                    obj
-                ):
-                    continue
-
-                original_hide_viewport = (
-                    obj.hide_viewport
-                )
-
-                original_hide_select = (
-                    obj.hide_select
-                )
-
-                try:
-                    original_hide_state = (
-                        obj.hide_get()
-                    )
-                except RuntimeError:
-                    original_hide_state = False
-
-                try:
-                    obj.hide_viewport = False
-                    obj.hide_select = False
-
-                    try:
-                        obj.hide_set(
-                            False
-                        )
-                    except RuntimeError:
-                        pass
-
-                    for selected_obj in list(
-                        context.selected_objects
-                    ):
-                        try:
-                            selected_obj.select_set(
-                                False
-                            )
-                        except RuntimeError:
-                            pass
-
-                    if (
-                        view_layer.objects.get(
-                            obj.name
-                        )
-                        is None
-                    ):
-                        issues.append(
-                            (
-                                'Could not apply location to "{}": '
-                                "object is not in the current View Layer."
-                            ).format(
-                                obj.name
-                            )
-                        )
-                        continue
-
-                    obj.select_set(
-                        True
-                    )
-
-                    view_layer.objects.active = (
-                        obj
-                    )
-
-                    result = (
-                        bpy.ops.object.transforms_to_deltas(
-                            mode="LOC"
-                        )
-                    )
-
-                    if (
-                        "FINISHED"
-                        not in result
-                    ):
-                        issues.append(
-                            "Could not apply location to {}.".format(
-                                obj.name
-                            )
-                        )
-
-                except Exception as error:
-                    issues.append(
-                        (
-                            "Could not apply location to {}: {}"
-                        ).format(
-                            obj.name,
-                            error,
-                        )
-                    )
-
-                finally:
-                    obj.hide_viewport = (
-                        original_hide_viewport
-                    )
-
-                    obj.hide_select = (
-                        original_hide_select
-                    )
-
-                    try:
-                        obj.hide_set(
-                            original_hide_state
-                        )
-                    except RuntimeError:
-                        pass
+            obj.location = (
+                0.0,
+                0.0,
+                0.0,
+            )
 
             view_layer.update()
 
-        # -----------------------------------------------------
-        # Final verification
-        # -----------------------------------------------------
-
-        still_failing = []
-
-        original_failed_names = {
-            obj.name
-            for obj in original_failed_objects
-        }
-
-        for obj in candidate_objects:
-
-            if obj.name not in bpy.data.objects:
-                continue
-
-            if object_has_unapplied_location(
-                obj
-            ):
-                still_failing.append(
-                    obj.name
+        except Exception as error:
+            issues.append(
+                (
+                    'Could not move Location into Delta Location '
+                    'for "{}": {}'
+                ).format(
+                    obj.name,
+                    error,
                 )
-                continue
+            )
+            continue
 
-            original_location = (
-                original_locations.get(
+        # If depsgraph evaluation brought Location back, an animation system
+        # or another evaluated source is controlling the channel.
+        if object_has_unapplied_location(
+            obj
+        ):
+            try:
+                obj.location = (
+                    previous_location
+                )
+
+                obj.delta_location = (
+                    previous_delta_location
+                )
+
+                view_layer.update()
+
+            except Exception:
+                pass
+
+            issues.append(
+                (
+                    'Location on "{}" returned to {} after the fix. '
+                    "The channel is being evaluated externally "
+                    "(animation, driver, or another transform source), "
+                    "so QC left it unchanged."
+                ).format(
                     obj.name,
                     tuple(
                         obj.location
                     ),
                 )
             )
+            continue
 
-            started_with_location = any(
-                abs(
-                    value
-                ) > TOLERANCE
-                for value in original_location
+        # Defensive world-space verification.
+        world_difference = (
+            get_matrix_max_difference(
+                previous_world_matrix,
+                obj.matrix_world,
             )
+        )
 
-            if (
-                obj.name not in original_failed_names
-                and not started_with_location
-            ):
-                continue
+        if world_difference > 1e-5:
 
-            fixed_objects[
-                obj.name
-            ] = {
-                "delta_location_applied":
-                    True,
+            try:
+                obj.location = (
+                    previous_location
+                )
 
-                "previous_location":
-                    original_location,
+                obj.delta_location = (
+                    previous_delta_location
+                )
 
-                "location":
-                    tuple(
-                        obj.location
-                    ),
+                view_layer.update()
 
-                "delta_location":
-                    tuple(
-                        obj.delta_location
-                    ),
-            }
+            except Exception:
+                pass
 
-        if still_failing:
             issues.append(
                 (
-                    "Location is still unapplied on {} object(s) after "
-                    "{} pass(es): {}"
+                    'Skipped "{}": moving Location to Delta Location '
+                    "changed its world transform by {:.8f}; original "
+                    "transform was restored."
                 ).format(
-                    len(
-                        still_failing
-                    ),
-                    max(
-                        1,
-                        int(
-                            max_passes
-                        ),
-                    ),
-                    ", ".join(
-                        still_failing
-                    ),
+                    obj.name,
+                    world_difference,
                 )
             )
+            continue
 
-    finally:
-        # -----------------------------------------------------
-        # Restore original selection
-        # -----------------------------------------------------
+        fixed_objects[
+            obj.name
+        ] = {
+            "delta_location_applied":
+                True,
 
-        for selected_obj in list(
-            context.selected_objects
-        ):
-            try:
-                selected_obj.select_set(
-                    False
-                )
-            except RuntimeError:
-                pass
+            "previous_location":
+                previous_location,
 
-        for selected_obj in original_selected:
+            "previous_delta_location":
+                previous_delta_location,
 
-            if selected_obj.name not in bpy.data.objects:
-                continue
+            "location":
+                tuple(
+                    obj.location
+                ),
 
-            if (
-                view_layer.objects.get(
-                    selected_obj.name
-                )
-                is None
-            ):
-                continue
+            "delta_location":
+                tuple(
+                    obj.delta_location
+                ),
 
-            try:
-                selected_obj.select_set(
-                    True
-                )
-            except RuntimeError:
-                pass
-
-        if (
-            original_active is not None
-            and original_active.name in bpy.data.objects
-            and view_layer.objects.get(
-                original_active.name
-            ) is not None
-        ):
-            view_layer.objects.active = (
-                original_active
-            )
-
-        if (
-            original_mode != "OBJECT"
-            and view_layer.objects.active is not None
-        ):
-            mode_name = get_mode_set_name(
-                original_mode
-            )
-
-            if mode_name:
-                try:
-                    bpy.ops.object.mode_set(
-                        mode=mode_name
-                    )
-                except RuntimeError:
-                    pass
-
-        view_layer.update()
+            "world_transform_preserved":
+                True,
+        }
 
     return {
         "fixed_objects":
@@ -1193,6 +960,141 @@ def object_has_unapplied_location(
         for value in obj.location
     )
 
+
+
+def get_location_animation_reason(
+        obj,
+    ):
+    """
+    Returns a reason string when normal Location is controlled by animation
+    or drivers, otherwise an empty string.
+
+    Automatically rewriting animated Location F-Curves would change authored
+    animation, so the QC fix deliberately leaves those objects for manual
+    review.
+    """
+    if obj is None:
+        return ""
+
+    animation_data = getattr(
+        obj,
+        "animation_data",
+        None,
+    )
+
+    if animation_data is None:
+        return ""
+
+    # Drivers directly controlling Location.
+    for fcurve in getattr(
+        animation_data,
+        "drivers",
+        [],
+    ):
+        if getattr(
+            fcurve,
+            "data_path",
+            "",
+        ) == "location":
+            return (
+                "normal Location is controlled by a driver."
+            )
+
+    # Active Action F-Curves.
+    action = getattr(
+        animation_data,
+        "action",
+        None,
+    )
+
+    if action is not None:
+        for fcurve in getattr(
+            action,
+            "fcurves",
+            [],
+        ):
+            if getattr(
+                fcurve,
+                "data_path",
+                "",
+            ) == "location":
+                return (
+                    "normal Location is animated by an Action."
+                )
+
+    # NLA strips may evaluate Location even when animation_data.action is None.
+    for track in getattr(
+        animation_data,
+        "nla_tracks",
+        [],
+    ):
+        for strip in getattr(
+            track,
+            "strips",
+            [],
+        ):
+            strip_action = getattr(
+                strip,
+                "action",
+                None,
+            )
+
+            if strip_action is None:
+                continue
+
+            for fcurve in getattr(
+                strip_action,
+                "fcurves",
+                [],
+            ):
+                if getattr(
+                    fcurve,
+                    "data_path",
+                    "",
+                ) == "location":
+                    return (
+                        "normal Location is animated through an NLA strip."
+                    )
+
+    return ""
+
+
+def get_matrix_max_difference(
+        matrix_a,
+        matrix_b,
+    ):
+    """
+    Returns the largest absolute element difference between two 4x4 matrices.
+    """
+    difference = 0.0
+
+    for row_index in range(
+        4
+    ):
+        for column_index in range(
+            4
+        ):
+            difference = max(
+                difference,
+                abs(
+                    float(
+                        matrix_a[
+                            row_index
+                        ][
+                            column_index
+                        ]
+                    )
+                    - float(
+                        matrix_b[
+                            row_index
+                        ][
+                            column_index
+                        ]
+                    )
+                ),
+            )
+
+    return difference
 
 def get_mode_set_name(context_mode):
     """
