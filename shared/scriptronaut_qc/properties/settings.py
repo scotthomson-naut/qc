@@ -1,11 +1,163 @@
 """Scriptronaut QC Checks internal module."""
 
+import json
+
 from bpy.props import BoolProperty, EnumProperty, FloatProperty, IntProperty, StringProperty
 from bpy.types import PropertyGroup
 
 from ..constants import CHECKS_DIR
 from ..core.callbacks import update_qc_category, update_qc_check_index
 from ..core.categories import qc_category_items, refresh_object_failed_checks
+
+
+# Dynamic EnumProperty callbacks must keep returned strings alive for as long
+# as Blender may reference them. Cache the generated tuples by their serialized
+# SETTINGS schema.
+_CHECK_SETTING_ENUM_CACHE = {}
+
+
+def _decode_check_setting_enum_items(
+        raw_items,
+    ):
+    """
+    Converts serialized enum item data into Blender EnumProperty items.
+
+    The cache is important: Blender requires the strings returned from a
+    dynamic EnumProperty callback to remain referenced by Python.
+    """
+    raw_items = str(
+        raw_items
+        or "[]"
+    )
+
+    cached_items = (
+        _CHECK_SETTING_ENUM_CACHE.get(
+            raw_items
+        )
+    )
+
+    if cached_items is not None:
+        return cached_items
+
+    try:
+        stored_items = json.loads(
+            raw_items
+        )
+
+    except (
+        TypeError,
+        ValueError,
+    ):
+        stored_items = []
+
+    enum_items = []
+
+    if isinstance(
+        stored_items,
+        list,
+    ):
+        for stored_item in stored_items:
+
+            if not isinstance(
+                stored_item,
+                (list, tuple),
+            ):
+                continue
+
+            if len(
+                stored_item
+            ) < 2:
+                continue
+
+            identifier = str(
+                stored_item[
+                    0
+                ]
+            )
+
+            label = str(
+                stored_item[
+                    1
+                ]
+            )
+
+            description = (
+                str(
+                    stored_item[
+                        2
+                    ]
+                )
+                if len(
+                    stored_item
+                ) >= 3
+                else ""
+            )
+
+            enum_items.append(
+                (
+                    identifier,
+                    label,
+                    description,
+                )
+            )
+
+    if not enum_items:
+        enum_items = [
+            (
+                "NONE",
+                "None",
+                "No enum choices are available.",
+            ),
+        ]
+
+    enum_items = tuple(
+        enum_items
+    )
+
+    _CHECK_SETTING_ENUM_CACHE[
+        raw_items
+    ] = enum_items
+
+    return enum_items
+
+
+def qc_check_setting_enum_items(
+        self,
+        context,
+    ):
+    """
+    Dynamic item callback for one QC check enum setting.
+    """
+    return _decode_check_setting_enum_items(
+        getattr(
+            self,
+            "enum_items_json",
+            "[]",
+        )
+    )
+
+
+def get_check_setting_enum_identifiers(
+        item,
+    ):
+    """
+    Returns enum identifiers in their original SETTINGS order.
+    """
+    return tuple(
+        enum_item[
+            0
+        ]
+        for enum_item in _decode_check_setting_enum_items(
+            getattr(
+                item,
+                "enum_items_json",
+                "[]",
+            )
+        )
+        if enum_item[
+            0
+        ] != "NONE"
+    )
 
 
 class SCRIPTRONAUT_QC_Settings(PropertyGroup):
@@ -119,7 +271,19 @@ class SCRIPTRONAUT_PG_CheckSetting(
         precision=6,
     )
     string_value: StringProperty()
-    enum_value: StringProperty()
+
+    # Serialized copy of the enum choices defined by the active check's
+    # SETTINGS entry. The generic dialog can therefore display a different
+    # dropdown for every check without hardcoding choices in the framework.
+    enum_items_json: StringProperty(
+        default="[]",
+    )
+
+    enum_value: EnumProperty(
+        name="Value",
+        items=qc_check_setting_enum_items,
+    )
+
     default_bool: BoolProperty()
     default_int: IntProperty()
     default_float: FloatProperty()

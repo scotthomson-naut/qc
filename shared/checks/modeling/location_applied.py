@@ -1,8 +1,6 @@
-# Python imports
-from math import isclose
-
 # Blender imports
 import bpy
+
 
 
 # -------------------------------------------------------------------------
@@ -12,20 +10,16 @@ import bpy
 SEVERITY = "warning"
 LABEL = "Location Applied"
 DESCRIPTION = (
-    "Checks if Object's Location is Applied. "
-    "Resets an object's location values in the sidebar to 0.0 on all axes "
-    "while keeping its current visual position, by baking the offset "
-    "directly into the mesh data."
+    "Checks mesh objects whose normal Location is not zero. "
+    "The automatic fix strategy is configurable: preserve the current "
+    "origin/pivot by moving Location into Delta Location, use Blender's "
+    "native Apply Location behavior, or require a manual fix."
 )
 WHY = (
-    "This prevents unexpected jumps or offsets when using physics, "
-    "simulations, modifiers, or constraints, and ensures a clean, "
-    "predictable starting point before rigging. Note that this moves the "
-    "object's origin/pivot to the world origin, same as Blender's native "
-    "Object > Apply > Location - functional pivots (hinges, wheel "
-    "centers, etc.) are expected to be defined afterward at the rigging "
-    "stage (bones, empties, constraints), not carried on the raw mesh "
-    "object's own origin."
+    "Non-zero object locations can create unexpected offsets in physics, "
+    "simulations, modifiers, constraints, rigging, and downstream pipeline "
+    "operations. Different productions may also have different requirements "
+    "for preserving an object's existing origin/pivot."
 )
 
 
@@ -37,25 +31,78 @@ TOLERANCE = 1e-6
 
 
 # -------------------------------------------------------------------------
+# Settings
+# -------------------------------------------------------------------------
+
+SETTINGS = {
+    "fix_mode": {
+        "type": "enum",
+        "label": "Fix Mode",
+        "description": (
+            "Choose how automatic Fix handles non-zero Location."
+        ),
+        "default": "PRESERVE_PIVOT",
+        "items": [
+            (
+                "PRESERVE_PIVOT",
+                "Preserve Pivot (Move to Delta)",
+                (
+                    "Move normal Location into Delta Location. "
+                    "Preserves the current world-space origin/pivot."
+                ),
+            ),
+            (
+                "APPLY_LOCATION",
+                "Native Apply Location",
+                (
+                    "Use Blender's Object > Apply > Location behavior. "
+                    "Location becomes zero by baking translation into mesh data."
+                ),
+            ),
+            (
+                "MANUAL",
+                "Manual Only",
+                "Report the issue but do not offer an automatic fix.",
+            ),
+        ],
+    },
+}
+
+
+# -------------------------------------------------------------------------
 # Main
 # -------------------------------------------------------------------------
 
-def main():
+def main(preferences=None):
     """
-    Run for issue.
+    Finds mesh objects whose normal Location is not zero.
+    """
+    settings = resolve_settings(
+        SETTINGS,
+        preferences,
+    )
 
-    Returns:
-        dict: {issues (list(str)), failed_objects(dict)}
-    """
-    failed_objects = get_objects_with_unapplied_location()
+    fix_mode = normalize_fix_mode(
+        settings.get(
+            "fix_mode",
+            "PRESERVE_PIVOT",
+        )
+    )
+
+    failed_objects = (
+        get_objects_with_unapplied_location()
+    )
 
     issues = []
 
     for object_name, data in failed_objects.items():
         location = data["location"]
+
         issues.append(
-            "Failed object: {} - Location is not applied: "
-            "({:.4f}, {:.4f}, {:.4f})".format(
+            (
+                "Failed object: {} - Location is not applied: "
+                "({:.4f}, {:.4f}, {:.4f})"
+            ).format(
                 object_name,
                 location[0],
                 location[1],
@@ -64,18 +111,80 @@ def main():
         )
 
     return {
-        "issues": issues,
-        "failed_objects": failed_objects,
+        "issues":
+            issues,
+
+        "failed_objects":
+            failed_objects,
+
+        "settings":
+            settings,
+
+        "can_auto_fix":
+            (
+                fix_mode
+                != "MANUAL"
+            ),
     }
 
 
-def fix(result_data):
+def fix(
+        result_data=None,
+        preferences=None,
+    ):
     """
-    Fix for issue.
+    Fixes Location using the configured Fix Mode.
     """
-    fixed = fix_objects_with_unapplied_location(result_data)
+    settings = resolve_settings(
+        SETTINGS,
+        preferences,
+    )
 
-    return fixed
+    fix_mode = normalize_fix_mode(
+        settings.get(
+            "fix_mode",
+            "PRESERVE_PIVOT",
+        )
+    )
+
+    if fix_mode == "MANUAL":
+        return {
+            "fixed_objects": {},
+            "issues": [
+                (
+                    "Location Applied is configured for Manual Only. "
+                    "No objects were changed."
+                )
+            ],
+            "fix_mode": fix_mode,
+        }
+
+    if fix_mode == "APPLY_LOCATION":
+        result = (
+            fix_objects_with_native_apply_location(
+                result_data=result_data,
+            )
+        )
+
+    else:
+        result = (
+            fix_objects_preserve_pivot(
+                result_data=result_data,
+            )
+        )
+
+    if not isinstance(
+        result,
+        dict,
+    ):
+        result = {
+            "fixed_objects": {},
+            "issues": [],
+        }
+
+    result["fix_mode"] = fix_mode
+
+    return result
 
 
 # -------------------------------------------------------------------------
@@ -93,6 +202,7 @@ def get_objects_with_unapplied_location(objects=None):
         objects (iterable[bpy.types.Object] | None):
             Objects to inspect.
             Defaults to all objects in the current scene.
+
 
     Returns:
         dict:
@@ -137,48 +247,40 @@ def get_objects_with_unapplied_location(objects=None):
 
 # -------------------------------------------------------------------------
 # Fix
-# -------------------------------------------------------------------------
+# ------------------------------------------------------------------------
 
-def fix_objects_with_unapplied_location(
+def fix_objects_preserve_pivot(
         result_data=None,
-        max_retries=2,
+        max_passes=3,
     ):
     """
-    Applies location to failed mesh objects using Blender's built-in:
+    Moves normal Location values into Delta Location.
 
-        Object > Apply > Location
+    The fix is hierarchy-aware.
 
-    All failed objects AND their mesh descendants are selected together and
-    passed to a SINGLE transform_apply() call - the same thing that happens
-    when a user selects a whole hierarchy and runs Object > Apply > Location
-    manually. Blender's own operator already walks the selected hierarchy
-    and pushes any compensating location into children as part of that one
-    call, however deep the hierarchy goes.
+    Moving a parent's normal location into Delta Location can change a
+    child's local Location while Blender preserves the child's world-space
+    appearance. Therefore the fix:
 
-    This bakes the offset directly into the mesh data and resets Location
-    to (0, 0, 0), same as native Object > Apply > Location. This is a real
-    bake, not a shuffle into Delta Location - Delta Location was previously
-    used here to avoid moving the object's origin, but that created an
-    incompatibility with how Rotation Applied (and Blender's own operators
-    generally) compute hierarchy compensation, corrupting downstream
-    fixes. Studio pipelines that need functional pivots preserved should
-    define them at the rigging stage (bones, empties, constraints)
-    afterward, not by leaving raw mesh objects unapplied.
+        1. Includes descendants of originally failed objects.
+        2. Processes parents before children.
+        3. Verifies the whole affected hierarchy after each pass.
+        4. Retries only objects that still have non-zero normal Location.
 
-    A small retry loop is still included, but only as a safety net for
-    per-object selection problems (for example, an object that could not
-    be unhidden/selected on the first attempt) - not because the hierarchy
-    cascade itself requires multiple passes. Each retry re-selects the
-    full candidate set again, in bulk, rather than one object per pass.
+    This preserves:
+        - Geometry world position
+        - Origin/pivot world position
+        - Rotation
+        - Scale
+
+    This is not equivalent to Object > Apply > Location.
 
     Args:
         result_data (dict | None):
             Result returned by main().
 
-        max_retries (int):
-            Maximum number of full batch apply attempts, purely as a
-            safety net. The hierarchy cascade itself resolves in a single
-            successful batch call regardless of hierarchy depth.
+        max_passes (int):
+            Maximum number of verification/retry passes.
 
     Returns:
         dict:
@@ -253,17 +355,10 @@ def fix_objects_with_unapplied_location(
     candidate_objects = []
     candidate_names = set()
 
-    active_scene = bpy.context.scene
-
     def add_candidate(
             obj,
         ):
         if obj is None:
-            return
-
-        if not is_object_available_for_qc(
-            obj
-        ):
             return
 
         if obj.type != "MESH":
@@ -290,7 +385,7 @@ def fix_objects_with_unapplied_location(
 
     for object_name in failed_objects:
 
-        obj = get_qc_object(
+        obj = bpy.data.objects.get(
             object_name
         )
 
@@ -311,11 +406,9 @@ def fix_objects_with_unapplied_location(
         if is_linked_object(
             obj
         ):
-            issues.append(
-                "Skipped linked object: {}".format(
-                    obj.name
-                )
-            )
+            # Normally this should not be reached because linked objects
+            # are excluded by the Find stage, but keep the guard here in
+            # case an older/stale result_data payload is being fixed.
             continue
 
         original_failed_objects.append(
@@ -333,6 +426,10 @@ def fix_objects_with_unapplied_location(
                 descendant
             )
 
+    candidate_objects.sort(
+        key=get_object_parent_depth
+    )
+
     original_locations = {
         obj.name:
             tuple(
@@ -344,33 +441,19 @@ def fix_objects_with_unapplied_location(
     try:
 
         # -----------------------------------------------------
-        # Apply + verify.
-        #
-        # The whole candidate set is selected TOGETHER and passed to a
-        # single transform_apply() call, mirroring exactly what happens
-        # when a user selects a parent/child hierarchy and runs
-        # Object > Apply > Location manually. Blender resolves the entire
-        # location-compensation cascade internally as part of that one
-        # call, regardless of how many hierarchy levels are involved.
+        # Apply + verify
         # -----------------------------------------------------
 
-        for attempt in range(
+        for _pass_index in range(
             max(
                 1,
                 int(
-                    max_retries
+                    max_passes
                 ),
             )
         ):
 
-            # Only used to decide whether ANOTHER attempt is needed at
-            # all - NOT used to build the selection below. Narrowing the
-            # selection down to only currently-bad objects would only
-            # ever select whichever single object became bad most
-            # recently, discovering the next one a level down only on a
-            # LATER attempt - the exact one-level-per-pass bug this
-            # pattern exists to eliminate.
-            still_needs_fix = [
+            remaining = [
                 obj
                 for obj in candidate_objects
                 if (
@@ -381,36 +464,30 @@ def fix_objects_with_unapplied_location(
                 )
             ]
 
-            if not still_needs_fix:
+            if not remaining:
                 break
 
-            # Select the FULL candidate set together - every originally
-            # failed object AND every one of its descendants, regardless
-            # of what their location currently shows. This is what lets
-            # Blender resolve the entire parent-to-child compensation
-            # cascade in this single call, the same way it does when a
-            # user selects the whole hierarchy natively and hits Apply
-            # Location.
-            batch = [
-                obj
-                for obj in candidate_objects
-                if obj.name in bpy.data.objects
-            ]
+            remaining.sort(
+                key=get_object_parent_depth
+            )
 
-            # Blender applies location to the Mesh datablock. Make shared
-            # meshes single-user first so other objects are not modified
-            # unintentionally.
-            for obj in batch:
-                if obj.data.users > 1:
-                    obj.data = (
-                        obj.data.copy()
-                    )
+            for obj in remaining:
 
-            # Temporarily reveal/unlock everything about to be batched,
-            # remembering original states so they can be restored after.
-            saved_visibility = {}
+                # A parent processed earlier in the pass may already
+                # have resolved this object's local location.
+                if not object_has_unapplied_location(
+                    obj
+                ):
+                    continue
 
-            for obj in batch:
+                original_hide_viewport = (
+                    obj.hide_viewport
+                )
+
+                original_hide_select = (
+                    obj.hide_select
+                )
+
                 try:
                     original_hide_state = (
                         obj.hide_get()
@@ -418,81 +495,54 @@ def fix_objects_with_unapplied_location(
                 except RuntimeError:
                     original_hide_state = False
 
-                saved_visibility[obj.name] = (
-                    obj.hide_viewport,
-                    obj.hide_select,
-                    original_hide_state,
-                )
-
-                obj.hide_viewport = False
-                obj.hide_select = False
-
                 try:
-                    obj.hide_set(
-                        False
-                    )
-                except RuntimeError:
-                    pass
+                    obj.hide_viewport = False
+                    obj.hide_select = False
 
-            # Deselect everything currently selectable, then select the
-            # whole batch together.
-            for selected_obj in list(
-                context.selected_objects
-            ):
-                try:
-                    selected_obj.select_set(
-                        False
-                    )
-                except RuntimeError:
-                    pass
+                    try:
+                        obj.hide_set(
+                            False
+                        )
+                    except RuntimeError:
+                        pass
 
-            selected_objects = []
+                    for selected_obj in list(
+                        context.selected_objects
+                    ):
+                        try:
+                            selected_obj.select_set(
+                                False
+                            )
+                        except RuntimeError:
+                            pass
 
-            for obj in batch:
-                if (
-                    view_layer.objects.get(
-                        obj.name
-                    )
-                    is None
-                ):
-                    issues.append(
-                        (
-                            'Could not apply location to "{}": '
-                            "object is not in the current View Layer."
-                        ).format(
+                    if (
+                        view_layer.objects.get(
                             obj.name
                         )
-                    )
-                    continue
+                        is None
+                    ):
+                        issues.append(
+                            (
+                                'Could not apply location to "{}": '
+                                "object is not in the current View Layer."
+                            ).format(
+                                obj.name
+                            )
+                        )
+                        continue
 
-                try:
                     obj.select_set(
                         True
                     )
-                    selected_objects.append(
+
+                    view_layer.objects.active = (
                         obj
                     )
-                except RuntimeError as error:
-                    issues.append(
-                        'Could not select "{}": {}'.format(
-                            obj.name,
-                            error,
-                        )
-                    )
 
-            if selected_objects:
-
-                view_layer.objects.active = (
-                    selected_objects[0]
-                )
-
-                try:
                     result = (
-                        bpy.ops.object.transform_apply(
-                            location=True,
-                            rotation=False,
-                            scale=False,
-                            properties=False,
+                        bpy.ops.object.transforms_to_deltas(
+                            mode="LOC"
                         )
                     )
 
@@ -501,37 +551,36 @@ def fix_objects_with_unapplied_location(
                         not in result
                     ):
                         issues.append(
-                            "Could not apply location to selected object(s)."
+                            "Could not apply location to {}.".format(
+                                obj.name
+                            )
                         )
 
                 except Exception as error:
                     issues.append(
-                        "Could not apply location: {}".format(
-                            error
+                        (
+                            "Could not apply location to {}: {}"
+                        ).format(
+                            obj.name,
+                            error,
                         )
                     )
 
-            # Restore visibility/selectability for every object in this
-            # batch, regardless of outcome.
-            for obj in batch:
-                if obj.name not in bpy.data.objects:
-                    continue
-
-                (
-                    hide_viewport,
-                    hide_select,
-                    hide_state,
-                ) = saved_visibility[obj.name]
-
-                obj.hide_viewport = hide_viewport
-                obj.hide_select = hide_select
-
-                try:
-                    obj.hide_set(
-                        hide_state
+                finally:
+                    obj.hide_viewport = (
+                        original_hide_viewport
                     )
-                except RuntimeError:
-                    pass
+
+                    obj.hide_select = (
+                        original_hide_select
+                    )
+
+                    try:
+                        obj.hide_set(
+                            original_hide_state
+                        )
+                    except RuntimeError:
+                        pass
 
             view_layer.update()
 
@@ -584,7 +633,7 @@ def fix_objects_with_unapplied_location(
             fixed_objects[
                 obj.name
             ] = {
-                "location_applied":
+                "delta_location_applied":
                     True,
 
                 "previous_location":
@@ -594,13 +643,18 @@ def fix_objects_with_unapplied_location(
                     tuple(
                         obj.location
                     ),
+
+                "delta_location":
+                    tuple(
+                        obj.delta_location
+                    ),
             }
 
         if still_failing:
             issues.append(
                 (
                     "Location is still unapplied on {} object(s) after "
-                    "{} attempt(s): {}"
+                    "{} pass(es): {}"
                 ).format(
                     len(
                         still_failing
@@ -608,7 +662,7 @@ def fix_objects_with_unapplied_location(
                     max(
                         1,
                         int(
-                            max_retries
+                            max_passes
                         ),
                     ),
                     ", ".join(
@@ -690,9 +744,337 @@ def fix_objects_with_unapplied_location(
     }
 
 
+def fix_objects_with_native_apply_location(
+        result_data=None,
+    ):
+    """
+    Uses Blender's native Object > Apply > Location behavior.
+
+    The failed objects and their mesh descendants are processed as one
+    selection so hierarchy compensation is handled by Blender. Mesh data is
+    made single-user first when necessary to avoid changing unrelated
+    instances that share the same Mesh datablock.
+
+    This mode creates a truly applied Location, but it can change the
+    relationship between geometry and the object's origin/pivot.
+    """
+    if not isinstance(
+        result_data,
+        dict,
+    ):
+        result_data = {}
+
+    failed_objects = result_data.get(
+        "failed_objects",
+        {},
+    )
+
+    if not isinstance(
+        failed_objects,
+        dict,
+    ):
+        failed_objects = {}
+
+    context = bpy.context
+    view_layer = context.view_layer
+
+    fixed_objects = {}
+    issues = []
+
+    original_active = (
+        view_layer.objects.active
+    )
+
+    original_selected = list(
+        context.selected_objects
+    )
+
+    original_mode = (
+        context.mode
+    )
+
+    candidate_objects = []
+    candidate_names = set()
+
+    def add_candidate(
+            obj,
+        ):
+        if obj is None:
+            return
+
+        if not is_object_available_for_qc(
+            obj
+        ):
+            return
+
+        if (
+            obj.type != "MESH"
+            or obj.data is None
+            or is_linked_object(
+                obj
+            )
+        ):
+            return
+
+        if obj.name in candidate_names:
+            return
+
+        candidate_names.add(
+            obj.name
+        )
+
+        candidate_objects.append(
+            obj
+        )
+
+    for object_name in failed_objects:
+        obj = get_qc_object(
+            object_name
+        )
+
+        if obj is None:
+            issues.append(
+                'Object "{}" no longer exists.'.format(
+                    object_name
+                )
+            )
+            continue
+
+        add_candidate(
+            obj
+        )
+
+        for descendant in get_object_descendants(
+            obj
+        ):
+            add_candidate(
+                descendant
+            )
+
+    original_locations = {
+        obj.name:
+            tuple(
+                obj.location
+            )
+        for obj in candidate_objects
+    }
+
+    try:
+        if (
+            context.object is not None
+            and context.mode != "OBJECT"
+        ):
+            bpy.ops.object.mode_set(
+                mode="OBJECT"
+            )
+
+        for obj in candidate_objects:
+            if obj.data.users > 1:
+                obj.data = (
+                    obj.data.copy()
+                )
+
+        for selected_obj in list(
+            context.selected_objects
+        ):
+            try:
+                selected_obj.select_set(
+                    False
+                )
+            except RuntimeError:
+                pass
+
+        selected_objects = []
+
+        for obj in candidate_objects:
+            if (
+                view_layer.objects.get(
+                    obj.name
+                )
+                is None
+            ):
+                continue
+
+            try:
+                obj.select_set(
+                    True
+                )
+
+                selected_objects.append(
+                    obj
+                )
+
+            except RuntimeError as error:
+                issues.append(
+                    'Could not select "{}": {}'.format(
+                        obj.name,
+                        error,
+                    )
+                )
+
+        if selected_objects:
+            view_layer.objects.active = (
+                selected_objects[0]
+            )
+
+            result = bpy.ops.object.transform_apply(
+                location=True,
+                rotation=False,
+                scale=False,
+                properties=False,
+            )
+
+            if "FINISHED" not in result:
+                issues.append(
+                    "Blender did not finish Apply Location."
+                )
+
+        view_layer.update()
+
+        for obj in candidate_objects:
+            if obj.name not in bpy.data.objects:
+                continue
+
+            if object_has_unapplied_location(
+                obj
+            ):
+                issues.append(
+                    (
+                        'Location is still not zero on "{}" '
+                        "after Native Apply Location."
+                    ).format(
+                        obj.name
+                    )
+                )
+                continue
+
+            previous_location = (
+                original_locations.get(
+                    obj.name,
+                    (0.0, 0.0, 0.0),
+                )
+            )
+
+            if not any(
+                abs(
+                    value
+                ) > TOLERANCE
+                for value in previous_location
+            ):
+                continue
+
+            fixed_objects[
+                obj.name
+            ] = {
+                "location_applied":
+                    True,
+
+                "previous_location":
+                    previous_location,
+
+                "location":
+                    tuple(
+                        obj.location
+                    ),
+            }
+
+    except Exception as error:
+        issues.append(
+            "Could not apply Location: {}".format(
+                error
+            )
+        )
+
+    finally:
+        for selected_obj in list(
+            context.selected_objects
+        ):
+            try:
+                selected_obj.select_set(
+                    False
+                )
+            except RuntimeError:
+                pass
+
+        for selected_obj in original_selected:
+            if (
+                selected_obj.name in bpy.data.objects
+                and view_layer.objects.get(
+                    selected_obj.name
+                )
+                is not None
+            ):
+                try:
+                    selected_obj.select_set(
+                        True
+                    )
+                except RuntimeError:
+                    pass
+
+        if (
+            original_active is not None
+            and original_active.name in bpy.data.objects
+            and view_layer.objects.get(
+                original_active.name
+            )
+            is not None
+        ):
+            view_layer.objects.active = (
+                original_active
+            )
+
+        if (
+            original_mode != "OBJECT"
+            and view_layer.objects.active
+            is not None
+        ):
+            mode_name = get_mode_set_name(
+                original_mode
+            )
+
+            if mode_name:
+                try:
+                    bpy.ops.object.mode_set(
+                        mode=mode_name
+                    )
+                except RuntimeError:
+                    pass
+
+        view_layer.update()
+
+    return {
+        "fixed_objects":
+            fixed_objects,
+
+        "issues":
+            issues,
+    }
+
+
 # -------------------------------------------------------------------------
 # Helpers
-# -------------------------------------------------------------------------
+# ------------------------------------------------------------------------
+
+def normalize_fix_mode(
+        value,
+    ):
+    """
+    Returns a supported Location fix mode.
+    """
+    value = str(
+        value
+        or ""
+    ).strip().upper()
+
+    if value not in {
+        "PRESERVE_PIVOT",
+        "APPLY_LOCATION",
+        "MANUAL",
+    }:
+        return "PRESERVE_PIVOT"
+
+    return value
+
 
 def is_linked_object(
         obj,

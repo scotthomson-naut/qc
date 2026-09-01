@@ -1,5 +1,6 @@
 """Scriptronaut QC Checks internal module."""
 
+import json
 import os
 import traceback
 
@@ -10,10 +11,134 @@ from bpy.types import Operator
 from .. import constants
 from ..core.context import QCContext
 from ..core import *
-from ..properties import SCRIPTRONAUT_PG_CheckSetting
+from ..properties import (
+    SCRIPTRONAUT_PG_CheckSetting,
+    get_check_setting_enum_identifiers,
+)
 from ..utils import *
 from ..ui import draw_wrapped_text
 
+
+
+def normalize_enum_items(
+        definition,
+    ):
+    """
+    Converts SETTINGS["items"] into JSON-safe enum triples.
+
+    Supported schema:
+
+        "items": [
+            ("IDENTIFIER", "Label", "Description"),
+            ...
+        ]
+    """
+    raw_items = definition.get(
+        "items",
+        [],
+    )
+
+    if not isinstance(
+        raw_items,
+        (list, tuple),
+    ):
+        return []
+
+    items = []
+
+    for raw_item in raw_items:
+
+        if not isinstance(
+            raw_item,
+            (list, tuple),
+        ):
+            continue
+
+        if len(
+            raw_item
+        ) < 2:
+            continue
+
+        items.append(
+            [
+                str(
+                    raw_item[
+                        0
+                    ]
+                ),
+                str(
+                    raw_item[
+                        1
+                    ]
+                ),
+                (
+                    str(
+                        raw_item[
+                            2
+                        ]
+                    )
+                    if len(
+                        raw_item
+                    ) >= 3
+                    else ""
+                ),
+            ]
+        )
+
+    return items
+
+
+def set_check_setting_enum_value(
+        item,
+        value,
+    ):
+    """
+    Assigns a valid enum identifier.
+
+    Saved preferences may contain an old identifier after a check changes its
+    enum choices. Fall back to the current default, then the first choice.
+    """
+    identifiers = (
+        get_check_setting_enum_identifiers(
+            item
+        )
+    )
+
+    if not identifiers:
+        return
+
+    value = str(
+        value
+        if value is not None
+        else ""
+    )
+
+    if value not in identifiers:
+
+        default_value = str(
+            item.default_string
+            or ""
+        )
+
+        if default_value in identifiers:
+            value = default_value
+
+        else:
+            value = identifiers[
+                0
+            ]
+
+    try:
+        item.enum_value = (
+            value
+        )
+
+    except TypeError:
+        # Blender can query a new dynamic EnumProperty one UI cycle after its
+        # backing item data changes. Defer the assignment until draw().
+        item[
+            "_pending_enum_value"
+        ] = value
 
 def reset_check_settings_dialog(self, context):
     """Restore the settings shown in the dialog to module defaults."""
@@ -28,7 +153,10 @@ def reset_check_settings_dialog(self, context):
         elif item.setting_type == "float":
             item.float_value = item.default_float
         elif item.setting_type == "enum":
-            item.enum_value = item.default_string
+            set_check_setting_enum_value(
+                item,
+                item.default_string,
+            )
         else:
             item.string_value = item.default_string
 
@@ -139,10 +267,12 @@ class SCRIPTRONAUT_OT_QC_CheckSettings(Operator):
                 "",
             )
 
-            item.setting_type = definition.get(
-                "type",
-                "string",
-            )
+            item.setting_type = str(
+                definition.get(
+                    "type",
+                    "string",
+                )
+            ).lower()
 
             value = preferences.get(
                 setting_name,
@@ -208,6 +338,31 @@ class SCRIPTRONAUT_OT_QC_CheckSettings(Operator):
                     )
                 )
 
+            elif item.setting_type == "enum":
+
+                enum_items = normalize_enum_items(
+                    definition
+                )
+
+                item.enum_items_json = json.dumps(
+                    enum_items,
+                    separators=(
+                        ",",
+                        ":",
+                    ),
+                )
+
+                item.default_string = str(
+                    default
+                    if default is not None
+                    else ""
+                )
+
+                set_check_setting_enum_value(
+                    item,
+                    value,
+                )
+
             else:
                 item.string_value = str(
                     value
@@ -269,6 +424,25 @@ class SCRIPTRONAUT_OT_QC_CheckSettings(Operator):
                 )
 
             elif item.setting_type == "enum":
+
+                pending_value = item.get(
+                    "_pending_enum_value"
+                )
+
+                if pending_value:
+
+                    try:
+                        item.enum_value = (
+                            pending_value
+                        )
+
+                        del item[
+                            "_pending_enum_value"
+                        ]
+
+                    except TypeError:
+                        pass
+
                 row.prop(
                     item,
                     "enum_value",
