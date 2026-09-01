@@ -91,12 +91,28 @@ def main():
     }
 
 
-def fix(result_data):
+def fix(
+        result_data=None,
+    ):
     """
-    Fix trailing spaces in object and datablock names.
+    Fix trailing spaces using the CURRENT scene state.
+
+    Naming checks can change object/datablock names after this check was run.
+    Rebuilding the failed-object list here prevents stale object-name keys
+    from causing "Object no longer exists" errors when another naming fix
+    has already renamed the same object.
     """
+    live_failed_objects = (
+        get_objects_with_trailing_spaces()
+    )
+
+    live_result_data = {
+        "failed_objects":
+            live_failed_objects,
+    }
+
     return fix_objects_with_trailing_spaces(
-        result_data
+        live_result_data
     )
 
 
@@ -139,7 +155,7 @@ def get_objects_with_trailing_spaces(
 
     failed_objects = {}
 
-    for obj in get_qc_objects(objects):
+    for obj in objects:
 
         # Directly linked library objects are read-only and are
         # outside the scope of local naming QC.
@@ -258,6 +274,154 @@ def get_trailing_space_data(
 
 
 # -------------------------------------------------------------------------
+# Rename collision helpers
+# -------------------------------------------------------------------------
+
+def get_datablock_collection(
+        datablock,
+    ):
+    """
+    Returns the bpy.data collection that owns the datablock.
+
+    Use Blender base RNA types instead of bl_rna.identifier so subtype
+    datablocks such as SpotLight, AreaLight and TextCurve resolve to their
+    shared bpy.data.lights / bpy.data.curves collections.
+    """
+    type_map = (
+        (
+            bpy.types.Mesh,
+            bpy.data.meshes,
+        ),
+        (
+            bpy.types.Curve,
+            bpy.data.curves,
+        ),
+        (
+            bpy.types.Camera,
+            bpy.data.cameras,
+        ),
+        (
+            bpy.types.Light,
+            bpy.data.lights,
+        ),
+        (
+            bpy.types.Armature,
+            bpy.data.armatures,
+        ),
+        (
+            bpy.types.Lattice,
+            bpy.data.lattices,
+        ),
+        (
+            bpy.types.MetaBall,
+            bpy.data.metaballs,
+        ),
+        (
+            bpy.types.Speaker,
+            bpy.data.speakers,
+        ),
+    )
+
+    volume_type = getattr(
+        bpy.types,
+        "Volume",
+        None,
+    )
+
+    if (
+        volume_type is not None
+        and isinstance(
+            datablock,
+            volume_type,
+        )
+    ):
+        return bpy.data.volumes
+
+    grease_pencil_type = getattr(
+        bpy.types,
+        "GreasePencilv3",
+        None,
+    )
+
+    if grease_pencil_type is None:
+        grease_pencil_type = getattr(
+            bpy.types,
+            "GreasePencil",
+            None,
+        )
+
+    grease_pencils = getattr(
+        bpy.data,
+        "grease_pencils",
+        None,
+    )
+
+    if (
+        grease_pencil_type is not None
+        and grease_pencils is not None
+        and isinstance(
+            datablock,
+            grease_pencil_type,
+        )
+    ):
+        return grease_pencils
+
+    for (
+        datablock_type,
+        collection,
+    ) in type_map:
+
+        if isinstance(
+            datablock,
+            datablock_type,
+        ):
+            return collection
+
+    return None
+
+
+def object_name_target_is_available(
+        obj,
+        target_name,
+    ):
+    """
+    True when assigning target_name will not make Blender auto-suffix it.
+    """
+    existing = bpy.data.objects.get(
+        target_name
+    )
+
+    return (
+        existing is None
+        or existing is obj
+    )
+
+
+def datablock_name_target_is_available(
+        datablock,
+        target_name,
+    ):
+    """
+    True when assigning target_name will not make Blender auto-suffix it.
+    """
+    collection = get_datablock_collection(
+        datablock
+    )
+
+    if collection is None:
+        return True
+
+    existing = collection.get(
+        target_name
+    )
+
+    return (
+        existing is None
+        or existing is datablock
+    )
+
+
+# -------------------------------------------------------------------------
 # Fix
 # -------------------------------------------------------------------------
 
@@ -294,7 +458,7 @@ def fix_objects_with_trailing_spaces(
         failed_objects.items()
     ):
 
-        obj = get_qc_object(
+        obj = bpy.data.objects.get(
             old_object_name
         )
 
@@ -340,18 +504,47 @@ def fix_objects_with_trailing_spaces(
                     )
                 )
 
+            elif not object_name_target_is_available(
+                obj,
+                new_name,
+            ):
+                issues.append(
+                    (
+                        "Cannot remove trailing spaces from object {!r}: "
+                        "the stripped name {!r} is already used by another "
+                        "object. The object was left unchanged to avoid "
+                        "Blender silently generating a .001/.002 suffix."
+                    ).format(
+                        current_name,
+                        new_name,
+                    )
+                )
+
             else:
                 obj.name = new_name
 
-                fixed_data[
-                    "object_name"
-                ] = {
-                    "old_name":
-                        current_name,
+                # This should now always be exact because the target was
+                # preflighted before assignment.
+                if obj.name != new_name:
+                    issues.append(
+                        (
+                            "Could not assign exact object name {!r}. "
+                            "Blender assigned {!r} instead."
+                        ).format(
+                            new_name,
+                            obj.name,
+                        )
+                    )
+                else:
+                    fixed_data[
+                        "object_name"
+                    ] = {
+                        "old_name":
+                            current_name,
 
-                    "new_name":
-                        obj.name,
-                }
+                        "new_name":
+                            obj.name,
+                    }
 
         # -----------------------------------------------------
         # Fix datablock name
@@ -415,20 +608,49 @@ def fix_objects_with_trailing_spaces(
                         )
                     )
 
+                elif not datablock_name_target_is_available(
+                    datablock,
+                    new_datablock_name,
+                ):
+                    issues.append(
+                        (
+                            "Cannot remove trailing spaces from datablock "
+                            "{!r} on object {!r}: the stripped datablock "
+                            "name {!r} is already in use. The datablock was "
+                            "left unchanged to avoid Blender silently "
+                            "generating a .001/.002 suffix."
+                        ).format(
+                            current_datablock_name,
+                            obj.name,
+                            new_datablock_name,
+                        )
+                    )
+
                 else:
                     datablock.name = (
                         new_datablock_name
                     )
 
-                    fixed_data[
-                        "datablock_name"
-                    ] = {
-                        "old_name":
-                            current_datablock_name,
+                    if datablock.name != new_datablock_name:
+                        issues.append(
+                            (
+                                "Could not assign exact datablock name {!r}. "
+                                "Blender assigned {!r} instead."
+                            ).format(
+                                new_datablock_name,
+                                datablock.name,
+                            )
+                        )
+                    else:
+                        fixed_data[
+                            "datablock_name"
+                        ] = {
+                            "old_name":
+                                current_datablock_name,
 
-                        "new_name":
-                            datablock.name,
-                    }
+                            "new_name":
+                                datablock.name,
+                        }
 
         if fixed_data:
             fixed_objects[

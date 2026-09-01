@@ -1,7 +1,6 @@
 # Blender imports
 import bpy
 
-
 # -------------------------------------------------------------------------
 # Metadata
 # -------------------------------------------------------------------------
@@ -19,7 +18,6 @@ WHY = (
     "holds the actual geometry or properties. When they mismatch, "
     "identifying assets becomes difficult."
 )
-
 
 # -------------------------------------------------------------------------
 # Main
@@ -57,12 +55,28 @@ def main():
     }
 
 
-def fix(result_data):
+def fix(
+        result_data=None,
+    ):
     """
-    Fixes all objects reported by main().
+    Fixes the CURRENT Object/Data Name Match failures.
+
+    Other naming checks may rename an object after this check was run.
+    Stored result_data is therefore not a safe object identifier for a
+    naming fix. Re-evaluating the inexpensive naming check here ensures
+    rename operations are built from the current object/datablock names.
     """
+    live_failed_objects = (
+        get_objects_with_mismatched_data_names()
+    )
+
+    live_result_data = {
+        "failed_objects":
+            live_failed_objects,
+    }
+
     return fix_objects_with_mismatched_data_names(
-        result_data
+        live_result_data
     )
 
 
@@ -112,13 +126,20 @@ def get_objects_with_mismatched_data_names(
 
     failed_objects = {}
 
-    for obj in get_qc_objects(objects):
-
-        # Directly linked library objects are read-only and are
-        # outside the scope of local naming QC.
+    for obj in objects:
+        # Linked library objects and linked datablocks are outside the scope
+        # of local automatic naming fixes.
         if obj.library is not None:
             continue
+
         if obj.data is None:
+            continue
+
+        if getattr(
+            obj.data,
+            "library",
+            None,
+        ) is not None:
             continue
 
         # Shared datablocks are valid and cannot necessarily match
@@ -139,6 +160,142 @@ def get_objects_with_mismatched_data_names(
 
 
 # -------------------------------------------------------------------------
+# Helpers
+# -------------------------------------------------------------------------
+
+def get_datablock_collection(
+        datablock,
+    ):
+    """
+    Returns the bpy.data collection containing datablock.
+
+    Important:
+        Do NOT key this from datablock.bl_rna.identifier.
+
+        Blender uses subtype RNA identifiers for several datablocks. For
+        example, lights can report identifiers such as SpotLight/AreaLight
+        and text data can report TextCurve instead of the base Light/Curve
+        identifiers. They still live in bpy.data.lights and bpy.data.curves.
+
+        isinstance() against Blender's base RNA types correctly handles
+        those subclasses.
+    """
+    type_map = (
+        (
+            bpy.types.Mesh,
+            bpy.data.meshes,
+            "MESH",
+        ),
+        (
+            bpy.types.Curve,
+            bpy.data.curves,
+            "CURVE",
+        ),
+        (
+            bpy.types.Camera,
+            bpy.data.cameras,
+            "CAMERA",
+        ),
+        (
+            bpy.types.Light,
+            bpy.data.lights,
+            "LIGHT",
+        ),
+        (
+            bpy.types.Armature,
+            bpy.data.armatures,
+            "ARMATURE",
+        ),
+        (
+            bpy.types.Lattice,
+            bpy.data.lattices,
+            "LATTICE",
+        ),
+        (
+            bpy.types.MetaBall,
+            bpy.data.metaballs,
+            "METABALL",
+        ),
+        (
+            bpy.types.Speaker,
+            bpy.data.speakers,
+            "SPEAKER",
+        ),
+    )
+
+    # Volume is unavailable in some older Blender builds, so guard it.
+    volume_type = getattr(
+        bpy.types,
+        "Volume",
+        None,
+    )
+
+    if (
+        volume_type is not None
+        and isinstance(
+            datablock,
+            volume_type,
+        )
+    ):
+        return (
+            bpy.data.volumes,
+            "VOLUME",
+        )
+
+    # Grease Pencil changed API/type names between Blender generations.
+    grease_pencil_type = getattr(
+        bpy.types,
+        "GreasePencilv3",
+        None,
+    )
+
+    if grease_pencil_type is None:
+        grease_pencil_type = getattr(
+            bpy.types,
+            "GreasePencil",
+            None,
+        )
+
+    grease_pencils = getattr(
+        bpy.data,
+        "grease_pencils",
+        None,
+    )
+
+    if (
+        grease_pencil_type is not None
+        and grease_pencils is not None
+        and isinstance(
+            datablock,
+            grease_pencil_type,
+        )
+    ):
+        return (
+            grease_pencils,
+            "GREASE_PENCIL",
+        )
+
+    for (
+        datablock_type,
+        collection,
+        collection_key,
+    ) in type_map:
+
+        if isinstance(
+            datablock,
+            datablock_type,
+        ):
+            return (
+                collection,
+                collection_key,
+            )
+
+    return (
+        None,
+        None,
+    )
+
+# -------------------------------------------------------------------------
 # Fix
 # -------------------------------------------------------------------------
 
@@ -146,14 +303,19 @@ def fix_objects_with_mismatched_data_names(
         result_data=None,
     ):
     """
-    Renames single-user datablocks to exactly match their object names.
+    Renames single-user datablocks to match their object names.
 
-    Uses Blender's ID.rename(..., mode="ALWAYS") collision handling.
-    When the requested datablock name already exists, Blender renames
-    the conflicting datablock and guarantees the current datablock gets
-    the requested name.
+    The rename is solved as a dependency graph before Blender data is
+    modified. This safely handles rename chains and cycles while allowing
+    unrelated safe renames to continue when one target has a live blocker.
 
-    Shared datablocks remain untouched.
+    Rules:
+        - Shared datablocks are never renamed automatically.
+        - Rename cycles are supported.
+        - Zero-user/orphan datablocks occupying a target name are moved aside.
+        - A live external blocker prevents only the dependent rename chain.
+        - Safe datablocks are staged under temporary names before final names
+          are assigned, preventing Blender from generating .001 suffixes.
     """
     if not isinstance(
         result_data,
@@ -174,16 +336,14 @@ def fix_objects_with_mismatched_data_names(
 
     fixed_objects = {}
     issues = []
+    rename_items = []
 
     # ---------------------------------------------------------
-    # Resolve current objects first
+    # Gather valid rename operations
     # ---------------------------------------------------------
-
-    objects_to_fix = []
 
     for object_name in failed_objects:
-
-        obj = get_qc_object(
+        obj = bpy.data.objects.get(
             object_name
         )
 
@@ -195,9 +355,6 @@ def fix_objects_with_mismatched_data_names(
             )
             continue
 
-        if obj.library is not None:
-            continue
-
         datablock = obj.data
 
         if datablock is None:
@@ -207,7 +364,7 @@ def fix_objects_with_mismatched_data_names(
             issues.append(
                 (
                     'Skipped "{}": datablock "{}" '
-                    "is shared by {} users."
+                    'is shared by {} users.'
                 ).format(
                     obj.name,
                     datablock.name,
@@ -219,96 +376,449 @@ def fix_objects_with_mismatched_data_names(
         if datablock.name == obj.name:
             continue
 
-        objects_to_fix.append(
-            obj
+        (
+            collection,
+            collection_key,
+        ) = get_datablock_collection(
+            datablock
         )
 
-    # ---------------------------------------------------------
-    # Rename
-    # ---------------------------------------------------------
-
-    for obj in objects_to_fix:
-
-        datablock = obj.data
-
-        # Another rename earlier in the sequence may already
-        # have caused this datablock to receive its correct name.
-        if datablock.name == obj.name:
-            continue
-
-        old_datablock_name = (
-            datablock.name
-        )
-
-        try:
-
-            # Blender handles the collision for us.
-            #
-            # ALWAYS means:
-            #     This datablock MUST receive obj.name.
-            #     If another datablock owns that name,
-            #     Blender renames the other datablock.
-            rename_result = datablock.rename(
-                obj.name,
-                mode="ALWAYS",
-            )
-
-        except Exception as error:
-
+        if collection is None:
             issues.append(
                 (
-                    'Could not rename datablock for "{}": {}'
+                    'Could not determine datablock collection '
+                    'for object "{}".'
                 ).format(
-                    obj.name,
-                    error,
+                    obj.name
                 )
             )
-
             continue
 
-        # -----------------------------------------------------
-        # Verify exact result
-        # -----------------------------------------------------
+        rename_items.append({
+            "object": obj,
+            "datablock": datablock,
+            "collection": collection,
+            # Group by the actual bpy.data namespace, not the RNA subtype.
+            # SpotLight/AreaLight all share bpy.data.lights; TextCurve and
+            # other Curve subtypes all share bpy.data.curves.
+            "collection_key": collection_key,
+            "old_name": datablock.name,
+            "target_name": obj.name,
+            "safe": True,
+            "blocked_reason": None,
+            "dependency": None,
+            "orphan_blocker": None,
+        })
 
-        if datablock.name != obj.name:
-
-            issues.append(
-                (
-                    'Could not assign exact datablock name "{}" '
-                    'to object "{}". Blender assigned "{}".'
-                ).format(
-                    obj.name,
-                    obj.name,
-                    datablock.name,
-                )
-            )
-
-            continue
-
-        fixed_objects[
-            obj.name
-        ] = {
-            "fixed":
-                True,
-
-            "previous_datablock_name":
-                old_datablock_name,
-
-            "datablock_name":
-                datablock.name,
-
-            "rename_result":
-                str(
-                    rename_result
-                ),
+    if not rename_items:
+        return {
+            "fixed_objects": {},
+            "issues": issues,
         }
+
+    # ---------------------------------------------------------
+    # Group by stable datablock type
+    # ---------------------------------------------------------
+
+    groups = {}
+
+    for item in rename_items:
+        key = item[
+            "collection_key"
+        ]
+
+        if key not in groups:
+            groups[key] = {
+                "collection": item[
+                    "collection"
+                ],
+                "items": [],
+            }
+
+        groups[key][
+            "items"
+        ].append(
+            item
+        )
+
+    # ---------------------------------------------------------
+    # Process each datablock type independently
+    # ---------------------------------------------------------
+
+    for group in groups.values():
+        collection = group[
+            "collection"
+        ]
+        items = group[
+            "items"
+        ]
+
+        item_by_datablock = {
+            item["datablock"]: item
+            for item in items
+        }
+        affected_datablocks = set(
+            item_by_datablock.keys()
+        )
+
+        # -----------------------------------------------------
+        # Preflight target ownership
+        # -----------------------------------------------------
+
+        for item in items:
+            target_name = item[
+                "target_name"
+            ]
+            datablock = item[
+                "datablock"
+            ]
+            blocker = collection.get(
+                target_name
+            )
+
+            if blocker is None:
+                continue
+            if blocker is datablock:
+                continue
+
+            if blocker in affected_datablocks:
+                item[
+                    "dependency"
+                ] = item_by_datablock[
+                    blocker
+                ]
+                continue
+
+            if blocker.users == 0:
+                item[
+                    "orphan_blocker"
+                ] = blocker
+                continue
+
+            item[
+                "safe"
+            ] = False
+            item[
+                "blocked_reason"
+            ] = (
+                (
+                    'Manual naming conflict for "{}": datablock "{}" '
+                    'cannot be renamed to "{}" because another live '
+                    'datablock already owns that exact name ({} user(s)). '
+                    'Running Fix again cannot resolve this safely; rename '
+                    'one of the conflicting datablocks/objects manually.'
+                ).format(
+                    item["object"].name,
+                    datablock.name,
+                    target_name,
+                    blocker.users,
+                )
+            )
+
+        # -----------------------------------------------------
+        # Propagate blocked dependencies
+        # -----------------------------------------------------
+
+        changed = True
+        while changed:
+            changed = False
+            for item in items:
+                if not item[
+                    "safe"
+                ]:
+                    continue
+
+                dependency = item.get(
+                    "dependency"
+                )
+                if dependency is None:
+                    continue
+                if dependency[
+                    "safe"
+                ]:
+                    continue
+
+                item[
+                    "safe"
+                ] = False
+                item[
+                    "blocked_reason"
+                ] = (
+                    (
+                        'Cannot rename datablock for "{}" to "{}": '
+                        'the datablock currently using that name '
+                        'cannot be moved safely.'
+                    ).format(
+                        item["object"].name,
+                        item["target_name"],
+                    )
+                )
+                changed = True
+
+        # -----------------------------------------------------
+        # Move orphan blockers for safe items only
+        # -----------------------------------------------------
+
+        safe_items = [
+            item
+            for item in items
+            if item[
+                "safe"
+            ]
+        ]
+
+        orphan_blockers = []
+        seen_orphans = set()
+
+        for item in safe_items:
+            blocker = item.get(
+                "orphan_blocker"
+            )
+            if blocker is None:
+                continue
+
+            pointer = blocker.as_pointer()
+            if pointer in seen_orphans:
+                continue
+
+            seen_orphans.add(
+                pointer
+            )
+            orphan_blockers.append(
+                blocker
+            )
+
+        for index, blocker in enumerate(
+            orphan_blockers
+        ):
+            old_orphan_name = blocker.name
+            orphan_temp_name = (
+                "__SCRIPTRONAUT_QC_ORPHAN_{}_{}__"
+            ).format(
+                index,
+                blocker.as_pointer(),
+            )
+
+            try:
+                blocker.name = orphan_temp_name
+            except Exception as error:
+                for item in items:
+                    if item.get(
+                        "orphan_blocker"
+                    ) is not blocker:
+                        continue
+                    item[
+                        "safe"
+                    ] = False
+                    item[
+                        "blocked_reason"
+                    ] = (
+                        (
+                            'Could not free target datablock name "{}" '
+                            'for object "{}": {}'
+                        ).format(
+                            item["target_name"],
+                            item["object"].name,
+                            error,
+                        )
+                    )
+
+                try:
+                    blocker.name = old_orphan_name
+                except Exception:
+                    pass
+
+        # -----------------------------------------------------
+        # Propagate any orphan-related failures
+        # -----------------------------------------------------
+
+        changed = True
+        while changed:
+            changed = False
+            for item in items:
+                if not item[
+                    "safe"
+                ]:
+                    continue
+
+                dependency = item.get(
+                    "dependency"
+                )
+                if (
+                    dependency is not None
+                    and not dependency[
+                        "safe"
+                    ]
+                ):
+                    item[
+                        "safe"
+                    ] = False
+                    item[
+                        "blocked_reason"
+                    ] = (
+                        (
+                            'Cannot rename datablock for "{}" to "{}": '
+                            'the datablock currently using that name '
+                            'cannot be moved safely.'
+                        ).format(
+                            item["object"].name,
+                            item["target_name"],
+                        )
+                    )
+                    changed = True
+
+        # Report blocked items.
+        for item in items:
+            if item[
+                "safe"
+            ]:
+                continue
+
+            reason = item.get(
+                "blocked_reason"
+            )
+            if (
+                reason
+                and reason not in issues
+            ):
+                issues.append(
+                    reason
+                )
+
+        safe_items = [
+            item
+            for item in items
+            if item[
+                "safe"
+            ]
+        ]
+
+        if not safe_items:
+            continue
+
+        # -----------------------------------------------------
+        # Pass 1: stage every safe datablock under a temp name
+        # -----------------------------------------------------
+
+        staged_items = []
+        temporary_failed = False
+
+        for index, item in enumerate(
+            safe_items
+        ):
+            datablock = item[
+                "datablock"
+            ]
+            temporary_name = (
+                "__SCRIPTRONAUT_QC_TEMP_{}_{}__"
+            ).format(
+                index,
+                datablock.as_pointer(),
+            )
+
+            try:
+                datablock.name = temporary_name
+                staged_items.append(
+                    item
+                )
+            except Exception as error:
+                temporary_failed = True
+                issues.append(
+                    (
+                        'Could not temporarily rename datablock '
+                        'for "{}": {}'
+                    ).format(
+                        item["object"].name,
+                        error,
+                    )
+                )
+                break
+
+        if temporary_failed:
+            # Stage moved items again before restoring originals, so
+            # original cyclic names cannot collide during rollback.
+            for index, item in enumerate(
+                staged_items
+            ):
+                try:
+                    item[
+                        "datablock"
+                    ].name = (
+                        "__SCRIPTRONAUT_QC_ROLLBACK_{}_{}__"
+                    ).format(
+                        index,
+                        item["datablock"].as_pointer(),
+                    )
+                except Exception:
+                    pass
+
+            for item in staged_items:
+                try:
+                    item[
+                        "datablock"
+                    ].name = item[
+                        "old_name"
+                    ]
+                except Exception:
+                    pass
+            continue
+
+        # -----------------------------------------------------
+        # Pass 2: assign final names
+        # -----------------------------------------------------
+
+        for item in safe_items:
+            obj = item[
+                "object"
+            ]
+            datablock = item[
+                "datablock"
+            ]
+            old_name = item[
+                "old_name"
+            ]
+            target_name = item[
+                "target_name"
+            ]
+
+            try:
+                datablock.name = target_name
+            except Exception as error:
+                issues.append(
+                    (
+                        'Could not rename datablock for "{}": {}'
+                    ).format(
+                        obj.name,
+                        error,
+                    )
+                )
+                continue
+
+            if datablock.name != target_name:
+                issues.append(
+                    (
+                        'Could not assign exact datablock name "{}" '
+                        'to "{}". Blender assigned "{}" instead.'
+                    ).format(
+                        target_name,
+                        obj.name,
+                        datablock.name,
+                    )
+                )
+                continue
+
+            fixed_objects[
+                obj.name
+            ] = {
+                "fixed": True,
+                "previous_datablock_name": old_name,
+                "datablock_name": datablock.name,
+            }
 
     bpy.context.view_layer.update()
 
     return {
-        "fixed_objects":
-            fixed_objects,
-
-        "issues":
-            issues,
+        "fixed_objects": fixed_objects,
+        "issues": issues,
     }
+
