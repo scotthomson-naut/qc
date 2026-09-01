@@ -9,12 +9,13 @@ import bpy
 SEVERITY = "warning"
 LABEL = "Final Names"
 DESCRIPTION = (
-    "Checks that Object and Datablock names do not use temporary, test, "
-    "or debug prefixes such as tmp_, temp_, debug_, or test_. "
-    "Final production assets should use descriptive production-ready names."
+    "Checks single-user datablock names for temporary, test, or debug "
+    "prefixes such as tmp_, temp_, debug_, or test_. The Object name is "
+    "treated as the authoritative production name."
 )
 WHY = (
-    "Helps with finding and identifying objects better."
+    "Keeps internal datablock names production-ready and aligned with their "
+    "owning Object name without renaming the Object itself."
 )
 
 
@@ -38,7 +39,10 @@ DEFAULT_PREFIXES = (
 
 def main():
     """
-    Checks object names and datablock names for temporary/debug prefixes.
+    Checks DATABLOCK names for temporary/debug prefixes.
+
+    Object names are intentionally not validated or modified by this check.
+    The Object name is treated as the final production name.
 
     Returns:
         dict:
@@ -55,30 +59,6 @@ def main():
 
     for object_name, data in failed_objects.items():
 
-        # -----------------------------------------------------
-        # Object name
-        # -----------------------------------------------------
-
-        object_name_data = data.get(
-            "object_name"
-        )
-
-        if object_name_data:
-            issues.append(
-                (
-                    "Failed object: {} - Object name {!r} "
-                    "uses invalid prefix {!r}"
-                ).format(
-                    object_name,
-                    object_name_data["name"],
-                    object_name_data["prefix"],
-                )
-            )
-
-        # -----------------------------------------------------
-        # Datablock name
-        # -----------------------------------------------------
-
         datablock_name_data = data.get(
             "datablock_name"
         )
@@ -86,24 +66,34 @@ def main():
         if datablock_name_data:
             issues.append(
                 (
-                    "Failed object: {} - Datablock name {!r} "
-                    "uses invalid prefix {!r}"
+                    "Failed object: {} - Datablock name {!r} uses "
+                    "invalid prefix {!r}; Fix will rename the datablock "
+                    "to match the Object name."
                 ).format(
                     object_name,
-                    datablock_name_data["name"],
-                    datablock_name_data["prefix"],
+                    datablock_name_data[
+                        "name"
+                    ],
+                    datablock_name_data[
+                        "prefix"
+                    ],
                 )
             )
 
     return {
-        "issues": issues,
-        "failed_objects": failed_objects,
+        "issues":
+            issues,
+
+        "failed_objects":
+            failed_objects,
     }
 
 
-def fix(result_data):
+def fix(
+        result_data=None,
+    ):
     """
-    Fix for issue.
+    Renames invalid single-user datablocks to match their Object names.
     """
     return fix_invalid_prefixes(
         result_data
@@ -119,49 +109,40 @@ def get_objects_with_invalid_prefixes(
         prefixes=None,
     ):
     """
-    Finds objects whose object name or datablock name starts with
-    a temporary/debug/test prefix.
+    Finds objects whose DATABLOCK name starts with a temporary/debug/test
+    prefix.
 
-    Default prefixes:
-        tmp
-        temp
-        debug
-        test
+    The Object name itself is NOT checked. It is the authoritative final name.
 
     Examples that fail:
-        tmp_Cube
-        temp_mesh
-        debug_Character
-        test_object
-        TMP_Render
-        TestCube
 
-    Datablock examples:
+        Object: body_GEO_NEW
+        Mesh:   temp
+
         Object: Chair
         Mesh:   tmp_ChairMesh
+
+    Examples that pass:
+
+        Object: temp_Chair
+        Mesh:   ChairMesh
+
+    because this check does not judge the Object name.
+
+    Shared datablocks are ignored because one datablock may belong to several
+    differently named objects and cannot safely be renamed to match all of
+    them.
 
     Args:
         objects (iterable[bpy.types.Object] | None):
             Objects to inspect.
-            Defaults to all scene objects.
+            Defaults to current scene objects.
 
         prefixes (iterable[str] | None):
             Prefixes to check.
 
     Returns:
-        dict:
-        {
-            "Chair": {
-                "object_name": {
-                    "name": "tmp_Chair",
-                    "prefix": "tmp",
-                },
-                "datablock_name": {
-                    "name": "temp_ChairMesh",
-                    "prefix": "temp",
-                },
-            }
-        }
+        dict
     """
     if objects is None:
         objects = bpy.context.scene.objects
@@ -171,29 +152,12 @@ def get_objects_with_invalid_prefixes(
 
     failed_objects = {}
 
-    for obj in get_qc_objects(objects):
+    for obj in get_qc_objects(
+        objects
+    ):
 
-        # Directly linked library objects are read-only and are
-        # outside the scope of local naming QC.
         if obj.library is not None:
             continue
-
-        # -----------------------------------------------------
-        # Object name
-        # -----------------------------------------------------
-
-        object_name_result = (
-            get_invalid_prefix_data(
-                obj.name,
-                prefixes=prefixes,
-            )
-        )
-
-        # -----------------------------------------------------
-        # Datablock name
-        # -----------------------------------------------------
-
-        datablock_name_result = None
 
         datablock = getattr(
             obj,
@@ -201,41 +165,50 @@ def get_objects_with_invalid_prefixes(
             None,
         )
 
-        if (
-            datablock is not None
-            and hasattr(
-                datablock,
-                "name",
-            )
-        ):
-            datablock_name_result = (
-                get_invalid_prefix_data(
-                    datablock.name,
-                    prefixes=prefixes,
-                )
-            )
-
-        if (
-            object_name_result is None
-            and datablock_name_result is None
-        ):
+        if datablock is None:
             continue
 
-        result = {}
+        if getattr(
+            datablock,
+            "library",
+            None,
+        ) is not None:
+            continue
 
-        if object_name_result is not None:
-            result["object_name"] = (
-                object_name_result
-            )
+        # Shared datablocks are intentionally ignored. One datablock cannot
+        # safely be renamed to several different Object names.
+        if getattr(
+            datablock,
+            "users",
+            1,
+        ) > 1:
+            continue
 
-        if datablock_name_result is not None:
-            result["datablock_name"] = (
-                datablock_name_result
+        datablock_name_result = (
+            get_invalid_prefix_data(
+                datablock.name,
+                prefixes=prefixes,
             )
+        )
+
+        if datablock_name_result is None:
+            continue
 
         failed_objects[
             obj.name
-        ] = result
+        ] = {
+            "object_name":
+                obj.name,
+
+            "datablock_name":
+                datablock_name_result,
+
+            "target_datablock_name":
+                obj.name,
+
+            "datablock_users":
+                datablock.users,
+        }
 
     return failed_objects
 
@@ -249,14 +222,10 @@ def get_invalid_prefix_data(
         prefixes=None,
     ):
     """
-    Checks a single name for an invalid prefix.
+    Checks one name for an invalid temporary/debug/test prefix.
 
     Returns:
-        dict | None:
-        {
-            "name": "tmp_Chair",
-            "prefix": "tmp",
-        }
+        dict | None
     """
     if not isinstance(
         name,
@@ -267,7 +236,6 @@ def get_invalid_prefix_data(
     if prefixes is None:
         prefixes = DEFAULT_PREFIXES
 
-    # Longer prefixes first.
     prefixes = sorted(
         prefixes,
         key=len,
@@ -292,85 +260,116 @@ def get_invalid_prefix_data(
             compare_prefix
         ):
             return {
-                "name": name,
-                "prefix": prefix,
+                "name":
+                    name,
+
+                "prefix":
+                    prefix,
             }
 
     return None
 
 
-def remove_invalid_prefix(
-        name,
-        prefixes=None,
-        strip_separators=True,
+def get_datablock_collection(
+        datablock,
     ):
     """
-    Removes an invalid prefix from a name.
+    Returns the bpy.data collection that owns datablock.
 
-    Examples:
-        tmp_Cube    -> Cube
-        temp-Chair  -> Chair
-        debugRig    -> Rig
-        TEST_object -> object
-
-    Returns:
-        tuple:
-            (
-                new_name,
-                matched_prefix,
-            )
-
-        Returns (None, None) when no prefix is found.
+    Uses Blender base RNA types so subtype datablocks such as SpotLight,
+    AreaLight and TextCurve resolve correctly.
     """
-    if prefixes is None:
-        prefixes = DEFAULT_PREFIXES
-
-    prefixes = sorted(
-        prefixes,
-        key=len,
-        reverse=True,
+    type_map = (
+        (
+            bpy.types.Mesh,
+            bpy.data.meshes,
+        ),
+        (
+            bpy.types.Curve,
+            bpy.data.curves,
+        ),
+        (
+            bpy.types.Camera,
+            bpy.data.cameras,
+        ),
+        (
+            bpy.types.Light,
+            bpy.data.lights,
+        ),
+        (
+            bpy.types.Armature,
+            bpy.data.armatures,
+        ),
+        (
+            bpy.types.Lattice,
+            bpy.data.lattices,
+        ),
+        (
+            bpy.types.MetaBall,
+            bpy.data.metaballs,
+        ),
+        (
+            bpy.types.Speaker,
+            bpy.data.speakers,
+        ),
     )
 
-    compare_name = (
-        name
-        if CASE_SENSITIVE
-        else name.lower()
+    volume_type = getattr(
+        bpy.types,
+        "Volume",
+        None,
     )
 
-    for prefix in prefixes:
+    if (
+        volume_type is not None
+        and isinstance(
+            datablock,
+            volume_type,
+        )
+    ):
+        return bpy.data.volumes
 
-        compare_prefix = (
-            prefix
-            if CASE_SENSITIVE
-            else prefix.lower()
+    grease_pencil_type = getattr(
+        bpy.types,
+        "GreasePencilv3",
+        None,
+    )
+
+    if grease_pencil_type is None:
+        grease_pencil_type = getattr(
+            bpy.types,
+            "GreasePencil",
+            None,
         )
 
-        if not compare_name.startswith(
-            compare_prefix
+    grease_pencils = getattr(
+        bpy.data,
+        "grease_pencils",
+        None,
+    )
+
+    if (
+        grease_pencil_type is not None
+        and grease_pencils is not None
+        and isinstance(
+            datablock,
+            grease_pencil_type,
+        )
+    ):
+        return grease_pencils
+
+    for (
+        datablock_type,
+        collection,
+    ) in type_map:
+
+        if isinstance(
+            datablock,
+            datablock_type,
         ):
-            continue
+            return collection
 
-        new_name = name[
-            len(prefix):
-        ]
-
-        if strip_separators:
-            new_name = new_name.lstrip(
-                " _-."
-            )
-
-        if not new_name:
-            return None, prefix
-
-        return (
-            new_name,
-            prefix,
-        )
-
-    return (
-        None,
-        None,
-    )
+    return None
 
 
 # -------------------------------------------------------------------------
@@ -383,19 +382,28 @@ def fix_invalid_prefixes(
         strip_separators=True,
     ):
     """
-    Removes invalid prefixes from object names and datablock names.
+    Renames invalid single-user datablocks to match their Object names.
 
-    Datablock names are only changed when the datablock is not shared.
+    Important:
+        The old implementation removed the invalid prefix from the datablock
+        name. This version instead uses the Object name as the final target.
 
-    Args:
-        result_data (dict):
-            Result returned by main().
+        Example:
 
-        prefixes (iterable[str] | None):
-            Invalid prefixes to remove.
+            Object:    body_GEO_NEW
+            Datablock: temp
 
-        strip_separators (bool):
-            Remove separators immediately following the prefix.
+        becomes:
+
+            Object:    body_GEO_NEW
+            Datablock: body_GEO_NEW
+
+    Object names are never changed by this check.
+
+    Shared datablocks are skipped.
+
+    If another live datablock already owns the exact Object name, the rename
+    is skipped rather than allowing Blender to silently create .001/.002.
 
     Returns:
         dict:
@@ -407,32 +415,53 @@ def fix_invalid_prefixes(
     if prefixes is None:
         prefixes = DEFAULT_PREFIXES
 
+    # Re-evaluate current state so another naming fix cannot leave stale names.
+    live_failed_objects = (
+        get_objects_with_invalid_prefixes(
+            prefixes=prefixes,
+        )
+    )
+
     if not isinstance(
         result_data,
         dict,
     ):
         result_data = {}
 
-    failed_objects = result_data.get(
-        "failed_objects",
-        {},
+    original_failed_objects = (
+        result_data.get(
+            "failed_objects",
+            {},
+        )
     )
+
+    if not isinstance(
+        original_failed_objects,
+        dict,
+    ):
+        original_failed_objects = {}
+
+    # Only fix objects that were part of the original Fix request, but use
+    # their CURRENT scene state.
+    target_names = [
+        object_name
+        for object_name in original_failed_objects
+        if object_name in live_failed_objects
+    ]
 
     fixed_objects = {}
     issues = []
 
-    for original_object_name, failure_data in (
-        failed_objects.items()
-    ):
+    for object_name in target_names:
 
         obj = get_qc_object(
-            original_object_name
+            object_name
         )
 
         if obj is None:
             issues.append(
                 "Object no longer exists: {}".format(
-                    original_object_name
+                    object_name
                 )
             )
             continue
@@ -440,150 +469,149 @@ def fix_invalid_prefixes(
         if obj.library is not None:
             continue
 
-        fixed_data = {}
+        datablock = getattr(
+            obj,
+            "data",
+            None,
+        )
 
-        # -----------------------------------------------------
-        # Fix Object Name
-        # -----------------------------------------------------
-
-        if (
-            isinstance(
-                failure_data,
-                dict,
-            )
-            and failure_data.get(
-                "object_name"
-            )
-        ):
-            old_object_name = obj.name
-
-            (
-                new_object_name,
-                removed_prefix,
-            ) = remove_invalid_prefix(
-                old_object_name,
-                prefixes=prefixes,
-                strip_separators=strip_separators,
-            )
-
-            if new_object_name is None:
-                issues.append(
-                    (
-                        "Could not rename object {!r}: removing "
-                        "the prefix would leave an empty name."
-                    ).format(
-                        old_object_name
-                    )
-                )
-
-            else:
-                obj.name = (
-                    new_object_name
-                )
-
-                fixed_data[
-                    "object_name"
-                ] = {
-                    "old_name":
-                        old_object_name,
-
-                    "new_name":
-                        obj.name,
-
-                    "removed_prefix":
-                        removed_prefix,
-                }
-
-        # -----------------------------------------------------
-        # Fix Datablock Name
-        # -----------------------------------------------------
-
-        if (
-            isinstance(
-                failure_data,
-                dict,
-            )
-            and failure_data.get(
-                "datablock_name"
-            )
-        ):
-            datablock = getattr(
-                obj,
-                "data",
-                None,
-            )
-
-            if datablock is None:
-                issues.append(
-                    (
-                        "Could not rename datablock for {!r}: "
-                        "object has no datablock."
-                    ).format(
-                        obj.name
-                    )
-                )
-
-            elif datablock.users > 1:
-                issues.append(
-                    (
-                        "Skipped datablock {!r} on object {!r}: "
-                        "datablock is shared by {} objects/users."
-                    ).format(
-                        datablock.name,
-                        obj.name,
-                        datablock.users,
-                    )
-                )
-
-            else:
-                old_datablock_name = (
-                    datablock.name
-                )
-
+        if datablock is None:
+            issues.append(
                 (
-                    new_datablock_name,
-                    removed_prefix,
-                ) = remove_invalid_prefix(
-                    old_datablock_name,
-                    prefixes=prefixes,
-                    strip_separators=strip_separators,
+                    "Could not rename datablock for {!r}: "
+                    "object has no datablock."
+                ).format(
+                    obj.name
                 )
+            )
+            continue
 
-                if new_datablock_name is None:
-                    issues.append(
-                        (
-                            "Could not rename datablock {!r}: "
-                            "removing the prefix would leave "
-                            "an empty name."
-                        ).format(
-                            old_datablock_name
-                        )
-                    )
+        if getattr(
+            datablock,
+            "library",
+            None,
+        ) is not None:
+            continue
 
-                else:
-                    datablock.name = (
-                        new_datablock_name
-                    )
+        if datablock.users > 1:
+            issues.append(
+                (
+                    "Skipped datablock {!r} on object {!r}: "
+                    "datablock is shared by {} users."
+                ).format(
+                    datablock.name,
+                    obj.name,
+                    datablock.users,
+                )
+            )
+            continue
 
-                    fixed_data[
-                        "datablock_name"
-                    ] = {
-                        "old_name":
-                            old_datablock_name,
+        # Verify the datablock is STILL a Final Names failure.
+        invalid_data = get_invalid_prefix_data(
+            datablock.name,
+            prefixes=prefixes,
+        )
 
-                        "new_name":
-                            datablock.name,
+        if invalid_data is None:
+            continue
 
-                        "removed_prefix":
-                            removed_prefix,
-                    }
+        old_datablock_name = (
+            datablock.name
+        )
 
-        if fixed_data:
-            fixed_objects[
-                original_object_name
-            ] = fixed_data
+        target_name = (
+            obj.name
+        )
+
+        collection = (
+            get_datablock_collection(
+                datablock
+            )
+        )
+
+        if collection is None:
+            issues.append(
+                (
+                    "Could not determine datablock collection for "
+                    "object {!r}."
+                ).format(
+                    obj.name
+                )
+            )
+            continue
+
+        blocker = collection.get(
+            target_name
+        )
+
+        if (
+            blocker is not None
+            and blocker is not datablock
+        ):
+            issues.append(
+                (
+                    "Could not rename datablock {!r} on object {!r} "
+                    "to {!r}: another live datablock already owns "
+                    "that exact name."
+                ).format(
+                    old_datablock_name,
+                    obj.name,
+                    target_name,
+                )
+            )
+            continue
+
+        try:
+            datablock.name = (
+                target_name
+            )
+
+        except Exception as error:
+            issues.append(
+                (
+                    "Could not rename datablock {!r} on object {!r}: {}"
+                ).format(
+                    old_datablock_name,
+                    obj.name,
+                    error,
+                )
+            )
+            continue
+
+        if datablock.name != target_name:
+            issues.append(
+                (
+                    "Could not assign exact datablock name {!r} to "
+                    "object {!r}. Blender assigned {!r} instead."
+                ).format(
+                    target_name,
+                    obj.name,
+                    datablock.name,
+                )
+            )
+            continue
+
+        fixed_objects[
+            obj.name
+        ] = {
+            "datablock_name": {
+                "old_name":
+                    old_datablock_name,
+
+                "new_name":
+                    datablock.name,
+
+                "matched_invalid_prefix":
+                    invalid_data[
+                        "prefix"
+                    ],
+            }
+        }
 
     return {
-        "fixed_objects": fixed_objects,
-        "issues": issues,
+        "fixed_objects":
+            fixed_objects,
+
+        "issues":
+            issues,
     }
