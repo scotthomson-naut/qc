@@ -3,6 +3,7 @@ from math import isclose
 
 # Blender imports
 import bpy
+from mathutils import Matrix
 
 
 # -------------------------------------------------------------------------
@@ -41,15 +42,23 @@ def main():
     Returns:
         dict: {issues (list(str)), failed_objects(dict)}
     """
-    failed_objects = []
     failed_objects = get_objects_scale()
 
     return {
         "issues": [
-            "Failed object: {}".format(name)
+            "Failed object: {}".format(
+                name
+            )
             for name in failed_objects
         ],
-        "failed_objects": failed_objects,
+
+        "failed_objects":
+            failed_objects,
+
+        "can_auto_fix":
+            bool(
+                failed_objects
+            ),
     }
 
 
@@ -78,7 +87,7 @@ def get_objects_scale(
 
     Args:
         objects (list): List of Blender objects.
-                        Defaults to objects in the active scene.
+                        Defaults to bpy.data.objects.
         tolerance (float): Floating point comparison tolerance.
         exclude_types (list): Object type to exclude.
 
@@ -95,7 +104,7 @@ def get_objects_scale(
         }
     """
     if objects is None:
-        objects = bpy.context.scene.objects
+        objects = bpy.data.objects
 
     if exclude_types is None:
         # Skip cameras and lights
@@ -103,12 +112,7 @@ def get_objects_scale(
 
     results = {}
 
-    for obj in get_qc_objects(objects):
-        # Ignore directly linked library objects. They are read-only
-        # in this file and cannot be safely fixed by this QC check.
-        if obj.library is not None:
-            continue
-
+    for obj in objects:
         if obj.type in exclude_types:
             continue
 
@@ -142,52 +146,245 @@ def get_objects_scale(
 # Fix
 # -------------------------------------------------------------------------
 
-def fix_objects_scale(
-        result_data=None,
-        max_retries=2,
+
+def get_solidify_scale_factor(
+        obj,
+        tolerance=TOLERANCE,
     ):
     """
-    Applies scale to failed mesh objects using Blender's built-in:
+    Returns a practical Solidify thickness compensation factor.
 
-        Object > Apply > Scale
+    Uniform scale:
+        Uses the exact absolute scale value.
 
-    All failed objects AND their mesh descendants are selected together and
-    passed to a SINGLE transform_apply() call - the same thing that happens
-    when a user selects a whole hierarchy and runs Object > Apply > Scale
-    manually. Blender's own operator already walks the selected hierarchy
-    and pushes any compensating scale into children as part of that one
-    call, however deep the hierarchy goes - there is no need to process
-    objects one at a time or guess how many passes a given hierarchy might
-    need.
+    Non-uniform scale:
+        Uses the geometric mean of the absolute XYZ scale values:
 
-    A small retry loop is still included, but only as a safety net for
-    per-object selection problems (for example, an object that could not be
-    unhidden/selected on the first attempt) - not because the hierarchy
-    cascade itself requires multiple passes. Each retry re-selects whatever
-    is still failing, in bulk, rather than one object per pass.
+            (|sx| * |sy| * |sz|) ** (1 / 3)
 
-    Location and rotation are preserved.
-
-    Args:
-        result_data (dict | None):
-            Result returned by main().
-
-        max_retries (int):
-            Maximum number of full batch apply attempts, purely as a
-            safety net. The hierarchy cascade itself resolves in a single
-            successful batch call regardless of hierarchy depth.
+        A Solidify modifier has only one scalar Thickness value, so there is
+        no mathematically exact single value that preserves world thickness
+        for every face normal under non-uniform scale. The geometric mean is
+        a stable compromise that preserves the overall apparent thickness
+        much better than leaving Thickness unchanged.
 
     Returns:
-        dict:
-        {
-            "fixed_objects": dict,
-            "issues": list[str],
-        }
+        tuple[float, bool]
+            (factor, is_exact_uniform)
     """
+    values = (
+        abs(
+            float(
+                obj.scale.x
+            )
+        ),
+        abs(
+            float(
+                obj.scale.y
+            )
+        ),
+        abs(
+            float(
+                obj.scale.z
+            )
+        ),
+    )
+
+    is_uniform = (
+        isclose(
+            values[0],
+            values[1],
+            abs_tol=tolerance,
+        )
+        and isclose(
+            values[1],
+            values[2],
+            abs_tol=tolerance,
+        )
+    )
+
+    if is_uniform:
+        return (
+            (
+                values[0]
+                + values[1]
+                + values[2]
+            ) / 3.0,
+            True,
+        )
+
+    # Defensive protection against a zero-scale axis.
+    product = (
+        values[0]
+        * values[1]
+        * values[2]
+    )
+
+    if product <= 0.0:
+        return (
+            1.0,
+            False,
+        )
+
+    return (
+        product ** (
+            1.0 / 3.0
+        ),
+        False,
+    )
+
+
+def get_solidify_modifiers(
+        obj,
+    ):
+    """
+    Return Solidify modifiers on obj.
+    """
+    return [
+        modifier
+        for modifier in obj.modifiers
+        if modifier.type == "SOLIDIFY"
+    ]
+
+
+def get_scale_fix_block_reason(
+        obj,
+    ):
+    """
+    Scale Applied no longer blocks Mesh objects simply because they have a
+    Solidify modifier.
+
+    Uniform Solidify scale compensation is exact. Non-uniform compensation
+    uses a geometric-mean approximation so the object can still be fixed
+    without the dramatic thickness blow-up caused by leaving Thickness
+    unchanged.
+    """
+    return ""
+
+
+def capture_scale_sensitive_modifier_state(
+        obj,
+    ):
+    """
+    Capture modifier values that must be compensated when object scale is
+    baked into the mesh.
+    """
+    (
+        scale_factor,
+        exact_uniform,
+    ) = get_solidify_scale_factor(
+        obj
+    )
+
+    return {
+        "solidify": [
+            {
+                "modifier_name":
+                    modifier.name,
+
+                "thickness":
+                    float(
+                        modifier.thickness
+                    ),
+
+                "scale_factor":
+                    scale_factor,
+
+                "exact_uniform":
+                    exact_uniform,
+            }
+            for modifier in get_solidify_modifiers(
+                obj
+            )
+        ],
+    }
+
+
+def restore_scale_sensitive_modifier_state(
+        obj,
+        modifier_state,
+    ):
+    """
+    Compensate scale-sensitive modifier values after scale is baked.
+
+    For uniform scale:
+        new_thickness = old_thickness * old_scale
+
+    Example:
+        object scale      = 0.021
+        Solidify thickness = -0.71
+
+        compensated thickness:
+            -0.71 * 0.021 = -0.01491
+    """
+    issues = []
+
     if not isinstance(
-        result_data,
+        modifier_state,
         dict,
     ):
+        return issues
+
+    for state in modifier_state.get(
+        "solidify",
+        [],
+    ):
+        modifier_name = state.get(
+            "modifier_name",
+            "",
+        )
+
+        modifier = obj.modifiers.get(
+            modifier_name
+        )
+
+        if (
+            modifier is None
+            or modifier.type != "SOLIDIFY"
+        ):
+            issues.append(
+                (
+                    'Solidify modifier "{}" no longer exists on "{}".'
+                ).format(
+                    modifier_name,
+                    obj.name,
+                )
+            )
+            continue
+
+        scale_factor = float(
+            state.get(
+                "scale_factor",
+                1.0,
+            )
+        )
+
+        previous_thickness = float(
+            state.get(
+                "thickness",
+                modifier.thickness,
+            )
+        )
+
+        modifier.thickness = (
+            previous_thickness
+            * scale_factor
+        )
+
+    return issues
+
+def fix_objects_scale(
+        result_data=None,
+    ):
+    """
+    Applies scale to failed Mesh objects without changing the visible size or
+    world-space transform of their children.
+
+    Instead of bpy.ops.object.transform_apply(), this bakes obj.scale directly
+    into the mesh data, resets obj.scale to 1, and compensates direct children
+    through matrix_parent_inverse while preserving their matrix_basis.
+    """
+    if not isinstance(result_data, dict):
         result_data = {}
 
     failed_objects = result_data.get(
@@ -195,10 +392,7 @@ def fix_objects_scale(
         {},
     )
 
-    if not isinstance(
-        failed_objects,
-        dict,
-    ):
+    if not isinstance(failed_objects, dict):
         failed_objects = {}
 
     fixed_objects = {}
@@ -207,400 +401,187 @@ def fix_objects_scale(
     context = bpy.context
     view_layer = context.view_layer
 
-    # ---------------------------------------------------------
-    # Save current Blender state
-    # ---------------------------------------------------------
+    original_active = view_layer.objects.active
+    original_selected = list(context.selected_objects)
+    original_mode = context.mode
 
-    original_active = (
-        view_layer.objects.active
-    )
-
-    original_selected = list(
-        context.selected_objects
-    )
-
-    original_mode = (
-        context.mode
-    )
-
-    if (
-        context.object is not None
-        and context.mode != "OBJECT"
-    ):
+    if context.object is not None and context.mode != "OBJECT":
         try:
-            bpy.ops.object.mode_set(
-                mode="OBJECT"
-            )
-
+            bpy.ops.object.mode_set(mode="OBJECT")
         except RuntimeError as error:
             return {
                 "fixed_objects": {},
                 "issues": [
-                    "Could not enter Object Mode: {}".format(
-                        error
-                    )
+                    "Could not enter Object Mode: {}".format(error)
                 ],
             }
 
-    # ---------------------------------------------------------
-    # Resolve original failures AND their mesh descendants.
-    #
-    # Important:
-    # Applying scale to a parent can make a child that was previously
-    # (1, 1, 1) acquire compensating local scale so Blender can preserve
-    # the child's world-space appearance.
-    #
-    # Therefore descendants must participate in verification/retry even
-    # when they did not fail the original QC run.
-    # ---------------------------------------------------------
-
-    original_failed_objects = []
-    candidate_objects = []
-    candidate_names = set()
-
-    active_scene = bpy.context.scene
-
-    def add_candidate(
-            obj,
-        ):
-        if obj is None:
-            return
-
-        if not is_object_available_for_qc(
-            obj
-        ):
-            return
-
-        if obj.type != "MESH":
-            return
-
-        if obj.data is None:
-            return
-
-        if obj.name in candidate_names:
-            return
-
-        candidate_names.add(
-            obj.name
-        )
-
-        candidate_objects.append(
-            obj
-        )
+    candidates = []
+    seen = set()
 
     for object_name in failed_objects:
-
-        obj = get_qc_object(
-            object_name
-        )
+        try:
+            obj = get_qc_object(object_name)
+        except NameError:
+            obj = bpy.data.objects.get(object_name)
 
         if obj is None:
             issues.append(
-                'Object "{}" no longer exists.'.format(
-                    object_name
-                )
+                'Object "{}" no longer exists.'.format(object_name)
             )
             continue
 
-        if obj.type != "MESH":
-            continue
+        try:
+            if not is_object_available_for_qc(obj):
+                continue
+        except NameError:
+            pass
 
-        if obj.data is None:
+        if obj.type != "MESH" or obj.data is None:
             continue
 
         if obj.library is not None:
             issues.append(
-                "Skipped linked object: {}".format(
-                    obj.name
-                )
+                "Skipped linked object: {}".format(obj.name)
             )
             continue
 
-        original_failed_objects.append(
-            obj
-        )
-
-        add_candidate(
-            obj
-        )
-
-        for descendant in get_object_descendants(
-            obj
-        ):
-            if descendant.library is not None:
-                continue
-
-            add_candidate(
-                descendant
+        if getattr(obj.data, "library", None) is not None:
+            issues.append(
+                "Skipped object with linked mesh data: {}".format(obj.name)
             )
+            continue
 
-    # Preserve scales before this fix modifies anything. This lets the
-    # result explain which objects actually changed, including children
-    # that were already unit-scale and never appear in "remaining" below.
-    previous_scales = {
-        obj.name:
-            tuple(
-                obj.scale
-            )
-        for obj in candidate_objects
-    }
+        pointer = obj.as_pointer()
+        if pointer in seen:
+            continue
+
+        seen.add(pointer)
+        candidates.append(obj)
+
+    candidates.sort(key=get_object_parent_depth)
 
     try:
-
-        # -----------------------------------------------------
-        # Apply + verify.
-        #
-        # The whole candidate set is selected TOGETHER and passed to a
-        # single transform_apply() call, mirroring exactly what happens
-        # when a user selects a parent/child hierarchy and runs
-        # Object > Apply > Scale manually. Blender resolves the entire
-        # scale-compensation cascade internally as part of that one call,
-        # regardless of how many hierarchy levels are involved - there is
-        # no need to discover and re-process newly-affected children on
-        # separate passes.
-        # -----------------------------------------------------
-
-        for attempt in range(
-            max(
-                1,
-                int(
-                    max_retries
-                ),
-            )
-        ):
-
-            # Only used to decide whether ANOTHER attempt is needed at
-            # all - NOT used to build the selection below. Narrowing the
-            # selection down to only currently-bad objects would only ever
-            # select whichever single object became bad most recently,
-            # discovering the next one a level down only on a LATER
-            # attempt - that is the exact one-level-per-pass bug this
-            # rewrite exists to eliminate.
-            still_needs_fix = [
-                obj
-                for obj in candidate_objects
-                if (
-                    obj.name in bpy.data.objects
-                    and object_has_unapplied_scale(
-                        obj
-                    )
-                )
-            ]
-
-            if not still_needs_fix:
-                break
-
-            # Select the FULL candidate set together - every originally
-            # failed object AND every one of its descendants, regardless
-            # of what their scale currently shows. This is what lets
-            # Blender resolve the entire parent-to-child compensation
-            # cascade in this single call, the same way it does when a
-            # user selects the whole hierarchy natively and hits Apply
-            # Scale - rather than only ever selecting one newly-affected
-            # object per attempt.
-            batch = [
-                obj
-                for obj in candidate_objects
-                if obj.name in bpy.data.objects
-            ]
-
-            # Blender applies scale to the Mesh datablock. Make shared
-            # meshes single-user first so other objects are not modified
-            # unintentionally.
-            for obj in batch:
-                if obj.data.users > 1:
-                    obj.data = (
-                        obj.data.copy()
-                    )
-
-            # Temporarily reveal/unlock everything about to be batched,
-            # remembering original states so they can be restored after.
-            saved_visibility = {}
-
-            for obj in batch:
-                try:
-                    original_hide_state = (
-                        obj.hide_get()
-                    )
-                except RuntimeError:
-                    original_hide_state = False
-
-                saved_visibility[obj.name] = (
-                    obj.hide_viewport,
-                    obj.hide_select,
-                    original_hide_state,
-                )
-
-                obj.hide_viewport = False
-                obj.hide_select = False
-
-                try:
-                    obj.hide_set(
-                        False
-                    )
-                except RuntimeError:
-                    pass
-
-            # Deselect everything currently selectable, then select the
-            # whole batch together.
-            for selected_obj in list(
-                context.selected_objects
-            ):
-                try:
-                    selected_obj.select_set(
-                        False
-                    )
-                except RuntimeError:
-                    pass
-
-            selected_objects = []
-
-            for obj in batch:
-                if (
-                    view_layer.objects.get(
-                        obj.name
-                    )
-                    is None
-                ):
-                    issues.append(
-                        (
-                            'Could not apply scale to "{}": '
-                            "object is not in the current View Layer."
-                        ).format(
-                            obj.name
-                        )
-                    )
-                    continue
-
-                try:
-                    obj.select_set(
-                        True
-                    )
-                    selected_objects.append(
-                        obj
-                    )
-                except RuntimeError as error:
-                    issues.append(
-                        'Could not select "{}": {}'.format(
-                            obj.name,
-                            error,
-                        )
-                    )
-
-            if selected_objects:
-
-                view_layer.objects.active = (
-                    selected_objects[0]
-                )
-
-                try:
-                    operator_result = (
-                        bpy.ops.object.transform_apply(
-                            location=False,
-                            rotation=False,
-                            scale=True,
-                            properties=False,
-                        )
-                    )
-
-                    if (
-                        "FINISHED"
-                        not in operator_result
-                    ):
-                        issues.append(
-                            "Could not apply scale to selected object(s)."
-                        )
-
-                except Exception as error:
-                    issues.append(
-                        "Could not apply scale: {}".format(
-                            error
-                        )
-                    )
-
-            # Restore visibility/selectability for every object in this
-            # batch, regardless of outcome.
-            for obj in batch:
-                if obj.name not in bpy.data.objects:
-                    continue
-
-                (
-                    hide_viewport,
-                    hide_select,
-                    hide_state,
-                ) = saved_visibility[obj.name]
-
-                obj.hide_viewport = hide_viewport
-                obj.hide_select = hide_select
-
-                try:
-                    obj.hide_set(
-                        hide_state
-                    )
-                except RuntimeError:
-                    pass
-
-            view_layer.update()
-
-        # -----------------------------------------------------
-        # Final verification
-        # -----------------------------------------------------
-
-        still_failing = []
-
-        original_failed_names = {
-            obj.name
-            for obj in original_failed_objects
-        }
-
-        for obj in candidate_objects:
-
+        for obj in candidates:
             if obj.name not in bpy.data.objects:
                 continue
 
-            if object_has_unapplied_scale(
-                obj
-            ):
-                still_failing.append(
-                    obj.name
-                )
-
+            if not object_has_unapplied_scale(obj):
                 continue
 
-            # Only report an object as fixed when:
-            #   - it originally failed, or
-            #   - its scale changed during this operation because a parent
-            #     apply affected it and we corrected it automatically.
-            original_scale = previous_scales.get(
-                obj.name,
-                tuple(
-                    obj.scale
-                ),
-            )
+            mesh = obj.data
+            previous_scale = tuple(obj.scale)
 
-            scale_was_unit = all(
-                isclose(
-                    value,
-                    1.0,
-                    abs_tol=TOLERANCE,
+            modifier_state = (
+                capture_scale_sensitive_modifier_state(
+                    obj
                 )
-                for value in original_scale
             )
 
-            if (
-                obj.name not in original_failed_names
-                and scale_was_unit
-            ):
-                # The descendant started valid and ended valid. It may have
-                # temporarily changed between passes, but there is no need
-                # to expose it as an original QC failure.
+            # Preserve only direct children. If their world transforms are
+            # preserved, deeper descendants remain preserved automatically.
+            child_states = []
+            for child in list(obj.children):
+                if child.name not in bpy.data.objects:
+                    continue
+
+                child_states.append({
+                    "child": child,
+                    "world": child.matrix_world.copy(),
+                    "basis": child.matrix_basis.copy(),
+                    "parent_type": child.parent_type,
+                })
+
+            if mesh.users > 1:
+                mesh = mesh.copy()
+                obj.data = mesh
+
+            scale_matrix = Matrix.Diagonal((
+                float(obj.scale.x),
+                float(obj.scale.y),
+                float(obj.scale.z),
+                1.0,
+            ))
+
+            try:
+                mesh.transform(scale_matrix, shape_keys=True)
+            except TypeError:
+                mesh.transform(scale_matrix)
+            except Exception as error:
+                issues.append(
+                    'Could not bake scale into mesh for "{}": {}'.format(
+                        obj.name,
+                        error,
+                    )
+                )
                 continue
 
-            fixed_objects[
-                obj.name
-            ] = {
+            obj.scale = (1.0, 1.0, 1.0)
+
+            try:
+                mesh.update()
+            except Exception:
+                pass
+
+            modifier_issues = (
+                restore_scale_sensitive_modifier_state(
+                    obj,
+                    modifier_state,
+                )
+            )
+
+            issues.extend(
+                modifier_issues
+            )
+
+            view_layer.update()
+
+            for state in child_states:
+                child = state["child"]
+                if child.name not in bpy.data.objects:
+                    continue
+
+                old_world = state["world"]
+                old_basis = state["basis"]
+
+                if child.parent is obj and state["parent_type"] == "OBJECT":
+                    try:
+                        new_parent_inverse = (
+                            obj.matrix_world.inverted_safe()
+                            @ old_world
+                            @ old_basis.inverted_safe()
+                        )
+                        child.matrix_parent_inverse = new_parent_inverse
+                        child.matrix_basis = old_basis
+                    except Exception as error:
+                        issues.append(
+                            'Could not preserve child "{}" after fixing parent '
+                            '"{}": {}'.format(child.name, obj.name, error)
+                        )
+                        try:
+                            child.matrix_world = old_world
+                        except Exception:
+                            pass
+                else:
+                    try:
+                        child.matrix_world = old_world
+                    except Exception as error:
+                        issues.append(
+                            'Could not restore child "{}" after fixing parent '
+                            '"{}": {}'.format(child.name, obj.name, error)
+                        )
+
+            view_layer.update()
+
+            if object_has_unapplied_scale(obj):
+                issues.append(
+                    'Scale is still unapplied on "{}".'.format(obj.name)
+                )
+                continue
+
+            fixed_objects[obj.name] = {
                 "previous_scale":
-                    original_scale,
+                    previous_scale,
 
                 "scale":
                     tuple(
@@ -609,99 +590,90 @@ def fix_objects_scale(
 
                 "scale_applied":
                     True,
+
+                "child_world_transforms_preserved":
+                    True,
+
+                "child_local_transforms_preserved":
+                    True,
+
+                "solidify_modifiers_compensated":
+                    [
+                        state[
+                            "modifier_name"
+                        ]
+                        for state in modifier_state.get(
+                            "solidify",
+                            []
+                        )
+                    ],
+
+                "solidify_compensation":
+                    [
+                        {
+                            "modifier":
+                                state[
+                                    "modifier_name"
+                                ],
+
+                            "scale_factor":
+                                state.get(
+                                    "scale_factor",
+                                    1.0,
+                                ),
+
+                            "exact":
+                                bool(
+                                    state.get(
+                                        "exact_uniform",
+                                        False,
+                                    )
+                                ),
+                        }
+                        for state in modifier_state.get(
+                            "solidify",
+                            []
+                        )
+                    ],
             }
 
-        if still_failing:
-            issues.append(
-                (
-                    "Scale is still unapplied on {} object(s) after "
-                    "{} attempt(s): {}"
-                ).format(
-                    len(
-                        still_failing
-                    ),
-                    max(
-                        1,
-                        int(
-                            max_retries
-                        ),
-                    ),
-                    ", ".join(
-                        still_failing
-                    ),
-                )
-            )
-
     finally:
-        # -----------------------------------------------------
-        # Restore original selection
-        # -----------------------------------------------------
-
-        for selected_obj in list(
-            context.selected_objects
-        ):
+        for selected_obj in list(context.selected_objects):
             try:
-                selected_obj.select_set(
-                    False
-                )
+                selected_obj.select_set(False)
             except RuntimeError:
                 pass
 
         for selected_obj in original_selected:
-
             if selected_obj.name not in bpy.data.objects:
                 continue
-
-            if (
-                view_layer.objects.get(
-                    selected_obj.name
-                )
-                is None
-            ):
+            if view_layer.objects.get(selected_obj.name) is None:
                 continue
-
             try:
-                selected_obj.select_set(
-                    True
-                )
+                selected_obj.select_set(True)
             except RuntimeError:
                 pass
 
         if (
             original_active is not None
             and original_active.name in bpy.data.objects
-            and view_layer.objects.get(
-                original_active.name
-            ) is not None
+            and view_layer.objects.get(original_active.name) is not None
         ):
-            view_layer.objects.active = (
-                original_active
-            )
+            view_layer.objects.active = original_active
 
-        if (
-            original_mode != "OBJECT"
-            and view_layer.objects.active is not None
-        ):
-            mode_name = get_mode_set_name(
-                original_mode
-            )
-
+        if original_mode != "OBJECT" and view_layer.objects.active is not None:
+            mode_name = get_mode_set_name(original_mode)
             if mode_name:
                 try:
-                    bpy.ops.object.mode_set(
-                        mode=mode_name
-                    )
+                    bpy.ops.object.mode_set(mode=mode_name)
                 except RuntimeError:
                     pass
 
         view_layer.update()
 
     return {
-        "fixed_objects":
-            fixed_objects,
-
-        "issues":
-            issues,
+        "fixed_objects": fixed_objects,
+        "issues": issues,
     }
 
 
