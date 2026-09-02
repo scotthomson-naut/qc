@@ -41,7 +41,7 @@ SETTINGS = {
         "description": (
             "Choose how automatic Fix handles non-zero Location."
         ),
-        "default": "PRESERVE_PIVOT",
+        "default": "APPLY_LOCATION",
         "items": [
             (
                 "PRESERVE_PIVOT",
