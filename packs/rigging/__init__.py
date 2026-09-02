@@ -1,19 +1,19 @@
 """Scriptronaut Rigging Pack."""
 
+import os
+
+
 bl_info = {
     "name": "Scriptronaut QC Rigging Pack",
     "author": "Scriptronaut",
-    "version": (0, 1, 0),
+    "version": (1, 0, 0),
     "blender": (4, 3, 0),
     "location": "Scriptronaut QC Checker",
     "description": "Rigging Pack for the Scriptronaut registered-check API",
     "category": "Scriptronaut",
 }
 
-from pathlib import Path
-
-
-PACK_ID = "scriptronaut_rigging_pack"
+PACK_ID = "scriptronaut_qc_rigging_pack"
 PACK_NAME = "Rigging Pack"
 
 
