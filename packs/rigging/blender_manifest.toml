@@ -1,0 +1,19 @@
+schema_version = "1.0.0"
+
+id = "scriptronaut_qc_rigging_pack"
+version = "0.1.0"
+name = "Scriptronaut QC Rigging Pack"
+tagline = "Rigging checks for Scriptronaut QC Checker"
+maintainer = "Scriptronaut"
+type = "add-on"
+
+blender_version_min = "4.3.0"
+
+license = [
+    "SPDX:GPL-3.0-or-later",
+]
+
+tags = [
+    "Rigging",
+    "Pipeline",
+]
