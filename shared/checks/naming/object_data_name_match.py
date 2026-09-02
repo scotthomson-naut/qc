@@ -104,16 +104,11 @@ def get_objects_with_mismatched_data_names(
     if objects is None:
         objects = bpy.context.scene.objects
 
-    try:
-        qc_objects = list(
-            get_qc_objects(
-                objects
-            )
-        )
-    except NameError:
-        qc_objects = list(
+    qc_objects = list(
+        get_qc_objects(
             objects
         )
+    )
 
     candidates = []
 
@@ -393,14 +388,9 @@ def fix_objects_with_mismatched_data_names(
     # ---------------------------------------------------------
 
     for object_name in failed_objects:
-        try:
-            obj = get_qc_object(
-                object_name
-            )
-        except NameError:
-            obj = bpy.data.objects.get(
-                object_name
-            )
+        obj = get_qc_object(
+            object_name
+        )
 
         if obj is None:
             issues.append(
@@ -909,4 +899,3 @@ def fix_objects_with_mismatched_data_names(
         "issues": issues,
         "remaining_failed_objects": remaining,
     }
-

@@ -317,14 +317,9 @@ def fix_objects_preserve_pivot(
 
     for object_name in target_names:
 
-        try:
-            obj = get_qc_object(
-                object_name
-            )
-        except NameError:
-            obj = bpy.data.objects.get(
-                object_name
-            )
+        obj = get_qc_object(
+            object_name
+        )
 
         if obj is None:
             issues.append(

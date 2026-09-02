@@ -87,7 +87,8 @@ def get_objects_scale(
 
     Args:
         objects (list): List of Blender objects.
-                        Defaults to bpy.data.objects.
+                        Defaults to QC-eligible objects in the active
+                        Scene and View Layer.
         tolerance (float): Floating point comparison tolerance.
         exclude_types (list): Object type to exclude.
 
@@ -103,16 +104,17 @@ def get_objects_scale(
             ...
         }
     """
-    if objects is None:
-        objects = bpy.data.objects
-
     if exclude_types is None:
         # Skip cameras and lights
         exclude_types = {'CAMERA', 'LIGHT'}
 
     results = {}
 
-    for obj in objects:
+    # Always pass the supplied collection through the shared QC filter.
+    # In particular, never default to bpy.data.objects: it also contains
+    # object datablocks that are not linked to any scene and therefore
+    # cannot be selected or safely fixed through the current context.
+    for obj in get_qc_objects(objects):
         if obj.type in exclude_types:
             continue
 
@@ -420,10 +422,7 @@ def fix_objects_scale(
     seen = set()
 
     for object_name in failed_objects:
-        try:
-            obj = get_qc_object(object_name)
-        except NameError:
-            obj = bpy.data.objects.get(object_name)
+        obj = get_qc_object(object_name)
 
         if obj is None:
             issues.append(
@@ -431,11 +430,8 @@ def fix_objects_scale(
             )
             continue
 
-        try:
-            if not is_object_available_for_qc(obj):
-                continue
-        except NameError:
-            pass
+        if not is_object_available_for_qc(obj):
+            continue
 
         if obj.type != "MESH" or obj.data is None:
             continue
