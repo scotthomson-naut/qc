@@ -44,19 +44,19 @@ SETTINGS = {
         "default": "APPLY_LOCATION",
         "items": [
             (
-                "PRESERVE_PIVOT",
-                "Preserve Pivot (Move to Delta)",
-                (
-                    "Move normal Location into Delta Location. "
-                    "Preserves the current world-space origin/pivot."
-                ),
-            ),
-            (
                 "APPLY_LOCATION",
                 "Native Apply Location",
                 (
                     "Use Blender's Object > Apply > Location behavior. "
                     "Location becomes zero by baking translation into mesh data."
+                ),
+            ),
+            (
+                "PRESERVE_PIVOT",
+                "Preserve Pivot (Move to Delta)",
+                (
+                    "Move normal Location into Delta Location. "
+                    "Preserves the current world-space origin/pivot."
                 ),
             ),
             (
