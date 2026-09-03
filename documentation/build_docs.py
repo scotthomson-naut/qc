@@ -11,6 +11,7 @@ from generate_html_pages import (
     generate_product_site,
 )
 from product_features import get_product_features
+from product_notes import get_product_notes
 from generate_product_pages import (
     generate_product_page,
     generate_qc_checker_product_index,
@@ -327,6 +328,9 @@ def build_product(
         features=get_product_features(
             product_id
         ),
+        notes=get_product_notes(
+            product_id
+        ),
         version=version,
     )
 
@@ -429,6 +433,9 @@ def build_pack(
             "output_path"
         ],
         features=[],
+        notes=get_product_notes(
+            pack_id
+        ),
         version=version,
     )
 

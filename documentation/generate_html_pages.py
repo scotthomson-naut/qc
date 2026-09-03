@@ -484,6 +484,7 @@ def generate_product_site(
     tier: str,
     product_path: str | Path,
     features: list[dict[str, Any]] | None = None,
+    notes: list[dict[str, Any]] | None = None,
     version: str = "1.0",
 ) -> None:
     """Generate one Core, Pro, or Pack documentation subtree."""
@@ -523,6 +524,7 @@ def generate_product_site(
     )
 
     features = features or []
+    notes = notes or []
 
     qc_root = output_dir / "docs" / "qc_checker"
     product_output = qc_root / product_path
@@ -561,6 +563,38 @@ def generate_product_site(
     panel_action = '<a class="button primary" href="panel.html">Open panel guide →</a>' if has_panel else ''
     first_category = category_slug(categories[0]) if categories else ""
     browse_action = f'<a class="button" href="categories/{first_category}.html">Browse checks</a>' if first_category else ''
+    notes_html = ""
+    if notes:
+        note_cards = []
+        for note in notes:
+            if isinstance(note, str):
+                note_title = ""
+                note_description = note
+            elif isinstance(note, dict):
+                note_title = str(note.get("title") or "")
+                note_description = str(note.get("description") or "")
+            else:
+                continue
+
+            if not note_title and not note_description:
+                continue
+
+            note_cards.append(
+                '<article class="general-note">'
+                + (f'<h3>{esc(note_title)}</h3>' if note_title else "")
+                + f'<p>{esc(note_description)}</p>'
+                + '</article>'
+            )
+
+        if note_cards:
+            notes_html = (
+                '<section class="general-notes">'
+                '<h2>General Notes</h2>'
+                '<div class="general-notes-list">'
+                + "".join(note_cards)
+                + '</div></section>'
+            )
+
     index_body = (
         f'<div class="eyebrow">Official Documentation</div><h1 class="{product_hilite_class}">{esc(product_label).title()}</h1>'
         f'<p class="lead">Production-focused documentation for the <b class="{product_hilite_class}">{len(records)}</b> checks included with {esc(product_name)}.</p>'
@@ -570,6 +604,7 @@ def generate_product_site(
         '<div class="astronaut-wrap" id="astronaut">'
         f'<img src="{product_site_prefix}svg/scriptronaut_character.svg" '
         'alt="Scriptronaut character"></div></section>'
+        + notes_html
         + (
             f'<h2><b class="{product_hilite_class}">{esc(product_label).title()}</b> Features</h2>'
             '<div class="grid">'
@@ -828,7 +863,7 @@ def main() -> int:
     args = parser.parse_args()
     generate_product_site(
         args.data_path, args.output_dir, args.product_id, args.product_name,
-        args.tier, args.product_path, features=[], version=args.version,
+        args.tier, args.product_path, features=[], notes=[], version=args.version,
     )
     print(f"Generated documentation product: {args.product_name}")
     return 0
