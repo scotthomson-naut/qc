@@ -78,6 +78,28 @@ def title_from_identifier(value: str) -> str:
     return " ".join(special.get(word.lower(), word.capitalize()) for word in words)
 
 
+def normalize_enum_items(value: Any) -> list[dict[str, str]]:
+    """Normalize Blender enum tuples for predictable HTML rendering."""
+    if not isinstance(value, (list, tuple)):
+        return []
+
+    items: list[dict[str, str]] = []
+    for enum_item in value:
+        if not isinstance(enum_item, (list, tuple)) or len(enum_item) < 2:
+            continue
+
+        identifier = str(enum_item[0])
+        label = str(enum_item[1] or title_from_identifier(identifier))
+        description = str(enum_item[2] or "") if len(enum_item) >= 3 else ""
+        items.append({
+            "id": identifier,
+            "label": label,
+            "description": description,
+        })
+
+    return items
+
+
 def normalize_settings(value: Any) -> list[dict[str, Any]]:
     if not isinstance(value, dict):
         return []
@@ -94,7 +116,10 @@ def normalize_settings(value: Any) -> list[dict[str, Any]]:
         }
         for key in ("min", "max", "soft_min", "soft_max", "step", "precision", "items"):
             if key in definition:
-                item[key] = definition[key]
+                if key == "items" and item["type"] == "enum":
+                    item[key] = normalize_enum_items(definition[key])
+                else:
+                    item[key] = definition[key]
         settings.append(item)
     return settings
 

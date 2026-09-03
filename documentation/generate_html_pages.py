@@ -429,7 +429,7 @@ def settings_table(settings: list[dict[str, Any]]) -> str:
             limits.append(f'Min: {esc(setting["min"])}')
         if "max" in setting:
             limits.append(f'Max: {esc(setting["max"])}')
-        rows.append(
+        setting_row = (
             '<tr>'
             f'<th>{esc(setting.get("label"))}</th>'
             f'<td><code>{esc(setting.get("id"))}</code></td>'
@@ -438,6 +438,37 @@ def settings_table(settings: list[dict[str, Any]]) -> str:
             f'<td>{esc(setting.get("description"))}<div class="small">{" · ".join(limits)}</div></td>'
             '</tr>'
         )
+
+        enum_items = (
+            setting.get("items")
+            if setting.get("type") == "enum"
+            else []
+        )
+        enum_options = ""
+        if isinstance(enum_items, list) and enum_items:
+            option_rows = []
+            for option in enum_items:
+                if not isinstance(option, dict):
+                    continue
+                option_rows.append(
+                    '<tr>'
+                    f'<td>{esc(option.get("label"))}</td>'
+                    f'<td><code>{esc(option.get("id"))}</code></td>'
+                    f'<td>{esc(option.get("description"))}</td>'
+                    '</tr>'
+                )
+
+            if option_rows:
+                enum_options = (
+                    '<tr class="enum-options-row"><td colspan="5">'
+                    '<div class="enum-options"><div class="enum-options-title">Options</div>'
+                    '<div class="table-scroll"><table class="enum-options-table">'
+                    '<thead><tr><th>Option</th><th>Value</th><th>Description</th></tr></thead>'
+                    '<tbody>' + "".join(option_rows) + '</tbody></table></div></div>'
+                    '</td></tr>'
+                )
+
+        rows.append(setting_row + enum_options)
     return (
         '<div class="table-scroll"><table class="feature-table"><thead><tr>'
         '<th>Setting</th><th>ID</th><th>Type</th><th>Default</th><th>Description</th>'
