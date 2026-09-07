@@ -40,18 +40,21 @@ img { max-width: 100%; margin-right: 4px;}
   pointer-events: none;
   background-image: radial-gradient(white, rgba(255,255,255,.25) 2px, transparent 5px);
   background-size: 550px 550px;
+  z-index:-2;
   animation: twinkle 4s ease-in-out infinite;
 }
 .stars-medium {
   background-image: radial-gradient(white, rgba(255,255,255,.20) 1.5px, transparent 3px);
   background-size: 350px 350px;
   background-position: 20px 30px;
+  z-index:-2;
   animation: twinkle 8s ease-in-out infinite;
 }
 .stars-faint {
   background-image: radial-gradient(white, rgba(255,255,255,.15) 1px, transparent 2px);
   background-size: 200px 200px;
   background-position: 130px 240px;
+  z-index:-2;
   animation: twinkle 12s ease-in-out infinite;
 }
 
