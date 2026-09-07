@@ -19,6 +19,7 @@ from ..utils.json_io import (
     result_summary_from_json,
 )
 from ..utils.module_loader import load_module_from_path
+from ..utils.diagnostics import capture_current_traceback
 
 
 def refresh_issues_display(context):
@@ -187,7 +188,7 @@ def load_qc_category(context):
             )
 
             print(
-                traceback.format_exc()
+                capture_current_traceback()
             )
 
             # Do NOT stop loading the remaining checks.

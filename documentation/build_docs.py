@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import shutil
 from pathlib import Path
 
 from extract_check_metadata import generate_metadata
+from extract_check_metadata import scan_checks
 from generate_html_pages import (
     generate_product_site,
 )
@@ -118,6 +120,57 @@ def prepare_site(
     shutil.copytree(
         template_site,
         output_dir,
+    )
+
+
+def generate_beta_feedback_checks(
+        output_dir: Path,
+) -> None:
+    """Generate the feedback dropdown directly from every available check."""
+    sources = [
+        (SHARED_CHECKS, "core", "core"),
+        (PRO_CHECKS, "pro", "pro"),
+    ]
+
+    for pack in discover_packs().values():
+        sources.append(
+            (
+                pack["checks_dir"],
+                "pack",
+                pack["id"],
+            )
+        )
+
+    categories = {}
+
+    for checks_dir, tier, product in sources:
+        if not Path(checks_dir).is_dir():
+            continue
+
+        for record in scan_checks(
+            checks_dir,
+            source_tier=tier,
+            source_product=product,
+        ):
+            category = record["categoryId"]
+            label = record["label"]
+            categories.setdefault(category, [])
+            if label not in categories[category]:
+                categories[category].append(label)
+
+    categories = {
+        category: sorted(labels, key=str.lower)
+        for category, labels in sorted(categories.items())
+    }
+
+    output_path = output_dir / "js" / "beta-feedback-checks.js"
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(
+        "/* Auto-generated from QC check metadata. */\n"
+        "window.QC_BETA_CHECKS = "
+        + json.dumps(categories, indent=4, ensure_ascii=False)
+        + ";\n",
+        encoding="utf-8",
     )
 
 
@@ -673,6 +726,10 @@ def main() -> int:
         parser.error(
             "Nothing selected. Choose a Core/Pro product and/or one or more packs."
         )
+
+    generate_beta_feedback_checks(
+        TEMPLATE
+    )
 
     prepare_site(
         TEMPLATE,

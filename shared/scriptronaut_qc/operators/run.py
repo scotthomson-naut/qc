@@ -27,6 +27,7 @@ from ..core.results import (
 from ..utils.time_utils import (
     format_elapsed_time,
 )
+from ..utils.diagnostics import record_traceback
 
 
 # -------------------------------------------------------------------------
@@ -583,9 +584,12 @@ class SCRIPTRONAUT_OT_QC_RunSelected(Operator):
 
                 except Exception:
 
+                    traceback_text = traceback.format_exc()
+                    record_traceback(traceback_text)
+
                     result_data = {
                         "issues": [
-                            traceback.format_exc()
+                            traceback_text
                         ],
 
                         "check_name":

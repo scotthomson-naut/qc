@@ -20,7 +20,7 @@ from .core.runtime import (
 )
 from .properties import items as property_items
 from .properties import settings as property_settings
-from .operators import fix, info, run, selection, settings as settings_ops
+from .operators import feedback, fix, info, run, selection, settings as settings_ops
 from .ui import lists, panel
 from .icons import (
     register_icons,
@@ -33,7 +33,7 @@ from .properties import (
 )
 
 CLASS_MODULES = (
-    property_items, property_settings, lists, run, selection,
+    property_items, property_settings, lists, feedback, run, selection,
     fix, info, settings_ops, panel,
 )
 

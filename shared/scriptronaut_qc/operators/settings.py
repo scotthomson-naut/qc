@@ -7,6 +7,7 @@ import traceback
 import bpy
 from bpy.props import BoolProperty, CollectionProperty, IntProperty, StringProperty
 from bpy.types import Operator
+from ..utils.diagnostics import capture_current_traceback
 
 from .. import constants
 from ..core.context import QCContext
@@ -212,7 +213,7 @@ class SCRIPTRONAUT_OT_QC_CheckSettings(Operator):
                 self.script_path,
             )
         except Exception:
-            print(traceback.format_exc())
+            print(capture_current_traceback())
             module = None
 
         if module is None:

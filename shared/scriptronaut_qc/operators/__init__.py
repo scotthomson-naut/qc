@@ -1,6 +1,7 @@
 """Scriptronaut QC operators."""
 
 from . import (
+    feedback,
     fix,
     info,
     run,
@@ -9,6 +10,7 @@ from . import (
 )
 
 CLASSES = (
+    *feedback.CLASSES,
     *fix.CLASSES,
     *info.CLASSES,
     *run.CLASSES,

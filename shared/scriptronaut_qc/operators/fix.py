@@ -17,6 +17,7 @@ from ..core.context import QCContext
 from ..core import *
 from ..properties import SCRIPTRONAUT_PG_CheckSetting
 from ..utils import *
+from ..utils.diagnostics import capture_current_traceback
 
 
 # -------------------------------------------------------------------------
@@ -422,7 +423,7 @@ class SCRIPTRONAUT_OT_QC_FixAll(
                         "{}:\n{}".format(
                             item.display_name
                             or item.name,
-                            traceback.format_exc(),
+                            capture_current_traceback(),
                         )
                     )
 
@@ -727,7 +728,7 @@ class SCRIPTRONAUT_OT_QC_FixCheckInline(
         except Exception:
 
             print(
-                traceback.format_exc()
+                capture_current_traceback()
             )
 
             self.report(
@@ -1013,7 +1014,7 @@ class SCRIPTRONAUT_OT_QC_FixFailedObjectInline(
 
         except Exception:
             print(
-                traceback.format_exc()
+                capture_current_traceback()
             )
 
             self.report(
@@ -1272,7 +1273,7 @@ class SCRIPTRONAUT_OT_QC_FixObjectInline(
         except Exception:
 
             print(
-                traceback.format_exc()
+                capture_current_traceback()
             )
 
             self.report(
@@ -1579,7 +1580,7 @@ class SCRIPTRONAUT_OT_QC_FixAllObjectChecks(
                         "{}:\n{}".format(
                             check_item.display_name
                             or check_item.name,
-                            traceback.format_exc(),
+                            capture_current_traceback(),
                         )
                     )
 

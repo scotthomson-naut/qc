@@ -4,7 +4,7 @@ import time
 
 from bpy.types import Panel, UIList
 
-from ..constants import COMMON_CATEGORY, TIER
+from ..constants import BETA_DOCUMENTATION_URL, COMMON_CATEGORY, TIER
 from ..core import (
     draw_feature,
     get_qc_elapsed_text,
@@ -298,6 +298,33 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
                 "draw_objects_mode",
                 time.perf_counter() - profile_start,
             )
+
+        # ---------------------------------------------------------
+        # Temporary private-beta links
+        # ---------------------------------------------------------
+
+        beta_box = layout.box()
+        beta_box.label(
+            text="Private Beta",
+            icon="EXPERIMENTAL",
+        )
+
+        beta_row = beta_box.row(
+            align=True
+        )
+
+        beta_row.operator(
+            "scriptronaut.qc_beta_feedback",
+            text="Send Feedback",
+            icon="URL",
+        )
+
+        docs_button = beta_row.operator(
+            "wm.url_open",
+            text="Core Documentation",
+            icon="HELP",
+        )
+        docs_button.url = BETA_DOCUMENTATION_URL
 
     # ---------------------------------------------------------------------
     # Progress

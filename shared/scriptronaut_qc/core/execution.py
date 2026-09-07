@@ -16,6 +16,7 @@ from .object_filter import (
 from ..utils.json_io import result_data_to_json
 from ..utils.module_loader import load_module_from_path
 from ..utils.time_utils import format_elapsed_time
+from ..utils.diagnostics import record_traceback
 
 
 def call_check_main(
@@ -281,7 +282,7 @@ def rerun_qc_check_item(item):
         return True
 
     except Exception:
-        print(
-            traceback.format_exc()
-        )
+        traceback_text = traceback.format_exc()
+        record_traceback(traceback_text)
+        print(traceback_text)
         return False

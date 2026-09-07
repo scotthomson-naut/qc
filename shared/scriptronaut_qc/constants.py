@@ -16,6 +16,12 @@ CHECK_PREFERENCES_FILE = str(
     Path(CHECK_PREFERENCES_DIR) / "check_preferences.json"
 )
 TIER = "Core"
+VERSION = "1.0.0"
+
+# Temporary private-beta links. Remove these and the feedback operator when
+# the beta feedback workflow is retired.
+BETA_FEEDBACK_URL = "https://scriptronaut.com/beta-feedback.html"
+BETA_DOCUMENTATION_URL = "https://scriptronaut.com/docs/qc_checker/core/index.html"
 
 QC_IS_RUNNING = False
 QC_IGNORE_CHANGES_UNTIL = 0.0
