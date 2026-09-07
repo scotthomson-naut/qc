@@ -179,9 +179,11 @@ img { max-width: 100%; margin-right: 4px;}
 
 /* Links */
 
+/*
 .i-contact:hover {
     filter: brightness(0) saturate(100%) invert(100%) sepia(0%) saturate(3245%) hue-rotate(16deg) brightness(117%) contrast(108%);
 }
+*/
 
 .i-facebook:hover {
     filter: brightness(0) saturate(100%) invert(43%) sepia(97%) saturate(468%) hue-rotate(180deg) brightness(97%) contrast(81%);
@@ -193,7 +195,7 @@ img { max-width: 100%; margin-right: 4px;}
 
 
 /* Groups About */
-.i-orange, .i-about:hover, .i-terms:hover, .i-privacy:hover {
+.i-orange, .i-contact:hover, .i-about:hover, .i-terms:hover, .i-privacy:hover {
     filter: brightness(0) saturate(100%) invert(60%) sepia(72%) saturate(1794%) hue-rotate(340deg) brightness(100%) contrast(98%);
 }
 
