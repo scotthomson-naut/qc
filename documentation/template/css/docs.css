@@ -89,32 +89,36 @@ img { max-width: 100%; margin-right: 4px;}
   backdrop-filter: blur(16px);
 }
 
-
+/* Animation rocket */
 
 .sprite-animation {
-    width: 400px;   /* The width of exactly ONE frame */
-    height: 400px;  /* The height of ONE frame */
-
-    /* Link your SVG file as a background */
+    width: 400px;
+    height: 400px;
     background-image: url('../svg/sprites/rocket_spritesheet.svg');
     background-repeat: no-repeat;
-    background-size: 3200px 400px; /* Full size of the entire SVG */
+    background-size: 3200px 400px;
 
-    /* 
-    The magic: 8 frames = steps(8). 
-    This forces the browser to jump cleanly between frames without sliding.
-    */
-    animation: play-frames 1.66s steps(8) infinite;
+    /* Total time: 4.66s (1.66s animation + 3s pause) */
+    animation: play-frames 4.66s linear infinite;
 }
 
 @keyframes play-frames {
-    from {
+    /* 1. Cycle through frames 1 to 7 */
+    0% {
         background-position: 0px 0;
+        animation-timing-function: steps(7); 
     }
-    to {
-        background-position: -3200px 0; /* Shifts the background perfectly to the end */
+    /* 2. Arrive at frame 8 at the 1.66s mark (35.6% of the timeline) */
+    35.6% {
+        background-position: -2800px 0; 
+    }
+    /* 3. Freeze on frame 8 for the remaining 3 seconds */
+    100% {
+        background-position: -2800px 0; 
     }
 }
+
+
 
 .brand { display: flex; align-items: center; gap: 12px; font-weight: 700; }
 .brand img { width: 170px; height: 34px; object-fit: contain; object-position: left center; }
