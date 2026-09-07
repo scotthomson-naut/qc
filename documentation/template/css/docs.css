@@ -18,7 +18,8 @@
   --hilite-pack-animation: #ae2d4b;
   --hilite-pack-rigging: #b482cd;
   --hilite-pack-lighting: #aeab30;
-  --max: 100%
+  --max: 100%;
+  --carousel-radius: 164px; 
 }
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
@@ -34,6 +35,7 @@ img { max-width: 100%; margin-right: 4px;}
 
 
 /* Creates full-screen stacked star layers */
+
 .stars {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
@@ -68,6 +70,7 @@ img { max-width: 100%; margin-right: 4px;}
 
 
  /* Astronaut */
+ 
 .astronaut-wrap {
   animation: float 5.8s ease-in-out infinite;
   will-change: transform;
@@ -121,16 +124,54 @@ img { max-width: 100%; margin-right: 4px;}
     }
 }
 
+/* Carousel Launch text */
+
+.cylinder-container {
+  perspective: 1000px; 
+}
+
+.fade-edges {
+  mask-image: linear-gradient(to right, transparent 0%, black 20%, black 80%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 20%, black 80%, transparent 100%);
+}
+
+.cylinder {
+  position: relative;
+  width: 400px;
+  height: 32px;
+  transform-style: preserve-3d;
+  animation: spinY 16s linear infinite;
+  transform: rotateX(0deg); 
+}
+
+.cylinder span {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: var(--orange);
+  text-align: center;
+  text-transform: uppercase;
+  backface-visibility: hidden;
+  
+  /* Math: Uses the dynamic --total-letters variable from JS */
+  transform: 
+    rotateY(calc(var(--i) * (360deg / var(--total-letters)))) 
+    translateZ(var(--carousel-radius));
+}
+
+@keyframes spinY {
+  from { transform: rotateX(0deg) rotateY(0deg); }
+  to { transform: rotateX(0deg) rotateY(-360deg); }
+}
+
 
 
 .brand { display: flex; align-items: center; gap: 12px; font-weight: 700; }
 .brand img { width: 170px; height: 34px; object-fit: contain; object-position: left center; }
-.brand-mark {
-  width: 34px; height: 34px; display: grid; place-items: center;
-  border: 1px solid var(--line); border-radius: 10px;
-  color: var(--orange); background: var(--panel);
-  font-family: "Space Grotesk", sans-serif;
-}
 .centered {
     display: flex; justify-content: center; align-items: center; margin-top:20px;
 }
