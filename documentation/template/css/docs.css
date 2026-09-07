@@ -89,6 +89,33 @@ img { max-width: 100%; margin-right: 4px;}
   backdrop-filter: blur(16px);
 }
 
+
+
+.sprite-animation {
+    width: 400px;   /* The width of exactly ONE frame */
+    height: 400px;  /* The height of ONE frame */
+
+    /* Link your SVG file as a background */
+    background-image: url('../svg/sprites/rocket_spritesheet.svg');
+    background-repeat: no-repeat;
+    background-size: 3200px 400px; /* Full size of the entire SVG */
+
+    /* 
+    The magic: 8 frames = steps(8). 
+    This forces the browser to jump cleanly between frames without sliding.
+    */
+    animation: play-frames 1.66s steps(8) infinite;
+}
+
+@keyframes play-frames {
+    from {
+        background-position: 0px 0;
+    }
+    to {
+        background-position: -3200px 0; /* Shifts the background perfectly to the end */
+    }
+}
+
 .brand { display: flex; align-items: center; gap: 12px; font-weight: 700; }
 .brand img { width: 170px; height: 34px; object-fit: contain; object-position: left center; }
 .brand-mark {
@@ -97,7 +124,7 @@ img { max-width: 100%; margin-right: 4px;}
   color: var(--orange); background: var(--panel);
   font-family: "Space Grotesk", sans-serif;
 }
-.brand-centered {
+.centered {
     display: flex; justify-content: center; align-items: center; margin-top:20px;
 }
 
