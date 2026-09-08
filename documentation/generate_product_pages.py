@@ -190,7 +190,11 @@ def generate_product_page(
         '<section class="product-section"><h2 class="{}">Requirements / compatibility</h2><p>{}</p></section>'.format(css_class, esc(content.get("requirements"))),
         '<section class="product-final-cta"><h2 class="{}">Ready to inspect the details?</h2>'.format(css_class),
         '<div class="actions">{}<a class="button" href="{}">Open Documentation</a></div></section>'.format(buy_button, docs_href),
-        '<footer class="footer"><b>Scriptronaut</b> | <b class="{}">{}</b><span style="float:right;">&copy; {}</span></footer>'.format(css_class, esc(product_name), year),
+        '<footer class="footer"><b>Scriptronaut</b> | <b class="{}">{}</b><span style="float:right;">&copy; {}</span>'
+        '<div style="text-align:right;"><a href="{}privacy-policy.html" class="hilite-legal">Privacy Policy</a> &middot; '
+        '<a href="{}terms-and-conditions.html" class="hilite-legal">Terms and Conditions</a></div></footer>'.format(
+            css_class, esc(product_name), year, site_prefix, site_prefix
+        ),
         '</main></body></html>',
     ]
 
@@ -215,6 +219,7 @@ def generate_qc_checker_product_index(
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     site_prefix = "../../"
+    year = datetime.now().year
     cards = []
 
     for product in products:
@@ -281,6 +286,9 @@ def generate_qc_checker_product_index(
         '        <div class="grid">',
         "\n".join(cards),
         '        </div>',
+        '        <footer class="footer"><b>Scriptronaut</b> | <b>QC Checker</b><span style="float:right;">&copy; {}</span>'.format(year),
+        '            <div style="text-align:right;"><a href="{}privacy-policy.html" class="hilite-legal">Privacy Policy</a> &middot; '.format(site_prefix),
+        '            <a href="{}terms-and-conditions.html" class="hilite-legal">Terms and Conditions</a></div></footer>'.format(site_prefix),
         '    </main>',
         '</body>',
         '</html>',

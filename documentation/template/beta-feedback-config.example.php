@@ -5,11 +5,11 @@ declare(strict_types=1);
  * Copy this file to beta-feedback-config.php on the web server.
  * Keep the real config out of source control and do not make it downloadable.
  * Generate each hash with:
- *
+ *    'recipient' => 'beta@scriptronaut.com',
  *     php -r "echo password_hash('TESTER ACCESS CODE', PASSWORD_DEFAULT), PHP_EOL;"
- */
+*/
 return [
-    'recipient' => 'beta@scriptronaut.com',
+    'recipient' => 'scot.thomson@gmail.com',
     'from' => 'website@scriptronaut.com',
     'subject_prefix' => '[QC Checker Beta]',
     'max_file_bytes' => 8 * 1024 * 1024,

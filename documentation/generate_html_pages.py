@@ -414,7 +414,10 @@ def page_shell(
             product_depth=product_depth,
         )
         + f'<main class="content">{body}<footer class="footer"><b>Scriptronaut</b> | QC Checker <b class="{hilite_class}">{esc(product_label)}</b> documentation.'
-        f'<span style="float:right;">&copy; {current_year}</span></footer></main></div>'
+        f'<span style="float:right;">&copy; {current_year}</span>'
+        f'<div style="text-align:right;"><a href="{site_prefix}privacy-policy.html" class="hilite-legal">Privacy Policy</a>'
+        f' &middot; <a href="{site_prefix}terms-and-conditions.html" class="hilite-legal">Terms and Conditions</a></div>'
+        '</footer></main></div>'
         f'<script src="{data_script}"></script>'
         f'<script src="{qc_prefix}assets/js/docs.js"></script></body></html>'
     )
