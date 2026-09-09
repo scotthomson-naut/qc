@@ -423,34 +423,39 @@ img { max-width: 100%; margin-right: 4px;}
 }
 
 
-/* tool story */
+/* Tool story */
 
-.tool-story {
-  display: flex; 
-  gap: 12px; 
-  width: 100%; 
+/* Parent story-container holding both story-columns */
+.story-container {
+  display: flex;
+  gap: 30px;
+  align-items: flex-start;
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 20px;
 }
 
-.tool-story img {
-  flex: 33.33%; 
-  width: 100%; 
-  object-fit: cover; 
-  height: 100%; 
-  width:312px;
-  border-radius:16px;
-  border: 2px solid var(--hilite-core);
+.story-column {
+  flex: 1;
 }
 
-/* --- Mobile Styles --- */
+.story-column h2{
+    margin: 16px 0 16px; 
+}
 
-@media (max-width: 768px) {
-  .tool-story {
-    flex-direction: column;
-    align-items: center;
-  }
-  
-  .tool-story img {
-    flex: 100%; 
+/* Makes sure the image resizes beautifully and doesn't spill out */
+.story-image-col img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 8px;
+}
+
+/* Responsive adjustment for tablets and mobile devices */
+@media screen and (max-width: 768px) {
+  .story-container {
+    flex-direction: story-column;
+    gap: 20px;
   }
 }
 
