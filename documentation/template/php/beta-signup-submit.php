@@ -145,14 +145,12 @@ $safeEmail = preg_replace('/[\r\n]+/', '', $email);
 $subject = preg_replace('/[\r\n]+/', ' ', $prefix . ' Signup: ' . $safeName);
 $submittedAt = gmdate('c');
 $ipAddress = beta_client_ip();
-$ipCountryRegion = beta_client_location();
 $candidate = [
     'name' => $name,
     'email' => strtolower($email),
     'blender_use' => $blenderUse,
     'blender_version' => $blenderVersion,
     'ip_address' => $ipAddress,
-    'ip_country_region' => $ipCountryRegion,
     'submitted_utc' => $submittedAt,
 ];
 try {
@@ -175,7 +173,6 @@ $message = implode("\r\n", [
     'Main Blender use: ' . $blenderUse,
     'Blender version: ' . $blenderVersion,
     'IP address: ' . $ipAddress,
-    'IP country/region: ' . ($ipCountryRegion !== '' ? $ipCountryRegion : 'Not supplied by server'),
 ]);
 $orange = '#ffc18f';
 $blue = '#c9e5f7';

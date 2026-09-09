@@ -39,8 +39,7 @@ the Blender URL, or the feedback email.
 Candidate records are indexed by lowercase email. Feedback is also indexed by
 email when the tester configuration includes one; otherwise it uses the tester
 ID. Each feedback submission is appended to that tester's `reports` array.
-IP addresses are recorded from the web server. Country, region, and city are
-recorded only when the host or proxy supplies geolocation headers.
+IP addresses are recorded from the web server.
 
 ## Blender links
 

@@ -11,30 +11,6 @@ function beta_client_ip(): string
     return trim((string)($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
 }
 
-function beta_client_location(): string
-{
-    $country = trim((string)(
-        $_SERVER['HTTP_CF_IPCOUNTRY']
-        ?? $_SERVER['GEOIP_COUNTRY_NAME']
-        ?? $_SERVER['HTTP_X_COUNTRY_CODE']
-        ?? ''
-    ));
-    $region = trim((string)(
-        $_SERVER['HTTP_CF_REGION']
-        ?? $_SERVER['GEOIP_REGION_NAME']
-        ?? $_SERVER['HTTP_X_REGION']
-        ?? ''
-    ));
-    $city = trim((string)(
-        $_SERVER['HTTP_CF_IPCITY']
-        ?? $_SERVER['GEOIP_CITY']
-        ?? $_SERVER['HTTP_X_CITY']
-        ?? ''
-    ));
-
-    return implode(', ', array_values(array_filter([$country, $region, $city])));
-}
-
 function beta_data_path(array $config, string $filename): string
 {
     $directory = trim((string)($config['data_directory'] ?? ''));
@@ -93,9 +69,9 @@ function beta_email_cell(string $label, string $value, string $background, int $
     $safeLabel = beta_html($label);
     $safeValue = nl2br(beta_html($value));
     $width = $colspan > 1 ? '100%' : '50%';
-    return '<td colspan="' . $colspan . '" style="width:' . $width . ';padding:7px 9px;border:1px solid #6c625b;'
+    return '<td colspan="' . $colspan . '" style="width:' . $width . ';padding:9px;border:0;'
         . 'vertical-align:top;background:' . $background . ';font-family:Arial,sans-serif;font-size:14px;color:#171717;">'
-        . '<strong>' . $safeLabel . ':</strong><br><span style="color:#356da8;">' . $safeValue . '</span></td>';
+        . '<strong>' . $safeLabel . ':</strong><br><span style="color:#1c3478;">' . $safeValue . '</span></td>';
 }
 
 function beta_email_document(string $content): string
@@ -115,24 +91,31 @@ function beta_send_alternative_email(
     string $html,
     array $attachments = []
 ): bool {
-    $mixedBoundary = 'qc-beta-mixed-' . bin2hex(random_bytes(18));
     $alternativeBoundary = 'qc-beta-alt-' . bin2hex(random_bytes(18));
     $headers = [
         'From: ' . $from,
         'Reply-To: ' . $replyTo,
         'MIME-Version: 1.0',
-        'Content-Type: multipart/mixed; boundary="' . $mixedBoundary . '"',
     ];
 
+    $alternativeMessage = '--' . $alternativeBoundary . "\r\n";
+    $alternativeMessage .= "Content-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n";
+    $alternativeMessage .= quoted_printable_encode($plainText) . "\r\n";
+    $alternativeMessage .= '--' . $alternativeBoundary . "\r\n";
+    $alternativeMessage .= "Content-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n";
+    $alternativeMessage .= quoted_printable_encode($html) . "\r\n";
+    $alternativeMessage .= '--' . $alternativeBoundary . "--\r\n";
+
+    if ($attachments === []) {
+        $headers[] = 'Content-Type: multipart/alternative; boundary="' . $alternativeBoundary . '"';
+        return mail($recipient, $subject, $alternativeMessage, implode("\r\n", $headers));
+    }
+
+    $mixedBoundary = 'qc-beta-mixed-' . bin2hex(random_bytes(18));
+    $headers[] = 'Content-Type: multipart/mixed; boundary="' . $mixedBoundary . '"';
     $message = '--' . $mixedBoundary . "\r\n";
     $message .= 'Content-Type: multipart/alternative; boundary="' . $alternativeBoundary . "\"\r\n\r\n";
-    $message .= '--' . $alternativeBoundary . "\r\n";
-    $message .= "Content-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\n";
-    $message .= $plainText . "\r\n";
-    $message .= '--' . $alternativeBoundary . "\r\n";
-    $message .= "Content-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\n";
-    $message .= $html . "\r\n";
-    $message .= '--' . $alternativeBoundary . "--\r\n";
+    $message .= $alternativeMessage;
 
     foreach ($attachments as $attachment) {
         $contents = file_get_contents((string)$attachment['path']);

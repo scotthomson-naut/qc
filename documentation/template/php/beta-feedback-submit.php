@@ -152,6 +152,10 @@ if ($reportType === '' || $tier === '' || $summary === '' || $details === '') {
     finish_page(false, 'Missing information', 'Report type, product, summary, and details are required.');
 }
 
+if ($tier !== 'Core') {
+    finish_page(false, 'Invalid product', 'QC Checker Core is the only product currently available for beta feedback.');
+}
+
 $fields = [];
 foreach (array_keys(MAX_FIELD_LENGTHS) as $fieldName) {
     if ($fieldName !== 'tester_id') {
@@ -224,7 +228,6 @@ $labels = [
 
 $submittedAt = gmdate('c');
 $ipAddress = beta_client_ip();
-$ipCountryRegion = beta_client_location();
 $bodyLines = [
     'QC Checker private beta feedback',
     'Tester ID: ' . $testerId,
@@ -243,9 +246,6 @@ foreach ($labels as $fieldName => $label) {
 
 $bodyLines[] = 'IP address:';
 $bodyLines[] = $ipAddress;
-$bodyLines[] = '';
-$bodyLines[] = 'IP country/region:';
-$bodyLines[] = $ipCountryRegion !== '' ? $ipCountryRegion : 'Not supplied by server';
 
 $report = [
     'submitted_utc' => $submittedAt, 'tester_id' => $testerId,
@@ -260,7 +260,7 @@ $report = [
     'attachments' => array_values(array_map(
         static fn(array $attachment): string => (string)$attachment['name'], $attachments
     )),
-    'ip_address' => $ipAddress, 'ip_country_region' => $ipCountryRegion,
+    'ip_address' => $ipAddress,
 ];
 $recordKey = $testerEmail !== '' ? $testerEmail : $testerId;
 try {
