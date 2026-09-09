@@ -22,5 +22,10 @@ return [
             'email' => 'scot.thomson@gmail.com',
             'password_hash' => '$2y$12$sQAyQvw5p1nKpQ1IfKLFp.5a8iWaREOGOs93IPLWJUtvYOwUCQyOK',
         ],
+        'barbin' => [
+            'name' => 'Stephane Barbin',
+            'email' => 'sbalbarbin@gmail.com',
+            'password_hash' => '$2y$12$ry6QZtd6yjSX99gWuFPGiuA6chmZx2oP/HOfZ5BjGOy8eHlR7wbQS',
+        ],
     ],
 ];
