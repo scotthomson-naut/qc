@@ -422,6 +422,40 @@ img { max-width: 100%; margin-right: 4px;}
     align-content: start;
 }
 
+
+/* tool story */
+
+.tool-story {
+  display: flex; 
+  gap: 12px; 
+  width: 100%; 
+}
+
+.tool-story img {
+  flex: 33.33%; 
+  width: 100%; 
+  object-fit: cover; 
+  height: 100%; 
+  width:312px;
+  border-radius:16px;
+  border: 2px solid var(--hilite-core);
+}
+
+/* --- Mobile Styles --- */
+
+@media (max-width: 768px) {
+  .tool-story {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .tool-story img {
+    flex: 100%; 
+  }
+}
+
+
+
 .search-wrap { margin-bottom: 22px; }
 .search-wrap input, .search-page input {
   width: 100%; border: 1px solid var(--line); border-radius: 12px;
