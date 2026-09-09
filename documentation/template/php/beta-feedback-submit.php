@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . DIRECTORY_SEPARATOR . 'beta-common.php';
+
 const ALLOWED_EXTENSIONS = ['blend', 'txt', 'log', 'png', 'jpg', 'jpeg', 'zip'];
 const MAX_FIELD_LENGTHS = [
     'tester_id' => 80,
@@ -37,7 +39,7 @@ function finish_page(bool $success, string $title, string $message)
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>{$safeTitle} — Scriptronaut</title>
-    <link rel="stylesheet" href="css/docs.css">
+    <link rel="stylesheet" href="../css/docs.css">
 </head>
 <body>
     <div class="stars"></div><div class="stars stars-medium"></div><div class="stars stars-faint"></div>
@@ -45,7 +47,7 @@ function finish_page(bool $success, string $title, string $message)
         <section class="beta-form-card {$statusClass}">
             <h1>{$safeTitle}</h1>
             <p>{$safeMessage}</p>
-            <div class="actions"><a class="button primary" href="beta-feedback.html">Return to Feedback</a></div>
+            <div class="actions"><a class="button primary" href="../beta-feedback.html">Return to Feedback</a></div>
         </section>
     </main>
 </body>
@@ -129,7 +131,12 @@ if (post_value('website') !== '') {
 $testerId = strtolower(post_value('tester_id'));
 $accessCode = isset($_POST['access_code']) && is_string($_POST['access_code']) ? $_POST['access_code'] : '';
 $testers = isset($config['testers']) && is_array($config['testers']) ? $config['testers'] : [];
-$passwordHash = $testers[$testerId] ?? '';
+$testerEntry = $testers[$testerId] ?? '';
+$passwordHash = is_array($testerEntry)
+    ? (string)($testerEntry['password_hash'] ?? '')
+    : (string)$testerEntry;
+$testerName = is_array($testerEntry) ? trim((string)($testerEntry['name'] ?? '')) : '';
+$testerEmail = is_array($testerEntry) ? strtolower(trim((string)($testerEntry['email'] ?? ''))) : '';
 
 if (!is_string($passwordHash) || $passwordHash === '' || !password_verify($accessCode, $passwordHash)) {
     usleep(350000);
@@ -215,10 +222,13 @@ $labels = [
     'source' => 'Opened from',
 ];
 
+$submittedAt = gmdate('c');
+$ipAddress = beta_client_ip();
+$ipCountryRegion = beta_client_location();
 $bodyLines = [
     'QC Checker private beta feedback',
     'Tester ID: ' . $testerId,
-    'Submitted UTC: ' . gmdate('c'),
+    'Submitted UTC: ' . $submittedAt,
     '',
 ];
 
@@ -231,6 +241,49 @@ foreach ($labels as $fieldName => $label) {
     }
 }
 
+$bodyLines[] = 'IP address:';
+$bodyLines[] = $ipAddress;
+$bodyLines[] = '';
+$bodyLines[] = 'IP country/region:';
+$bodyLines[] = $ipCountryRegion !== '' ? $ipCountryRegion : 'Not supplied by server';
+
+$report = [
+    'submitted_utc' => $submittedAt, 'tester_id' => $testerId,
+    'type' => $reportType, 'product' => $tier,
+    'category' => $fields['category'], 'check' => $fields['check_name'],
+    'check_id' => $fields['check_id'], 'summary' => $summary, 'details' => $details,
+    'steps_to_reproduce' => $fields['steps'], 'expected_result' => $fields['expected_result'],
+    'actual_result' => $fields['actual_result'], 'qc_checker_version' => $fields['qc_version'],
+    'blender_version' => $fields['blender_version'], 'operating_system' => $fields['operating_system'],
+    'blend_filename' => $fields['blend_filename'], 'traceback' => $fields['traceback'],
+    'traceback_time' => $fields['traceback_time'], 'opened_from' => $fields['source'],
+    'attachments' => array_values(array_map(
+        static fn(array $attachment): string => (string)$attachment['name'], $attachments
+    )),
+    'ip_address' => $ipAddress, 'ip_country_region' => $ipCountryRegion,
+];
+$recordKey = $testerEmail !== '' ? $testerEmail : $testerId;
+try {
+    $feedbackPath = beta_data_path($config, 'qc_check_beta_feedback.json');
+    beta_update_json($feedbackPath, static function (array $data) use (
+        $recordKey, $testerId, $testerName, $testerEmail, $report
+    ): array {
+        $tester = isset($data[$recordKey]) && is_array($data[$recordKey]) ? $data[$recordKey] : [];
+        $tester['tester_id'] = $testerId;
+        $tester['name'] = $testerName;
+        $tester['email'] = $testerEmail;
+        $tester['reports'] = isset($tester['reports']) && is_array($tester['reports'])
+            ? $tester['reports'] : [];
+        $tester['reports'][] = $report;
+        $data[$recordKey] = $tester;
+        ksort($data, SORT_NATURAL | SORT_FLAG_CASE);
+        return $data;
+    });
+} catch (Throwable $error) {
+    error_log('QC beta feedback storage error: ' . $error->getMessage());
+    finish_page(false, 'Could not save feedback', 'The server could not save your report. Please try again later.');
+}
+
 $recipient = (string)($config['recipient'] ?? '');
 $from = (string)($config['from'] ?? '');
 $prefix = (string)($config['subject_prefix'] ?? '[QC Checker Beta]');
@@ -239,34 +292,43 @@ if (!filter_var($recipient, FILTER_VALIDATE_EMAIL) || !filter_var($from, FILTER_
 }
 
 $subjectText = preg_replace('/[\r\n]+/', ' ', $prefix . ' ' . $reportType . ': ' . $summary);
-$boundary = 'qc-beta-' . bin2hex(random_bytes(18));
-$headers = [
-    'From: ' . $from,
-    'Reply-To: ' . $from,
-    'MIME-Version: 1.0',
-    'Content-Type: multipart/mixed; boundary="' . $boundary . '"',
-];
-
-$message = '--' . $boundary . "\r\n";
-$message .= "Content-Type: text/plain; charset=UTF-8\r\n";
-$message .= "Content-Transfer-Encoding: 8bit\r\n\r\n";
-$message .= implode("\r\n", $bodyLines) . "\r\n";
-
-foreach ($attachments as $attachment) {
-    $contents = file_get_contents($attachment['path']);
-    if ($contents === false) {
-        finish_page(false, 'Upload failed', 'An attachment could not be read by the server.');
-    }
-    $message .= '--' . $boundary . "\r\n";
-    $message .= 'Content-Type: ' . $attachment['type'] . '; name="' . $attachment['name'] . "\"\r\n";
-    $message .= "Content-Transfer-Encoding: base64\r\n";
-    $message .= 'Content-Disposition: attachment; filename="' . $attachment['name'] . "\"\r\n\r\n";
-    $message .= chunk_split(base64_encode($contents)) . "\r\n";
+$value = static fn(string $field): string => ($fields[$field] ?? '') !== '' ? $fields[$field] : '—';
+$orange = '#ffc18f'; $warm = '#f4ece6'; $blue = '#c9e5f7';
+$htmlMessage = beta_email_document(
+    '<tr>' . beta_email_cell('Tester ID', $testerId, $orange)
+    . beta_email_cell('Submitted', gmdate('l, jS F Y @ g:ia') . ' UTC', $orange) . '</tr>'
+    . '<tr><td colspan="2" style="padding:8px 10px;background:' . $warm
+    . ';font:700 20px Arial,sans-serif;color:#171717;">Product Report</td></tr>'
+    . '<tr>' . beta_email_cell('Product', ucfirst($tier), $warm)
+    . beta_email_cell('QC Checker version', $value('qc_version'), $warm) . '</tr>'
+    . '<tr>' . beta_email_cell('Report type', $reportType, $warm, 2) . '</tr>'
+    . '<tr>' . beta_email_cell('Category', $value('category'), $warm, 2) . '</tr>'
+    . '<tr>' . beta_email_cell('Check', $value('check_name'), $warm)
+    . beta_email_cell('Check ID', $value('check_id'), $warm) . '</tr>'
+    . '<tr>' . beta_email_cell('Summary', $summary, $warm, 2) . '</tr>'
+    . '<tr>' . beta_email_cell('Details', $details, $warm, 2) . '</tr>'
+    . '<tr>' . beta_email_cell('Steps to reproduce', $value('steps'), $warm, 2) . '</tr>'
+    . '<tr>' . beta_email_cell('Expected result', $value('expected_result'), $warm)
+    . beta_email_cell('Actual result', $value('actual_result'), $warm) . '</tr>'
+    . '<tr>' . beta_email_cell('Blend filename', $value('blend_filename'), $warm, 2) . '</tr>'
+    . '<tr>' . beta_email_cell('Traceback / console output', $value('traceback'), $warm, 2) . '</tr>'
+    . '<tr><td colspan="2" style="padding:8px 10px;background:' . $blue
+    . ';font:700 20px Arial,sans-serif;color:#171717;">Software</td></tr>'
+    . '<tr>' . beta_email_cell('Blender version', $value('blender_version'), $blue)
+    . beta_email_cell('Operating system', $value('operating_system'), $blue) . '</tr>'
+    . '<tr>' . beta_email_cell('Opened from', $value('source'), $blue, 2) . '</tr>'
+);
+$replyTo = filter_var($testerEmail, FILTER_VALIDATE_EMAIL) ? $testerEmail : $from;
+try {
+    $sent = beta_send_alternative_email(
+        $recipient, $from, $replyTo, $subjectText,
+        implode("\r\n", $bodyLines), $htmlMessage, $attachments
+    );
+} catch (Throwable $error) {
+    error_log('QC beta feedback email error: ' . $error->getMessage());
+    $sent = false;
 }
-
-$message .= '--' . $boundary . "--\r\n";
-
-if (!mail($recipient, $subjectText, $message, implode("\r\n", $headers))) {
+if (!$sent) {
     finish_page(false, 'Could not send feedback', 'The mail server did not accept the report. Please contact Scriptronaut directly.');
 }
 

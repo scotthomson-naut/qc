@@ -1,28 +1,46 @@
 # QC Checker private beta feedback setup
 
-The feedback page is copied into `documentation/site` whenever the documentation
-builder runs.
+The beta pages and the `php` handler folder are copied into `documentation/site`
+whenever the documentation builder runs.
 
 ## Server setup
 
-1. Copy `beta-feedback-config.example.php` to `beta-feedback-config.php` on the
-   web server.
-2. Set the recipient and sender email addresses.
+1. Edit `documentation/template/php/beta-feedback-config.php` before building,
+   or edit `documentation/site/php/beta-feedback-config.php` on the web server.
+2. Set the recipient and sender email addresses. Set `data_directory` to a
+   private, writable folder outside the public website directory.
 3. Create a unique access code for each tester. Generate its hash with:
 
    ```console
    php -r "echo password_hash('TESTER ACCESS CODE', PASSWORD_DEFAULT), PHP_EOL;"
    ```
 
-4. Add each tester ID and generated hash to the `testers` array. Tester IDs are
-   entered in lowercase by the handler.
-5. Keep the real config file out of source control.
+4. Add each lowercase tester ID, name, email, and generated hash to the
+   `testers` array:
+
+   ```php
+   'tester01' => [
+       'name' => 'Tester Name',
+       'email' => 'tester@example.com',
+       'password_hash' => '$2y$10$REPLACE_WITH_A_REAL_PASSWORD_HASH',
+   ],
+   ```
+
+5. Keep the real config and generated JSON files out of source control. The
+   handlers create `qc_check_beta_candidates.json` and
+   `qc_check_beta_feedback.json` in `data_directory`.
 6. Confirm that PHP `mail()` is configured by the host and that PHP upload limits
    are at least `upload_max_filesize = 8M` and `post_max_size = 21M`.
 7. Serve the feedback page and handler over HTTPS.
 
 The access code is checked only by PHP. It is never included in the page source,
 the Blender URL, or the feedback email.
+
+Candidate records are indexed by lowercase email. Feedback is also indexed by
+email when the tester configuration includes one; otherwise it uses the tester
+ID. Each feedback submission is appended to that tester's `reports` array.
+IP addresses are recorded from the web server. Country, region, and city are
+recorded only when the host or proxy supplies geolocation headers.
 
 ## Blender links
 

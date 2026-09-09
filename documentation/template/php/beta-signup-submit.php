@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . DIRECTORY_SEPARATOR . 'beta-common.php';
+
 const SIGNUP_FIELD_LIMITS = [
     'name' => 120,
     'email' => 254,
@@ -23,7 +25,7 @@ function finish_signup(bool $success, string $title, string $message): void
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>{$safeTitle} — Scriptronaut</title>
-    <link rel="stylesheet" href="css/docs.css">
+    <link rel="stylesheet" href="../css/docs.css">
 </head>
 <body>
     <div class="stars"></div><div class="stars stars-medium"></div><div class="stars stars-faint"></div>
@@ -31,7 +33,7 @@ function finish_signup(bool $success, string $title, string $message): void
         <section class="beta-form-card {$statusClass}">
             <h1>{$safeTitle}</h1>
             <p>{$safeMessage}</p>
-            <div class="actions"><a class="button primary" href="betas.html">Return to Beta Page</a></div>
+            <div class="actions"><a class="button primary" href="../betas.html">Return to Beta Page</a></div>
         </section>
     </main>
 </body>
@@ -141,22 +143,57 @@ if (!filter_var($recipient, FILTER_VALIDATE_EMAIL) || !filter_var($from, FILTER_
 $safeName = preg_replace('/[\r\n]+/', ' ', $name);
 $safeEmail = preg_replace('/[\r\n]+/', '', $email);
 $subject = preg_replace('/[\r\n]+/', ' ', $prefix . ' Signup: ' . $safeName);
+$submittedAt = gmdate('c');
+$ipAddress = beta_client_ip();
+$ipCountryRegion = beta_client_location();
+$candidate = [
+    'name' => $name,
+    'email' => strtolower($email),
+    'blender_use' => $blenderUse,
+    'blender_version' => $blenderVersion,
+    'ip_address' => $ipAddress,
+    'ip_country_region' => $ipCountryRegion,
+    'submitted_utc' => $submittedAt,
+];
+try {
+    $candidatePath = beta_data_path($config, 'qc_check_beta_candidates.json');
+    beta_update_json($candidatePath, static function (array $data) use ($candidate): array {
+        $data[$candidate['email']] = $candidate;
+        ksort($data, SORT_NATURAL | SORT_FLAG_CASE);
+        return $data;
+    });
+} catch (Throwable $error) {
+    error_log('QC beta signup storage error: ' . $error->getMessage());
+    finish_signup(false, 'Could not save signup', 'The server could not save your signup. Please try again later.');
+}
 $message = implode("\r\n", [
     'QC Checker beta signup',
-    'Submitted UTC: ' . gmdate('c'),
+    'Submitted UTC: ' . $submittedAt,
     '',
     'Name: ' . $name,
     'Email: ' . $email,
     'Main Blender use: ' . $blenderUse,
     'Blender version: ' . $blenderVersion,
+    'IP address: ' . $ipAddress,
+    'IP country/region: ' . ($ipCountryRegion !== '' ? $ipCountryRegion : 'Not supplied by server'),
 ]);
-$headers = [
-    'From: ' . $from,
-    'Reply-To: ' . $safeEmail,
-    'Content-Type: text/plain; charset=UTF-8',
-];
-
-if (!mail($recipient, $subject, $message, implode("\r\n", $headers))) {
+$orange = '#ffc18f';
+$blue = '#c9e5f7';
+$htmlMessage = beta_email_document(
+    '<tr>' . beta_email_cell('Name', $name, $orange)
+    . beta_email_cell('Main Blender use', $blenderUse, $blue) . '</tr>'
+    . '<tr>' . beta_email_cell('Email', $email, $orange)
+    . beta_email_cell('Blender version', $blenderVersion, $blue) . '</tr>'
+);
+try {
+    $sent = beta_send_alternative_email(
+        $recipient, $from, $safeEmail, $subject, $message, $htmlMessage
+    );
+} catch (Throwable $error) {
+    error_log('QC beta signup email error: ' . $error->getMessage());
+    $sent = false;
+}
+if (!$sent) {
     finish_signup(false, 'Could not send signup', 'The server could not send your signup. Please try again later.');
 }
 
