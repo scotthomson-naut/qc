@@ -11,6 +11,13 @@ function beta_client_ip(): string
     return trim((string)($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
 }
 
+function beta_montreal_time(string $utcTimestamp): string
+{
+    $submitted = new DateTimeImmutable($utcTimestamp);
+    $montreal = $submitted->setTimezone(new DateTimeZone('America/Toronto'));
+    return $montreal->format('l, jS F Y @ g:ia T');
+}
+
 function beta_data_path(array $config, string $filename): string
 {
     $directory = trim((string)($config['data_directory'] ?? ''));
@@ -68,10 +75,11 @@ function beta_email_cell(string $label, string $value, string $background, int $
 {
     $safeLabel = beta_html($label);
     $safeValue = nl2br(beta_html($value));
+    $textColor = '#fff464';
     $width = $colspan > 1 ? '100%' : '50%';
     return '<td colspan="' . $colspan . '" style="width:' . $width . ';padding:9px;border:0;'
-        . 'vertical-align:top;background:' . $background . ';font-family:Arial,sans-serif;font-size:14px;color:#171717;">'
-        . '<strong>' . $safeLabel . ':</strong><br><span style="color:#1c3478;">' . $safeValue . '</span></td>';
+        . 'vertical-align:top;background:' . $background . ';font-family:Arial,sans-serif;font-size:14px;color:#ffffff;">'
+        . '<strong>' . $safeLabel . ':</strong><br><span style="color:' . $textColor . ';">' . $safeValue . '</span></td>';
 }
 
 function beta_email_document(string $content): string

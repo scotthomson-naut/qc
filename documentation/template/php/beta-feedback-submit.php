@@ -227,11 +227,12 @@ $labels = [
 ];
 
 $submittedAt = gmdate('c');
+$submittedAtMontreal = beta_montreal_time($submittedAt);
 $ipAddress = beta_client_ip();
 $bodyLines = [
     'QC Checker private beta feedback',
     'Tester ID: ' . $testerId,
-    'Submitted UTC: ' . $submittedAt,
+    'Submitted (Montreal): ' . $submittedAtMontreal,
     '',
 ];
 
@@ -293,12 +294,12 @@ if (!filter_var($recipient, FILTER_VALIDATE_EMAIL) || !filter_var($from, FILTER_
 
 $subjectText = preg_replace('/[\r\n]+/', ' ', $prefix . ' ' . $reportType . ': ' . $summary);
 $value = static fn(string $field): string => ($fields[$field] ?? '') !== '' ? $fields[$field] : '—';
-$orange = '#ffc18f'; $warm = '#f4ece6'; $blue = '#c9e5f7';
+$orange = '#fc842c'; $warm = '#583980'; $blue = '#9478ec';
 $htmlMessage = beta_email_document(
     '<tr>' . beta_email_cell('Tester ID', $testerId, $orange)
-    . beta_email_cell('Submitted', gmdate('l, jS F Y @ g:ia') . ' UTC', $orange) . '</tr>'
+    . beta_email_cell('Submitted (Montreal)', $submittedAtMontreal, $orange) . '</tr>'
     . '<tr><td colspan="2" style="padding:8px 10px;background:' . $warm
-    . ';font:700 20px Arial,sans-serif;color:#171717;">Product Report</td></tr>'
+    . ';font:700 20px Arial,sans-serif;color:#ffffff;">Product Report</td></tr>'
     . '<tr>' . beta_email_cell('Product', ucfirst($tier), $warm)
     . beta_email_cell('QC Checker version', $value('qc_version'), $warm) . '</tr>'
     . '<tr>' . beta_email_cell('Report type', $reportType, $warm, 2) . '</tr>'
@@ -313,7 +314,7 @@ $htmlMessage = beta_email_document(
     . '<tr>' . beta_email_cell('Blend filename', $value('blend_filename'), $warm, 2) . '</tr>'
     . '<tr>' . beta_email_cell('Traceback / console output', $value('traceback'), $warm, 2) . '</tr>'
     . '<tr><td colspan="2" style="padding:8px 10px;background:' . $blue
-    . ';font:700 20px Arial,sans-serif;color:#171717;">Software</td></tr>'
+    . ';font:700 20px Arial,sans-serif;color:#ffffff;">Software</td></tr>'
     . '<tr>' . beta_email_cell('Blender version', $value('blender_version'), $blue)
     . beta_email_cell('Operating system', $value('operating_system'), $blue) . '</tr>'
     . '<tr>' . beta_email_cell('Opened from', $value('source'), $blue, 2) . '</tr>'

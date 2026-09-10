@@ -187,11 +187,11 @@ img { max-width: 100%; margin-right: 4px;}
 
 /* Links */
 
-/*
-.i-contact:hover {
-    filter: brightness(0) saturate(100%) invert(100%) sepia(0%) saturate(3245%) hue-rotate(16deg) brightness(117%) contrast(108%);
+
+.i-beta:hover {
+    filter: brightness(0) saturate(100%) invert(49%) sepia(46%) saturate(1051%) hue-rotate(214deg) brightness(100%) contrast(98%);
 }
-*/
+
 
 .i-facebook:hover {
     filter: brightness(0) saturate(100%) invert(43%) sepia(97%) saturate(468%) hue-rotate(180deg) brightness(97%) contrast(81%);

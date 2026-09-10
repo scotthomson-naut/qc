@@ -144,6 +144,7 @@ $safeName = preg_replace('/[\r\n]+/', ' ', $name);
 $safeEmail = preg_replace('/[\r\n]+/', '', $email);
 $subject = preg_replace('/[\r\n]+/', ' ', $prefix . ' Signup: ' . $safeName);
 $submittedAt = gmdate('c');
+$submittedAtMontreal = beta_montreal_time($submittedAt);
 $ipAddress = beta_client_ip();
 $candidate = [
     'name' => $name,
@@ -166,7 +167,7 @@ try {
 }
 $message = implode("\r\n", [
     'QC Checker beta signup',
-    'Submitted UTC: ' . $submittedAt,
+    'Submitted (Montreal): ' . $submittedAtMontreal,
     '',
     'Name: ' . $name,
     'Email: ' . $email,
@@ -174,8 +175,8 @@ $message = implode("\r\n", [
     'Blender version: ' . $blenderVersion,
     'IP address: ' . $ipAddress,
 ]);
-$orange = '#ffc18f';
-$blue = '#c9e5f7';
+$orange = '#fc842c';
+$blue = '#9478ec';
 $htmlMessage = beta_email_document(
     '<tr>' . beta_email_cell('Name', $name, $orange)
     . beta_email_cell('Main Blender use', $blenderUse, $blue) . '</tr>'
