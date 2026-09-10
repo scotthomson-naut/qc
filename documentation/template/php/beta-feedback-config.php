@@ -7,7 +7,7 @@ declare(strict_types=1);
  *     php -r "echo password_hash('TESTER ACCESS CODE', PASSWORD_DEFAULT), PHP_EOL;"
  */
 return [
-    'recipient' => 'scot.thomson@gmail.com',
+    'recipient' => 'beta@scriptronaut.com',
     'from' => 'website@scriptronaut.com',
     'subject_prefix' => '[QC Checker Beta]',
     'max_file_bytes' => 8 * 1024 * 1024,
