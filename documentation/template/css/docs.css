@@ -124,6 +124,33 @@ img { max-width: 100%; margin-right: 4px;}
     }
 }
 
+
+/* Animation beta */
+
+.sprite-beta-animation {
+    width: min(256px, 100%);
+    aspect-ratio: 1;
+    background-image: url('../svg/sprites/beta_spritesheet.svg');
+    background-repeat: no-repeat;
+    background-size: 1800% 100%;
+
+    /* Total time: 4.66s (1.66s animation + 3s pause) */
+    animation: play-beta-frames 4.66s linear infinite;
+}
+
+@keyframes play-beta-frames {
+    /* 1. Cycle through frames 1 to 7 */
+    0% {
+        background-position: 0px 0;
+        animation-timing-function: steps(17); 
+    }
+    /* 3. Freeze on frame 8 for the remaining 3 seconds */
+    100% {
+        background-position: 100% 0;
+    }
+}
+
+
 /* Carousel Launch text */
 
 .cylinder-container {
