@@ -1,7 +1,9 @@
 <!doctype html>
 <html lang="en">
-    <head><meta charset="utf-8">
+    <head>
+        <meta charset="utf-8">
         <meta name="viewport" content="width=device-width,initial-scale=1">
+        <meta name="description" content="Betas page for Scriptronaut Addons">
         <title>Scriptronaut — Beta(s)</title>
         <!-- fonts -->
         <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -26,32 +28,17 @@
             </a>
         </nav>
 
-        <!-- Links -->
-        <div class="centered">
-
-            <!-- About -->
-            <a href="about.html">
-                <div class="tooltip-container">
-                    <span><img class="i-about" src="svg/i_about.svg" alt="Contact" /></span>
-                    <span class="tooltip-text">About</span>
-                </div>
-            </a>
-
-        </div>
 
         <!-- Main -->
         <main class="content">
 
             <section class="copy">
-
                 <!-- Intro -->
                 <div>
                     <h1>Welcome, to our <span>beta</span> tester page.</h1>
                 </div>
-
                 <!-- Beta -->
                 <div class="sprite-beta-animation"></div>
-
             </section>
 
 
@@ -72,6 +59,7 @@
                         <li>Here's what you get.</li>
                     </ul>
                 </p>
+
 
                 <!-- Features stories -->
 
@@ -125,6 +113,8 @@
                 </div>
 
 
+                <!-- Information -->
+
                 <h2>Who we want</h2>
                 <p>
                     We're looking for Blender professionals who are willing 
@@ -152,6 +142,7 @@
 
 
                 <!-- SIGN-UP FORM -->
+
                 <section class="beta-signup-section" aria-labelledby="beta-signup-title">
                     <h2 class="hilite-orange" id="beta-signup-title">Sign up for the beta</h2>
                     <p>
@@ -211,9 +202,8 @@
                             <button class="button primary beta-submit" type="submit">Sign Up</button>
                         </div>
                     </form>
-
-
                 </section>
+
             </section>
 
 
@@ -248,15 +238,15 @@
 
         <!-- js script -->
         <script>
-          const el = document.querySelector('.cylinder');
-          // 1. Break the text into an array of individual letters
-          const letters = el.textContent.split('');
-          // 2. Set the CSS variable dynamically based on text length
-          el.style.setProperty('--total-letters', letters.length);
-          // 3. Re-inject the letters wrapped in spans with their index
-          el.innerHTML = letters.map((letter, i) => 
+            const el = document.querySelector('.cylinder');
+            // 1. Break the text into an array of individual letters
+            const letters = el.textContent.split('');
+            // 2. Set the CSS variable dynamically based on text length
+            el.style.setProperty('--total-letters', letters.length);
+            // 3. Re-inject the letters wrapped in spans with their index
+            el.innerHTML = letters.map((letter, i) => 
             `<span style="--i:${i}">${letter === ' ' ? '&nbsp;' : letter}</span>`
-          ).join('');
+            ).join('');
         </script>
 
     </body>

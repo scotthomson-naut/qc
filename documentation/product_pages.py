@@ -49,7 +49,7 @@ PRODUCT_PAGE_CONTENT: dict[str, dict[str, Any]] = {
             "internal QC system from scratch."
         ),
         "requirements": "Blender. Exact supported versions should be kept in the product release notes.",
-        "buy_url": "",
+        "buy_url": "https://superhivemarket.com/categories/addons",
     },
 
     "pro": {
