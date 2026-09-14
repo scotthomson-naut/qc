@@ -69,6 +69,20 @@ def get_objects_in_scene_root(scene=None):
         to that root, not objects that are inside a named
         sub-collection (even the default-named "Collection").
 
+        Deliberately does NOT call is_object_available_for_qc() here.
+        That function filters on viewport visibility (Eye/Monitor
+        icons), which is irrelevant to whether an object is properly
+        organized into a collection - a hidden object sitting
+        directly in the Scene Collection root is exactly as
+        disorganized as a visible one. Confirmed via direct testing:
+        with that filter in place, a hidden object linked to the
+        Scene Collection root silently passed this check instead of
+        being flagged. Same category of bug as the one found and
+        fixed in active_single_camera_exists.py's active-camera
+        detection - a general-purpose viewport-visibility filter
+        being reused in a context where its actual criteria don't
+        apply.
+
     Args:
         scene (bpy.types.Scene | None):
             Defaults to bpy.context.scene.
@@ -88,11 +102,6 @@ def get_objects_in_scene_root(scene=None):
     failed_objects = {}
 
     for obj in scene.collection.objects:
-
-        if not is_object_available_for_qc(
-            obj
-        ):
-            continue
 
         # Ignore externally linked/library objects. These are read-only
         # from the current file and should not fail local organization QC.
