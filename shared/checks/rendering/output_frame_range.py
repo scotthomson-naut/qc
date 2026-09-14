@@ -13,7 +13,9 @@ SEVERITY = "critical"
 LABEL = "Output Frame Range"
 DESCRIPTION = (
     "Checks whether the scene render frame range matches the frame range "
-    "used by object Actions and NLA strips."
+    "used by object Actions and NLA strips (muted NLA tracks and strips "
+    "are excluded by default). A configurable amount of padding and "
+    "tolerance can be allowed before this is considered a mismatch. "
 )
 WHY = (
     "Ensures that your final animation renders completely without cutting "
