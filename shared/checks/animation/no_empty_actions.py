@@ -7,15 +7,16 @@ import bpy
 # -------------------------------------------------------------------------
 
 SEVERITY = "warning"
-LABEL = "Keyframes Present"
+LABEL = "No Empty Actions"
 DESCRIPTION = (
     "Checks for objects that have animation data and an assigned Action, "
     "but the Action contains no keyframes."
 )
 WHY = (
-    "Helps clean up orphan data blocks, "
-    "prevent file bloat, and avoid unexpected evaluation overhead or "
-    "confusion during rigging and non-linear animation mixing."
+    "An Action assigned but containing no keyframes does nothing, but can "
+    "mislead artists, riggers, or scripts that check for an assigned Action "
+    "as a proxy for 'this object is animated.' Unassigning it also allows "
+    "Blender to detect it as orphan data for cleanup, if nothing else references it."
 )
 
 

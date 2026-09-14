@@ -7,10 +7,10 @@ import bpy
 # -------------------------------------------------------------------------
 
 SEVERITY = "warning"
-LABEL = "Range Boundry Keys"
+LABEL = "Range Boundary Keys"
 DESCRIPTION = (
     "Checks if Animated Objects have Keyframes "
-    "at Start and End of the Timeline. "
+    "at Start and End of the Timeline."
 )
 WHY = (
     "Ensures seamless animation loops, prevents unwanted snapping or popping "

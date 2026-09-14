@@ -7,14 +7,17 @@ import bpy
 # -------------------------------------------------------------------------
 
 SEVERITY = "warning"
-LABEL = "Action Present"
+LABEL = "No Empty Animation Data"
 DESCRIPTION = (
     "Checks for objects that contain empty animation data. "
     "Objects using an Action, NLA strips, or drivers are considered valid."
 )
 WHY = (
-    "Unused animation channels or empty action slots can linger in data blocks, "
-    "wasting processing cycles evaluating transforms that do nothing."
+    "An empty animation_data block is a leftover from a deleted Action, driver,"
+    " or NLA strip. It doesn't do anything on its own, but its presence can mislead"
+    " tools, scripts, or artists who check for animation_data as a shortcut for 'this"
+    " object is animated' — flagging a false positive where nothing is actually animated."
+    
 )
 
 

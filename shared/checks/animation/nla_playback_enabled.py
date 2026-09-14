@@ -13,9 +13,8 @@ DESCRIPTION = (
     "or muted NLA strips."
 )
 WHY = (
-    "They can secretly disable parts of an animation, "
-    "corrupt game engine exports, or cause confusion when stacking and "
-    "blending motions."
+    "They can secretly disable parts of an animation, cause omitted motion "
+    "in game engine exports, or cause confusion when stacking and blending motions."
 )
 
 

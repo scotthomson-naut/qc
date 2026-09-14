@@ -7,10 +7,10 @@ import bpy
 # -------------------------------------------------------------------------
 
 SEVERITY = "warning"
-LABEL = "Animated Values"
+LABEL = "No Static Keyed Values"
 DESCRIPTION = (
     "Checks for objects with keyed transform channels where none of "
-    "the keyed transform values actually change. "
+    "the keyed transform values actually change."
 )
 WHY = (
     "Unchanged keys often occur when using aggressive auto-keyframing or "

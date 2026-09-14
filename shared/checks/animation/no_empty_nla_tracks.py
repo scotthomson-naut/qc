@@ -7,14 +7,14 @@ import bpy
 # -------------------------------------------------------------------------
 
 SEVERITY = "warning"
-LABEL = "NLA Strips Present"
+LABEL = "No Empty NLA Tracks"
 DESCRIPTION = (
-    "Checks for objects that contain NLA tracks with no strips. "
+    "Checks for objects that contain NLA tracks with no strips."
 )
 WHY = (
-    "Leftover animation data-blocks can bloat file sizes, corrupt game engine "
-    "exports, and cause evaluation conflicts where invisible tracks override "
-    "your active keyframes."
+    "An NLA track with no strips does nothing on its own, but it's often "
+    "leftover clutter from a deleted or relocated strip, and can mislead "
+    "anyone reviewing the NLA stack into assuming it holds active content."
 )
 
 

@@ -13,8 +13,7 @@ DESCRIPTION = (
     "or after the scene end frame."
 )
 WHY = (
-    "Prevents unexpected object snapping, "
-    "broken render loops, and export errors."
+    "Prevents unexpected object snapping and broken render loops."
 )
 
 
