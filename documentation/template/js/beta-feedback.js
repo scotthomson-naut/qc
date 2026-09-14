@@ -96,6 +96,32 @@ categorySelect.addEventListener("change", () => populateChecks());
 reportType.addEventListener("change", updateConditionalFields);
 prefillFromBlender();
 
+const attachmentInput = form.querySelector('input[name="attachments[]"]');
+const uploadConfirmationRow = document.getElementById("upload-confirmation-row");
+const uploadConfirmation = form.elements.upload_confirmation;
+
+function updateUploadConfirmation() {
+    const hasFiles = Boolean(attachmentInput && attachmentInput.files && attachmentInput.files.length);
+
+    if (uploadConfirmationRow) {
+        uploadConfirmationRow.hidden = !hasFiles;
+    }
+
+    if (uploadConfirmation) {
+        uploadConfirmation.required = hasFiles;
+
+        if (!hasFiles) {
+            uploadConfirmation.checked = false;
+        }
+    }
+}
+
+if (attachmentInput) {
+    attachmentInput.addEventListener("change", updateUploadConfirmation);
+}
+
+updateUploadConfirmation();
+
 form.addEventListener("submit", event => {
     const files = Array.from(form.querySelector('input[type="file"]').files || []);
     const totalBytes = files.reduce((total, file) => total + file.size, 0);
@@ -104,7 +130,7 @@ form.addEventListener("submit", event => {
 
     if (files.length && !confirmation.checked) {
         event.preventDefault();
-        alert("Please confirm that you are permitted to send the selected files.");
+        alert("Please confirm that you have permission to share the selected files.");
         confirmation.focus();
         return;
     }

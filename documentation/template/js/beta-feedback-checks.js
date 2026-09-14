@@ -12,9 +12,9 @@ window.QC_BETA_CHECKS = {
     "materials": [
         "Color Space Valid",
         "Material Assigned",
-        "Material Output Connected",
-        "Material Slot Usage",
-        "Material Usage",
+        "No Disconnected Shader Nodes",
+        "No Orphan Materials",
+        "No Unused Material Slots",
         "Texture Files Exist"
     ],
     "modeling": [
