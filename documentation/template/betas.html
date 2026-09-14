@@ -211,9 +211,9 @@
                             <button class="button primary beta-submit" type="submit">Sign Up</button>
                         </div>
                     </form>
+
+
                 </section>
-
-
             </section>
 
 
@@ -245,18 +245,19 @@
             </footer>
 
         </main>
+
+        <!-- js script -->
+        <script>
+          const el = document.querySelector('.cylinder');
+          // 1. Break the text into an array of individual letters
+          const letters = el.textContent.split('');
+          // 2. Set the CSS variable dynamically based on text length
+          el.style.setProperty('--total-letters', letters.length);
+          // 3. Re-inject the letters wrapped in spans with their index
+          el.innerHTML = letters.map((letter, i) => 
+            `<span style="--i:${i}">${letter === ' ' ? '&nbsp;' : letter}</span>`
+          ).join('');
+        </script>
+
     </body>
-
-    <script>
-      const el = document.querySelector('.cylinder');
-      // 1. Break the text into an array of individual letters
-      const letters = el.textContent.split('');
-      // 2. Set the CSS variable dynamically based on text length
-      el.style.setProperty('--total-letters', letters.length);
-      // 3. Re-inject the letters wrapped in spans with their index
-      el.innerHTML = letters.map((letter, i) => 
-        `<span style="--i:${i}">${letter === ' ' ? '&nbsp;' : letter}</span>`
-      ).join('');
-    </script>
-
 </html>
