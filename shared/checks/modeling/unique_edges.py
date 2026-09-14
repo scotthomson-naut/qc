@@ -13,10 +13,12 @@ DESCRIPTION = (
     "exact same pair of vertices."
 )
 WHY = (
-    "They create overlapping geometry that confuses rendering, ruins "
-    "subdivision surfaces, breaks UV unwrapping, and causes lighting "
-    "errors in game engines. These hidden extra lines waste memory "
-    "and make models hard to edit."
+    "Duplicate edges create ambiguous topology that can ruin subdivision "
+    "surfaces and confuse UV unwrapping. These hidden extra lines also "
+    "waste memory and make models harder to edit. If a duplicated edge "
+    "also carries a duplicated face, it can additionally cause "
+    "overlapping-geometry rendering and lighting artifacts — see the "
+    "Unique Faces check for that case specifically."
 )
 
 

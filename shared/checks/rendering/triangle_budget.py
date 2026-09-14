@@ -7,13 +7,16 @@ import bpy
 # -------------------------------------------------------------------------
 
 SEVERITY = "warning"
-LABEL = "Polygon Budget"
+LABEL = "Triangle Budget"
 DESCRIPTION = (
-    "Checks whether the scene and individual mesh objects "
-    "are below configurable polygon limits."
+    "Checks whether the scene and individual mesh objects are below "
+    "configurable triangle limits (measured after modifiers are evaluated)."
 )
 WHY = (
-    "Help keep a constant flow of assets in scenes."
+    "Excess geometry slows down viewport and real-time performance, "
+    "increases render times (especially with ray-tracing renderers), uses "
+    "more memory, and results in larger files that are slower to load and "
+    "share across a pipeline."
 )
 
 

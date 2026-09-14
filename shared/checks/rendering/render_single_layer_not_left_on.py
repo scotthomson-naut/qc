@@ -6,15 +6,18 @@ import bpy
 # -------------------------------------------------------------------------
 
 SEVERITY = "warning"
-LABEL = "View Layer Render Single Disabled"
+LABEL = "Render Single Layer Not Left On"
 DESCRIPTION = (
     "Checks if 'Render Single Layer' is enabled while more than one "
     "view layer exists."
 )
 WHY = (
-    "Without this checked, Blender defaults to rendering every single "
-    "view layer in your scene sequentially, which wastes time if you only "
-    "want to test or output one specific layer."
+    "Render Single Layer' silently skips every OTHER view layer at render "
+    "time, with no error or warning — it only renders whichever layer "
+    "happens to be active. Left on by accident (usually a leftover from "
+    "fast iteration on one layer), a batch render or farm submission "
+    "can quietly produce incomplete output, missing layers everyone "
+    "assumed would render."
 )
 
 

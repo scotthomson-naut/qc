@@ -10,10 +10,11 @@ import bpy
 # -------------------------------------------------------------------------
 
 SEVERITY = "critical"
-LABEL = "Valid Names"
+LABEL = "Supported Characters Only"
 DESCRIPTION = (
     "Checks that Object and Datablock names contain only supported "
-    "characters."
+    "characters. Allowed characters: letters, numbers, underscore "
+    "( _ ), hyphen ( - ), period ( . ), and space."
 )
 WHY = (
     "Special characters can corrupt file paths, break code "

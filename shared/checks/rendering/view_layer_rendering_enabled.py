@@ -11,10 +11,13 @@ DESCRIPTION = (
     "Checks if every view layer has 'Use for Rendering' enabled."
 )
 WHY = (
-    "Tells which specific scene layers to include when you "
-    "hit render. If this box is unchecked, Blender skips that entire layer. "
-    "This saves render time, avoids clutter, and lets you work on "
-    "complex scenes step by step."
+    "A view layer with 'Use for Rendering' disabled produces zero output "
+    "— no error, no warning, it's simply skipped at render time. This is "
+    "often a deliberate, temporary choice while iterating on one layer "
+    "for speed, but if it's left disabled by accident before a final "
+    "render or farm submission, that layer's entire expected output "
+    "silently never gets produced, which can break downstream compositing "
+    "or delivery."
 )
 
 # -------------------------------------------------------------------------

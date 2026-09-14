@@ -17,9 +17,10 @@ DESCRIPTION = (
     "tolerance)."
 )
 WHY = (
-    "Extra or stacked points break tools, create ugly shadows, ruin "
-    "animations, and cause errors when exporting your model to "
-    "game engines or 3D printers."
+    "Unintentional overlapping vertices can create ugly shading seams "
+    "and ruin animations by letting mesh pieces tear apart during "
+    "deformation. They can also break tools like Boolean and Decimate, "
+    "and cause problems when exporting to game engines or 3D printers."
 )
 
 

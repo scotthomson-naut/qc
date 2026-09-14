@@ -13,10 +13,12 @@ DESCRIPTION = (
     "recommended for the current output resolution."
 )
 WHY = (
-    "Helps prevent wasted render time. Higher resolutions pack "
-    "more pixels into a smaller area, meaning noise is less noticeable. "
-    "Matching lower sample counts to high resolutions speeds up exports "
-    "without losing visual quality."
+    "Helps prevent wasted render time. Sample count should be matched "
+    "to your target output resolution — higher resolutions reveal more "
+    "surface detail and benefit from a larger sample budget to keep noise "
+    "controlled, while lower resolutions don't need as many samples to "
+    "look clean. Setting samples higher than necessary for your "
+    "resolution just adds render time without improving the final image."
 )
 
 

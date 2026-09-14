@@ -7,13 +7,15 @@ import bpy
 # -------------------------------------------------------------------------
 
 SEVERITY = "warning"
-LABEL = "AOV Denoising"
+LABEL = "Cycles Denoising Enabled"
 DESCRIPTION = (
     "Checks whether Cycles render denoising is enabled."
 )
 WHY = (
-    "Drastically cuts down render times, cleans up grain at low sample counts, "
-    "and prevents wasting hours rendering an overly noisy image."
+    "Denoising lets you use fewer render samples while still getting a "
+    "clean image, cutting down render times. It also cleans up residual "
+    "grain at low sample counts, preventing wasted hours rendering an "
+    "overly noisy image."
 )
 
 

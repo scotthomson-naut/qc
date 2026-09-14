@@ -11,7 +11,10 @@ LABEL = "Render Subdivision Levels"
 DESCRIPTION = (
     "Checks for Subdivision Surface modifiers whose render subdivision "
     "level is significantly higher than the configured maximum or the "
-    "modifier's viewport subdivision level."
+    "modifier's viewport subdivision level. If the viewport level is "
+    "already above the configured maximum, only the relative "
+    "render-vs-viewport limit is enforced, since this check never "
+    "recommends lowering render quality below viewport quality."
 )
 WHY = (
     "Prevents sudden system memory exhaustion, long render freezes, "
