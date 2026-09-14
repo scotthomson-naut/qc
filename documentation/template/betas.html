@@ -150,7 +150,7 @@
                         <span class="hilite-orange">*</span> are required.
                     </p>
 
-                    <form class="beta-feedback-form" action="php/beta-signup-submit.php" method="post">
+                    <form class="beta-feedback-form" action="/wp/wp-admin/admin-post.php?action=scriptronaut_beta_signup" method="post">
                         <div class="beta-honeypot" aria-hidden="true">
                             <label>
                                 Website
@@ -198,7 +198,11 @@
                             </label>
                         </div>
 
-                        <div class="beta-submit-row">
+                        <div class="beta-submit-row" style="display:block;">
+                            <label style="display:flex;gap:.65rem;align-items:flex-start;margin-bottom:1rem;">
+                                <input type="checkbox" name="newsletter_optin" value="yes" style="width:auto;margin-top:.2rem;">
+                                <span>Yes, email me Scriptronaut news, product updates, and future beta announcements.</span>
+                            </label>
                             <button class="button primary beta-submit" type="submit">Sign Up</button>
                         </div>
                     </form>
