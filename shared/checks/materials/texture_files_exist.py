@@ -17,8 +17,8 @@ DESCRIPTION = (
     "reported so they can be selected directly in the scene."
 )
 WHY = (
-    "Prevents broken renders, avoid the dreaded bright pink, missing texture "
-    "error, and ensure your project files remain portable when shared across "
+    "Prevents broken renders, avoids the dreaded bright pink missing-texture "
+    "error, and ensures your project files remain portable when shared across "
     "different computers."
 )
 

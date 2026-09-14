@@ -13,8 +13,9 @@ DESCRIPTION = (
     "or faces assigned to invalid or empty material slots."
 )
 WHY = (
-    "Prevents rendering errors, export failures, and game engine crashes. "
-    "It cleans up your project data before sharing or rendering."
+    "Prevents visually incorrect renders and materials, export failures, and"
+    " confusing default/placeholder materials in game engines. It cleans up "
+    "your project data before sharing or rendering."
 )
 
 

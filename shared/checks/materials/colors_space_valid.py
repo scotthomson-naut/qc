@@ -11,7 +11,9 @@ LABEL = "Color Space Valid"
 DESCRIPTION = (
     "Checks image textures used as normal, roughness, metallic, height, "
     "displacement, masks, or other non-color data and verifies that their "
-    "image color space is set to Non-Color."
+    "image color space is set to Non-Color. Images used for both color and "
+    "non-color purposes are skipped by default, since no single color space "
+    "setting is correct for both."
 )
 WHY = (
     "Stops the software from applying gamma correction (sRGB) to "
