@@ -1,13 +1,13 @@
 /* Auto-generated from QC check metadata. */
 window.QC_BETA_CHECKS = {
     "animation": [
-        "Action Present",
-        "Animated Values",
         "Keyframes in Range",
-        "Keyframes Present",
         "NLA Playback Enabled",
-        "NLA Strips Present",
-        "Range Boundry Keys"
+        "No Empty Actions",
+        "No Empty Animation Data",
+        "No Empty NLA Tracks",
+        "No Static Keyed Values",
+        "Range Boundary Keys"
     ],
     "materials": [
         "Color Space Valid",

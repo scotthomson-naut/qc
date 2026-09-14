@@ -10,6 +10,14 @@ echo.
 set "bat_path=%~dp0"
 
 rem ------------------------------------------------------------
+rem WordPress target
+rem ------------------------------------------------------------
+rem Production:
+set "wordpress_url=https://www.scriptronaut.com"
+rem Scot development (uncomment this line and comment production above):
+rem set "wordpress_url=http://scotdthomson.com/wp"
+
+rem ------------------------------------------------------------
 rem Core
 rem ------------------------------------------------------------
 
@@ -89,12 +97,14 @@ echo ============================================
 echo Core / Pro: %product%
 echo Packs:      %packs%
 echo Product pages: %product_pages%
+echo WordPress:    %wordpress_url%
 echo.
 
 python "%bat_path%build_docs.py" ^
     --product %product% ^
     --packs %packs% ^
     --product-pages %product_pages% ^
+    --wordpress-url "%wordpress_url%" ^
     --version 1.0
 
 if errorlevel 1 (

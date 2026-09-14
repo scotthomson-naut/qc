@@ -29,6 +29,12 @@ BUILD_DATA = ROOT / ".site_build"
 
 VERSION = "1.0"
 
+# WordPress installation used by the static beta forms.
+# Production: https://www.scriptronaut.com
+# Scot development: http://scotdthomson.com/wp
+DEFAULT_WORDPRESS_URL = "https://www.scriptronaut.com"
+WORDPRESS_URL_TOKEN = "{{WORDPRESS_URL}}"
+
 SHARED_CHECKS = PROJECT_ROOT / "shared" / "checks"
 PRO_CHECKS = PROJECT_ROOT / "pro" / "checks"
 PACKS_ROOT = PROJECT_ROOT / "packs"
@@ -120,6 +126,65 @@ def prepare_site(
     shutil.copytree(
         template_site,
         output_dir,
+    )
+
+
+def configure_wordpress_forms(
+        output_dir: Path,
+        wordpress_url: str,
+) -> None:
+    """
+    Replace the WordPress URL token in static beta forms after the template
+    has been copied to the generated site.
+
+    This keeps the source templates environment-neutral while allowing the
+    same documentation build to target production or a development WordPress
+    installation.
+    """
+    wordpress_url = str(
+        wordpress_url
+        or DEFAULT_WORDPRESS_URL
+    ).strip().rstrip(
+        "/"
+    )
+
+    if not wordpress_url:
+        raise ValueError(
+            "WordPress URL cannot be empty."
+        )
+
+    pages = (
+        output_dir / "betas.html",
+        output_dir / "beta-feedback.html",
+    )
+
+    for page_path in pages:
+        if not page_path.is_file():
+            continue
+
+        text = page_path.read_text(
+            encoding="utf-8"
+        )
+
+        if WORDPRESS_URL_TOKEN not in text:
+            raise ValueError(
+                "WordPress URL token not found in {}.".format(
+                    page_path
+                )
+            )
+
+        page_path.write_text(
+            text.replace(
+                WORDPRESS_URL_TOKEN,
+                wordpress_url,
+            ),
+            encoding="utf-8",
+        )
+
+    print(
+        "WordPress forms: {}".format(
+            wordpress_url
+        )
     )
 
 
@@ -681,6 +746,16 @@ def main() -> int:
     )
 
     parser.add_argument(
+        "--wordpress-url",
+        default=DEFAULT_WORDPRESS_URL,
+        help=(
+            "Base URL of the WordPress installation used by the static "
+            "beta forms. Example: https://www.scriptronaut.com or "
+            "http://scotdthomson.com/wp."
+        ),
+    )
+
+    parser.add_argument(
         "--version",
         default=VERSION,
     )
@@ -734,6 +809,11 @@ def main() -> int:
     prepare_site(
         TEMPLATE,
         OUTPUT,
+    )
+
+    configure_wordpress_forms(
+        OUTPUT,
+        args.wordpress_url,
     )
 
     built_products = []
