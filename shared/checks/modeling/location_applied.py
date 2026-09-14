@@ -10,10 +10,13 @@ import bpy
 SEVERITY = "warning"
 LABEL = "Location Applied"
 DESCRIPTION = (
-    "Checks mesh objects whose normal Location is not zero. "
-    "The automatic fix strategy is configurable: preserve the current "
-    "origin/pivot by moving Location into Delta Location, use Blender's "
-    "native Apply Location behavior, or require a manual fix."
+    "Checks mesh objects whose normal Location is not zero. The automatic "
+    "fix strategy is configurable: preserve the current origin/pivot by "
+    "moving Location into Delta Location, use Blender's native "
+    "Apply Location behavior, or require a manual fix. Animated or "
+    "driver-controlled Location is protected from being overwritten under "
+    "Preserve Pivot mode; this protection does not currently apply under "
+    "Native Apply Location mode."
 )
 WHY = (
     "Non-zero object locations can create unexpected offsets in physics, "

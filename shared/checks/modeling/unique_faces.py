@@ -9,13 +9,16 @@ import bmesh
 SEVERITY = "warning"
 LABEL = "Unique Faces"
 DESCRIPTION = (
-    "Checks for duplicate faces - two or more faces sharing the same "
-    "vertices."
+    "By default, this includes faces that share the same vertices with "
+    "reversed winding (opposite normals). This can be disabled via "
+    "settings to allow intentional double-sided geometry "
+    "(e.g. foliage cards) without being flagged."
 )
 WHY = (
     "Create 'z-fighting' visual flicker, break lighting calculations, "
-    "mess up physics and weight painting, and cause issues when "
-    "3D printing or exporting assets."
+    "mess up physics, and make weight painting harder to work with "
+    "accurately. They also cause issues when 3D printing or exporting "
+    "assets."
 )
 
 

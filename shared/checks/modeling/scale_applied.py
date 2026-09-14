@@ -13,9 +13,9 @@ from mathutils import Matrix
 SEVERITY = "critical"
 LABEL = "Scale Applied"
 DESCRIPTION = (
-    "Checks if Object's Scale is Applied. "
-    "Resets an object's transformation values in the sidebar to 1.0 "
-    "on all axes while keeping its current visual size."
+    "Checks if an Object's Scale is applied (1.0 on all axes). When fixed, "
+    "resets scale to 1.0 in the sidebar while keeping the object's current "
+    "visual size — its scale is baked directly into the mesh data instead."
 )
 WHY = (
     "This prevents distorted textures, broken modifiers, incorrect physics, "

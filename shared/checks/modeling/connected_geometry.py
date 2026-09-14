@@ -18,9 +18,9 @@ DESCRIPTION = (
     "connected to the object's main mesh body."
 )
 WHY = (
-    "Stray elements cause unexpected render glitches, break physics "
-    "simulations, ruin rigging deformations, and make 3D printing "
-    "or game export."
+    "Disconnected face islands can cause unexpected render glitches. "
+    "Stray elements can also break physics simulations, ruin rigging "
+    "deformations, and cause problems with 3D printing or game export."
 )
 
 

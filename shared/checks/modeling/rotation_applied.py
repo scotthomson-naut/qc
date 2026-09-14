@@ -12,14 +12,15 @@ import bpy
 SEVERITY = "warning"
 LABEL = "Rotation Applied"
 DESCRIPTION = (
-    "Checks if Object's Rotation is Applied. "
-    "Resets an object's rotation values in Object Mode back to zero "
-    "(X=0, Y=0, Z=0) while permanently baking its current physical "
-    "orientation into the mesh data."
+    "Checks if an Object's Rotation is applied (zero rotation in its "
+    "active rotation mode — Euler, Quaternion, or Axis Angle). When "
+    "fixed, resets rotation back to identity in Object Mode while "
+    "permanently baking the object's current physical orientation into "
+    "the mesh data."
 )
 WHY = (
     "This aligns the local axes with the global axes, ensuring that "
-    "modifiers, physics, UV unwrapping, and animations behave predictably."
+    "modifiers, physics, and animations behave predictably."
 )
 
 
