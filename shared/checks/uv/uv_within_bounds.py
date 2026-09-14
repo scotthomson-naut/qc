@@ -12,9 +12,27 @@ DESCRIPTION = (
     "Checks all UV maps for UV coordinates outside the 0-1 tile. "
 )
 WHY = (
-    "Out-of-bounds UVs can cause unintended texture repetition, "
-    "baking issues, seams, and inconsistent texel density."
+    "Out-of-bounds UVs can cause unintended texture repetition and "
+    "baking issues, since most bake and texturing workflows expect "
+    "UV coordinates within the primary 0-1 tile."
 )
+
+# -------------------------------------------------------------------------
+# Constants
+# -------------------------------------------------------------------------
+
+# Small, fixed tolerance absorbing floating-point noise around the
+# 0-1 UV boundary (UV packing, import/export round-trips, modifier
+# evaluation) - not a real workflow/policy choice the way something
+# like UDIM tile usage would be, so this is intentionally NOT exposed
+# as a user-facing setting. A UV at 1.00001 reflects the same intent
+# as one at 1.0, just with unavoidable precision noise; a UV at 1.4
+# does not.
+#
+# THIS IS THE ONLY PLACE THIS VALUE IS DEFINED. If it ever needs
+# adjusting, change it here - it is not duplicated anywhere else in
+# this file.
+UV_BOUNDS_EPSILON = 1e-4
 
 
 # -------------------------------------------------------------------------
@@ -52,13 +70,18 @@ def main():
             issues.append(
                 (
                     "Failed object: {} - UV map '{}' has "
-                    "{} UV(s) outside 0-1 range"
+                    "{} UV(s) outside 0-1 range (max excess: "
+                    "{:.6f}, tolerance: {})"
                 ).format(
                     object_name,
                     uv_map_name,
                     uv_map_data[
                         "outside_uv_count"
                     ],
+                    uv_map_data[
+                        "max_excess"
+                    ],
+                    UV_BOUNDS_EPSILON,
                 )
             )
 
@@ -74,7 +97,7 @@ def main():
 
 def get_objects_with_uvs_outside_01(
         objects=None,
-        tolerance=1e-6,
+        tolerance=UV_BOUNDS_EPSILON,
     ):
     """
     Finds mesh objects containing UV coordinates outside the 0-1 tile
@@ -84,6 +107,15 @@ def get_objects_with_uvs_outside_01(
         0 <= U <= 1
         0 <= V <= 1
 
+    Note:
+        "max_excess" is the actual distance a UV sits past the 0 or 1
+        boundary itself (not past the tolerance line) - e.g. a UV at
+        1.4 has an excess of 0.4, regardless of what the tolerance is
+        set to. This lets a human glance at a failure and tell
+        "barely over the line" (excess ~0.0001) from "meaningfully
+        wrong" (excess 0.4) at a glance, rather than every failure
+        looking equally severe.
+
     Args:
         objects (iterable[bpy.types.Object] | None):
             Objects to inspect.
@@ -91,6 +123,9 @@ def get_objects_with_uvs_outside_01(
 
         tolerance (float):
             Floating-point tolerance around the 0-1 boundaries.
+            Defaults to the fixed UV_BOUNDS_EPSILON constant above -
+            not meant to be overridden in normal use, exposed as a
+            parameter mainly for direct/manual testing.
 
     Returns:
         dict:
@@ -101,11 +136,14 @@ def get_objects_with_uvs_outside_01(
                         "outside_uv_count": 4,
                         "below_zero_count": 2,
                         "above_one_count": 3,
+                        "max_excess": 0.4,
                         "polygon_indices": [2, 5],
                     }
                 },
                 "failed_uv_map_count": 1,
                 "outside_uv_count": 4,
+                "max_excess": 0.4,
+                "tolerance_used": 0.0001,
                 "polygon_indices": [2, 5],
                 "selection": {
                     "mode": "FACE",
@@ -154,6 +192,7 @@ def get_objects_with_uvs_outside_01(
         total_outside_uv_count = 0
         total_below_zero_count = 0
         total_above_one_count = 0
+        object_max_excess = 0.0
 
         # -----------------------------------------------------
         # Check every UV map
@@ -166,6 +205,7 @@ def get_objects_with_uvs_outside_01(
             outside_uv_count = 0
             below_zero_count = 0
             above_one_count = 0
+            uv_map_max_excess = 0.0
 
             polygon_indices = set()
 
@@ -206,6 +246,20 @@ def get_objects_with_uvs_outside_01(
                         outside_uv_count += 1
                         polygon_failed = True
 
+                        # Distance past the actual 0/1 edge itself,
+                        # not past the tolerance line - see the
+                        # "Note" above for why.
+                        point_excess = max(
+                            -uv.x,
+                            uv.x - 1.0,
+                            -uv.y,
+                            uv.y - 1.0,
+                            0.0,
+                        )
+
+                        if point_excess > uv_map_max_excess:
+                            uv_map_max_excess = point_excess
+
                 if polygon_failed:
                     polygon_indices.add(
                         polygon.index
@@ -234,6 +288,9 @@ def get_objects_with_uvs_outside_01(
                 "above_one_count":
                     above_one_count,
 
+                "max_excess":
+                    uv_map_max_excess,
+
                 "polygon_indices":
                     sorted(
                         polygon_indices
@@ -251,6 +308,9 @@ def get_objects_with_uvs_outside_01(
             total_above_one_count += (
                 above_one_count
             )
+
+            if uv_map_max_excess > object_max_excess:
+                object_max_excess = uv_map_max_excess
 
         # -----------------------------------------------------
         # Object passes all UV maps
@@ -281,6 +341,16 @@ def get_objects_with_uvs_outside_01(
 
             "above_one_count":
                 total_above_one_count,
+
+            # Largest boundary overshoot found across every UV map
+            # on this object.
+            "max_excess":
+                object_max_excess,
+
+            # The epsilon actually applied for this run - see
+            # UV_BOUNDS_EPSILON above.
+            "tolerance_used":
+                tolerance,
 
             # Unique geometry faces affected in any UV map.
             "polygon_indices":
