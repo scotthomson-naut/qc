@@ -7,13 +7,13 @@ import bpy
 # -------------------------------------------------------------------------
 
 SEVERITY = "warning"
-LABEL = "Material Usage"
+LABEL = "No Orphan Materials"
 DESCRIPTION = (
     "Checks for unused material datablocks, excluding protected, "
     "linked, asset, and Blender-managed materials."
 )
 WHY = (
-    "Cleans up your file, reduce memory use, and remove clutter."
+    "Cleans up your file, reduces memory use, and removes clutter."
 )
 
 
