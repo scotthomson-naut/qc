@@ -8,10 +8,13 @@ import bpy
 SEVERITY = "warning"
 LABEL = "Object/Data Name Match"
 DESCRIPTION = (
-    "Checks that single-user datablock names match their object "
-    "names, across every object type (Mesh, Camera, Curve, "
-    "Armature, Light, etc). Like BoxRed -> Cube.001 "
-    "Shared datablocks are allowed and ignored. "
+    "Checks that single-user datablock names match their object names, across "
+    "every object type (Mesh, Camera, Curve, Armature, Light, etc). "
+    "Like BoxRed -> Cube.001. Shared datablocks are allowed and ignored. "
+    "If an object's target name is already owned by another live datablock "
+    "outside this check's current scope, the mismatch is treated as unfixable "
+    "and is not reported, since renaming would only produce a Blender-generated "
+    ".001 suffix rather than a true match."
 )
 WHY = (
     "An object holds position and rotation data, while its internal datablock "
