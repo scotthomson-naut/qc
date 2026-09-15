@@ -9,8 +9,8 @@ import bpy
 SEVERITY = "warning"
 LABEL = "Auto Save Enabled"
 DESCRIPTION = (
-    "Checks if Blender's 'Auto Save Temporary Files' preference is "
-    "enabled. "
+    "Checks if Blender's 'Auto Save' preference is "
+    "enabled."
 )
 WHY = (
     "Safety net prevents massive data loss if the software crashes, "

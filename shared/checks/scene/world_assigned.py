@@ -8,13 +8,16 @@ import bpy
 SEVERITY = "critical"
 LABEL = "World Assigned"
 DESCRIPTION = (
-    "Checks if a World datablock exists. "
-    "Crucial because a scene does not always have one assigned."
+    "Checks that a World datablock exists in the file and is assigned "
+    "to the current scene — these are checked and reported independently, "
+    "since a file can have World datablocks that simply aren't assigned "
+    "to the active scene."
 )
 WHY = (
     "Provides the global background lighting, ambient environment color, "
-    "and image-based HDRI data required to realistically "
-    "illuminate your 3D scene."
+    "and image-based HDRI data used to realistically illuminate your 3D "
+    "scene. Without a World assigned, a scene typically loses ambient "
+    "fill light and renders against a black or empty background."
 )
 
 # -------------------------------------------------------------------------

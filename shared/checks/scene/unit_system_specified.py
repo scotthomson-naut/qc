@@ -6,13 +6,15 @@ import bpy
 # -------------------------------------------------------------------------
 
 SEVERITY = "warning"
-LABEL = "Unit System Match"
+LABEL = "Unit System Specified"
 DESCRIPTION = (
     "Checks if a metric or imperial system has been specified. "
 )
 WHY = (
-    "Ensures precise real-world dimensions, accurate physics simulations, "
-    "and correct exports for 3D printing or game engine."
+    "Ensures your file's scale is interpreted correctly by other "
+    "applications, producing correctly-scaled exports for 3D printing "
+    "or game engines. Leaving the unit system unspecified can lead "
+    "to ambiguous or incorrect scale interpretation downstream. "
 )
 
 
