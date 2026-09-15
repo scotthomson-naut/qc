@@ -36,18 +36,18 @@ window.QC_BETA_CHECKS = {
         "No Auto Suffixes",
         "No Trailing Spaces",
         "Object/Data Name Match",
-        "Valid Names"
+        "Supported Characters Only"
     ],
     "rendering": [
         "Active Single Camera Exists",
-        "AOV Denoising",
+        "Cycles Denoising Enabled",
         "Full Frame Render",
         "Output Frame Range",
-        "Polygon Budget",
+        "Render Single Layer Not Left On",
         "Render Subdivision Levels",
         "Resolution Compliance",
         "Sample Count Limit",
-        "View Layer Render Single Disabled",
+        "Triangle Budget",
         "View Layer Rendering Enabled"
     ],
     "rigging": [

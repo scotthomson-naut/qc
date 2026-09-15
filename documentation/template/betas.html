@@ -150,7 +150,8 @@
                         <span class="hilite-orange">*</span> are required.
                     </p>
 
-                    <form class="beta-feedback-form" action="{{WORDPRESS_URL}}/wp-admin/admin-post.php?action=scriptronaut_beta_signup" method="post">
+                    <form id="beta-signup-form" class="beta-feedback-form" action="{{WORDPRESS_URL}}/wp-admin/admin-post.php?action=scriptronaut_beta_signup" method="post">
+                        <input id="beta-addon-id" type="hidden" name="addon_id" value="qc_checker">
                         <div class="beta-honeypot" aria-hidden="true">
                             <label>
                                 Website
@@ -241,6 +242,17 @@
         </main>
 
         <!-- js script -->
+        <script>
+            // One reusable beta page can serve every Scriptronaut beta.
+            // Example: betas.html?addon_id=qc_checker
+            const betaSignupParams = new URLSearchParams(window.location.search);
+            const betaAddonId = betaSignupParams.get("addon_id");
+            const betaAddonInput = document.getElementById("beta-addon-id");
+            if (betaAddonId && /^[a-z0-9_-]+$/i.test(betaAddonId) && betaAddonInput) {
+                betaAddonInput.value = betaAddonId.toLowerCase();
+            }
+        </script>
+
         <script>
             const el = document.querySelector('.cylinder');
             // 1. Break the text into an array of individual letters

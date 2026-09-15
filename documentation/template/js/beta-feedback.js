@@ -55,9 +55,23 @@ function updateConditionalFields() {
 }
 
 function prefillFromBlender() {
+    // addon_id may be supplied by an invitation URL, while Blender
+    // diagnostics remain in the URL fragment.
+    const pageQuery = new URLSearchParams(window.location.search);
+    const addonInput = document.getElementById("beta-addon-id");
+    const pageAddonId = pageQuery.get("addon_id");
+    if (pageAddonId && /^[a-z0-9_-]+$/i.test(pageAddonId) && addonInput) {
+        addonInput.value = pageAddonId.toLowerCase();
+    }
+
     // Blender supplies diagnostics in the URL fragment so they are not sent
     // in the initial HTTP request or normal web-server access logs.
     const query = new URLSearchParams(window.location.hash.slice(1));
+    const fragmentAddonId = query.get("addon_id");
+    if (fragmentAddonId && /^[a-z0-9_-]+$/i.test(fragmentAddonId) && addonInput) {
+        addonInput.value = fragmentAddonId.toLowerCase();
+    }
+
     const mappings = {
         qc_version: "qc-version",
         blender_version: "blender-version",
