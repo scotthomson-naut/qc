@@ -61,12 +61,12 @@ window.QC_BETA_CHECKS = {
     "scene": [
         "Auto Save Enabled",
         "Objects in Collections",
-        "Unit System Match",
+        "Unit System Specified",
         "World Assigned"
     ],
     "uv": [
+        "Active UV Map Present",
         "UV Area Valid",
-        "UV Map Exists",
         "UV Orientation",
         "UV Overlap",
         "UV Within Bounds",
