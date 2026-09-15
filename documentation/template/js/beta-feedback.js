@@ -152,5 +152,18 @@ form.addEventListener("submit", event => {
     if (oversized || totalBytes > 20 * 1024 * 1024) {
         event.preventDefault();
         alert("Each file must be 8 MB or smaller and the combined upload must be 20 MB or smaller.");
+        return;
+    }
+
+    // Validation passed. Give immediate feedback while the browser uploads the
+    // form and WordPress stores the report / sends notification email.
+    const submitButton = form.querySelector('.beta-submit');
+    const waitState = document.getElementById('beta-submit-wait');
+    if (submitButton) {
+        submitButton.disabled = true;
+        submitButton.textContent = 'Sending…';
+    }
+    if (waitState) {
+        waitState.hidden = false;
     }
 });
