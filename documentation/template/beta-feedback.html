@@ -182,7 +182,8 @@
                 <section class="beta-form-card">
                     <h2>Optional files</h2>
                     <label>
-                        Attach `.blend`, crash log, text file, screenshot, or ZIP
+                        Attach: crash logs (.log), text files (.txt), screenshots (.png or .jpg), or .ZIPs
+                        <p class="beta-help">Blender <code>.blend</code> files must be placed inside a ZIP archive before attaching.</p>
                         <input
                             name="attachments[]"
                             type="file"
@@ -193,7 +194,7 @@
                     <p class="beta-field-help">
                         Maximum 8 MB per file and 20 MB total. Browser security requires you to choose files manually.
                         Do not upload production files unless you are permitted to share their contents.
-                    </p><p class="beta-help">Blender <code>.blend</code> files must be placed inside a ZIP archive before attaching.</p>
+                    </p>
 
                     <label class="beta-checkbox" id="upload-confirmation-row" hidden>
                         <input name="upload_confirmation" type="checkbox" value="yes">
