@@ -10,13 +10,15 @@ import bpy
 # -------------------------------------------------------------------------
 
 SEVERITY = "critical"
-LABEL = "UV Map Exists"
+LABEL = "Active UV Map Present"
 DESCRIPTION = (
-    "Checks if Object has at least one UV map. "
+    "Checks that a mesh object has at least one UV map, that map is set "
+    "as the active UV map, and the mesh actually has polygons to UV-map."
 )
 WHY = (
-    "Without a UV layer, texture nodes look for coordinates that do not "
-    "exist, causing Blender or external engines to fail."
+    "Without a valid, active UV layer, texture nodes look for coordinates "
+    "that do not exist, causing external engines or exporters to fail "
+    "on import."
 )
 
 

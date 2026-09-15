@@ -12,11 +12,11 @@ import bpy
 SEVERITY = "critical"
 LABEL = "UV Orientation"
 DESCRIPTION = (
-    "Checks all UV maps for flipped or mirrored UV faces. "
+    "Checks all UV maps for flipped or mirrored UV faces."
 )
 WHY = (
-    "Incorrect UV orientation can cause mirrored textures, baking issues, "
-    "unexpected shading, and export problems."
+    "Incorrect UV orientation can cause mirrored textures, baking and "
+    "normal-mapping issues, and export problems."
 )
 
 

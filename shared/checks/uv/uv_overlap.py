@@ -13,14 +13,17 @@ import bmesh
 SEVERITY = "warning"
 LABEL = "UV Overlap"
 DESCRIPTION = (
-    "Checks all UV maps for overlapping UV faces using Blender's native "
-    "UV overlap operator."
+    "Checks UV maps for overlapping UV faces using Blender's native UV "
+    "overlap operator. By default, only each mesh's active UV map is "
+    "checked; scanning every UV map is available as a setting."
 )
 WHY = (
-    "Overlapping coordinates cause different parts of a 3D model to share "
-    "the same exact space on a 2D texture map. While intentional overlap "
-    "works well for symmetrical or repeating elements, unintended overlap "
-    "can break texture painting, baking, and other texture workflows."
+    "Overlapping coordinates cause different parts of a 3D model to "
+    "share the same exact space on a 2D texture map. This can be "
+    "intentional (symmetrical or repeating elements) or a genuine "
+    "mistake — this check does not distinguish between the two, so "
+    "every overlap is flagged for review. Unintended overlap can break "
+    "texture painting, baking, and other texture workflows."
 )
 
 

@@ -11,9 +11,8 @@ DESCRIPTION = (
     "Checks if Object has Zero Area UV Faces. "
 )
 WHY = (
-    "Helps find unmapped faces, overlapping artifacts, or collapsed UV "
-    "coordinates that cause texture stretching, baking errors, "
-    "or game engine import warnings."
+    "Helps find unmapped or collapsed UV coordinates that cause severe "
+    "texture stretching, baking errors, or game engine import warnings."
 )
 
 
