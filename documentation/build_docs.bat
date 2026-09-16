@@ -13,7 +13,7 @@ rem ------------------------------------------------------------
 rem WordPress target
 rem ------------------------------------------------------------
 rem Production:
-set "wordpress_url=https://www.scriptronaut.com"
+set "wordpress_url=https://www.scriptronaut.com/wp"
 rem Scot development (uncomment this line and comment production above):
 rem set "wordpress_url=http://scotdthomson.com/wp"
 
