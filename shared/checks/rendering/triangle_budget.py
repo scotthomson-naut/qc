@@ -27,22 +27,22 @@ WHY = (
 SETTINGS = {
     "budget_scene": {
         "type": "int",
-        "label": "Maximum Polys per Scene",
+        "label": "Maximum Triangles per Scene",
         "description": (
             "Maximum recommended triangle count for the scene."
         ),
-        "default": 100000,
+        "default": 500000,
         "min": 1,
         "max": 1000000,
     },
 
     "budget_object": {
         "type": "int",
-        "label": "Maximum Polys per Object",
+        "label": "Maximum Triangles per Object",
         "description": (
             "Maximum recommended triangle count per object."
         ),
-        "default": 20000,
+        "default": 50000,
         "min": 1,
         "max": 50000,
     },
