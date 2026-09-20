@@ -21,20 +21,24 @@ The included templates have already been changed to use these WordPress handlers
 
 - Beta signup: `/wp/wp-admin/admin-post.php?action=scriptronaut_beta_signup`
 - Beta feedback: `/wp/wp-admin/admin-post.php?action=scriptronaut_beta_feedback`
-- Newsletter-only form (available for future use): `/wp/wp-admin/admin-post.php?action=scriptronaut_beta_newsletter`
+- Newsletter signup: `/wp/wp-admin/admin-post.php?action=scriptronaut_relay_subscribe`
 
 Root-relative URLs are intentional. Because both sites use the same domain, they work regardless of HTTP/HTTPS after you enable HTTPS.
 
-## 3. Newsletter
+## 3. Newsletter / Relay
 
-The beta signup form now includes an optional checkbox named `newsletter_optin`.
-When checked, the person is added to **Beta Manager → Newsletter**, including the consent date and source. The list can be exported as CSV.
+Newsletter subscriptions are owned by the separate **Scriptronaut Relay** WordPress plugin.
 
-For a standalone newsletter form, post these fields to the newsletter-only action:
+The beta signup form includes the optional `newsletter_optin` checkbox. With Relay active, Beta Manager hands that consent directly to Relay with source `beta_signup`.
 
+The home-page standalone newsletter form posts directly to Relay using:
+
+- action: `scriptronaut_relay_subscribe`
 - `name` (required)
 - `email` (required)
 - `website` (hidden honeypot; should remain empty)
+
+Standalone subscriptions are stored by Relay with source `newsletter_signup`.
 
 ## 4. Beta workflow
 

@@ -190,6 +190,38 @@
 
             </section>
 
+            <!-- Newsletter -->
+            <section class="beta-signup-section newsletter-signup" aria-labelledby="newsletter-heading">
+                <h2 class="hilite-orange" id="newsletter-heading">Stay in the loop</h2>
+                <p>Get Scriptronaut news, product updates, and future beta announcements.</p>
+
+                <form class="beta-feedback-form" action="{{WORDPRESS_URL}}/wp-admin/admin-post.php?action=scriptronaut_relay_subscribe" method="post">
+                    <div class="beta-honeypot" aria-hidden="true">
+                        <label>
+                            Website
+                            <input type="text" name="website" tabindex="-1" autocomplete="off">
+                        </label>
+                    </div>
+
+                    <div class="beta-form-grid">
+                        <label>
+                            Name <span>*</span>
+                            <input type="text" name="name" maxlength="120" autocomplete="name" required>
+                        </label>
+
+                        <label>
+                            Email <span>*</span>
+                            <input type="email" name="email" maxlength="190" autocomplete="email" required>
+                        </label>
+                    </div>
+
+                    <div class="beta-submit-row" style="display:block;">
+                        <p class="beta-field-help">You can unsubscribe at any time.</p>
+                        <button class="button primary beta-submit" type="submit">Subscribe</button>
+                    </div>
+                </form>
+            </section>
+
             <!-- Footer -->
             <footer class="footer">
                 <b>Scriptronaut</b> | Code that takes ideas <span class="hilite-orange">beyond</span>.

@@ -32,7 +32,7 @@ VERSION = "1.0"
 # WordPress installation used by the static beta forms.
 # Production: https://www.scriptronaut.com
 # Scot development: http://scotdthomson.com/wp
-DEFAULT_WORDPRESS_URL = "https://www.scriptronaut.com"
+DEFAULT_WORDPRESS_URL = "http://scotdthomson.com/wp"
 WORDPRESS_URL_TOKEN = "{{WORDPRESS_URL}}"
 
 SHARED_CHECKS = PROJECT_ROOT / "shared" / "checks"
@@ -154,6 +154,7 @@ def configure_wordpress_forms(
         )
 
     pages = (
+        output_dir / "index.html",
         output_dir / "betas.html",
         output_dir / "beta-feedback.html",
     )
