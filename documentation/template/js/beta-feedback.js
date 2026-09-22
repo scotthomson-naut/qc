@@ -120,10 +120,12 @@ function updateUploadConfirmation() {
 
     if (uploadConfirmationRow) {
         uploadConfirmationRow.hidden = !hasFiles;
+        uploadConfirmationRow.style.display = hasFiles ? "flex" : "none";
     }
 
     if (clearAttachmentsButton) {
         clearAttachmentsButton.hidden = !hasFiles;
+        clearAttachmentsButton.style.display = hasFiles ? "inline-flex" : "none";
     }
 
     if (uploadConfirmation) {

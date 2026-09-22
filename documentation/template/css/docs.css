@@ -840,7 +840,8 @@ ul {
 .beta-file-row { display: flex; align-items: center; gap: 10px; }
 .beta-file-row input[type="file"] { flex: 1 1 auto; min-width: 0; }
 .beta-clear-files { flex: 0 0 auto; cursor: pointer; white-space: nowrap; color: var(--text);}
-.beta-clear-files[hidden] { display: none; }
+.beta-clear-files[hidden] { display: none !important; }
+#upload-confirmation-row[hidden] { display: none !important; }
 .beta-conditional[hidden] { display: none; }
 .beta-checkbox { grid-template-columns: auto 1fr; align-items: start; }
 .beta-checkbox input { width: auto; margin-top: 4px; }
