@@ -184,12 +184,16 @@
                     <label>
                         Attach: crash logs (.log), text files (.txt), screenshots (.png or .jpg), or .ZIPs
                         <p class="beta-help">Blender <code>.blend</code> files must be placed inside a ZIP archive before attaching.</p>
-                        <input
-                            name="attachments[]"
-                            type="file"
-                            accept=".txt,.log,.png,.jpg,.jpeg,.zip"
-                            multiple
-                        >
+                        <div class="beta-file-row">
+                            <input
+                                id="feedback-attachments"
+                                name="attachments[]"
+                                type="file"
+                                accept=".txt,.log,.png,.jpg,.jpeg,.zip"
+                                multiple
+                            >
+                            <button class="button beta-clear-files" id="clear-attachments" type="button" hidden>Clear Files</button>
+                        </div>
                     </label>
                     <p class="beta-field-help">
                         Maximum 8 MB per file and 20 MB total. Browser security requires you to choose files manually.

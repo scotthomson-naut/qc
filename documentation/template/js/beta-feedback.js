@@ -113,12 +113,17 @@ prefillFromBlender();
 const attachmentInput = form.querySelector('input[name="attachments[]"]');
 const uploadConfirmationRow = document.getElementById("upload-confirmation-row");
 const uploadConfirmation = form.elements.upload_confirmation;
+const clearAttachmentsButton = document.getElementById("clear-attachments");
 
 function updateUploadConfirmation() {
     const hasFiles = Boolean(attachmentInput && attachmentInput.files && attachmentInput.files.length);
 
     if (uploadConfirmationRow) {
         uploadConfirmationRow.hidden = !hasFiles;
+    }
+
+    if (clearAttachmentsButton) {
+        clearAttachmentsButton.hidden = !hasFiles;
     }
 
     if (uploadConfirmation) {
@@ -132,6 +137,14 @@ function updateUploadConfirmation() {
 
 if (attachmentInput) {
     attachmentInput.addEventListener("change", updateUploadConfirmation);
+}
+
+if (clearAttachmentsButton && attachmentInput) {
+    clearAttachmentsButton.addEventListener("click", () => {
+        attachmentInput.value = "";
+        updateUploadConfirmation();
+        attachmentInput.focus();
+    });
 }
 
 updateUploadConfirmation();
