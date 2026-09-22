@@ -839,7 +839,7 @@ ul {
 .beta-field-help { margin: -5px 0 8px; color: var(--muted); font-size: .86rem; line-height: 1.5; }
 .beta-file-row { display: flex; align-items: center; gap: 10px; }
 .beta-file-row input[type="file"] { flex: 1 1 auto; min-width: 0; }
-.beta-clear-files { flex: 0 0 auto; cursor: pointer; white-space: nowrap; }
+.beta-clear-files { flex: 0 0 auto; cursor: pointer; white-space: nowrap; color: var(--text);}
 .beta-clear-files[hidden] { display: none; }
 .beta-conditional[hidden] { display: none; }
 .beta-checkbox { grid-template-columns: auto 1fr; align-items: start; }
