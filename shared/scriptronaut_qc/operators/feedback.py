@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import platform
 from pathlib import Path
 from urllib.parse import urlencode
@@ -9,11 +10,71 @@ from urllib.parse import urlencode
 import bpy
 from bpy.types import Operator
 
-from ..constants import BETA_FEEDBACK_URL, TIER, VERSION
+from ..constants import BETA_FEEDBACK_URL, CHECKS_DIR, TIER, VERSION
+from ..core.discovery import get_categories, get_scripts
+from ..core.features import is_feature_enabled
+from ..utils.module_loader import load_module_from_path
 from ..utils.diagnostics import get_last_traceback
 
 
 MAX_TRACEBACK_URL_CHARS = 6000
+
+
+def _installed_feedback_checks(context, settings):
+    """Return the categories/checks actually available in this Blender session."""
+    folder_path = (
+        getattr(settings, "folder_path", "")
+        if settings is not None
+        else CHECKS_DIR
+    ) or CHECKS_DIR
+
+    use_json = is_feature_enabled(
+        "check_settings",
+        context,
+    )
+
+    result = {}
+
+    for category in get_categories(
+        folder_path,
+        use_json=use_json,
+    ):
+        labels = []
+
+        for script_data in get_scripts(
+            folder_path,
+            category,
+            use_json=use_json,
+        ):
+            label = script_data.get("name", "")
+
+            try:
+                module = load_module_from_path(
+                    "qc_feedback_{}_{}".format(
+                        category,
+                        script_data.get("name", "check"),
+                    ),
+                    script_data["script_path"],
+                )
+                label = getattr(module, "LABEL", label)
+            except Exception as error:
+                print(
+                    "Scriptronaut feedback metadata warning: {}".format(
+                        error
+                    )
+                )
+
+            label = str(label or "").strip()
+            if label and label not in labels:
+                labels.append(label)
+
+        if labels:
+            result[str(category).lower()] = sorted(
+                labels,
+                key=str.lower,
+            )
+
+    return result
 
 
 class SCRIPTRONAUT_OT_QC_BetaFeedback(Operator):
@@ -74,6 +135,11 @@ class SCRIPTRONAUT_OT_QC_BetaFeedback(Operator):
             bpy.data.filepath
         )
 
+        available_checks = _installed_feedback_checks(
+            context,
+            settings,
+        )
+
         query = urlencode(
             {
                 "source": "blender",
@@ -87,6 +153,10 @@ class SCRIPTRONAUT_OT_QC_BetaFeedback(Operator):
                 "check_name": check_name,
                 "traceback": traceback_text[-MAX_TRACEBACK_URL_CHARS:],
                 "traceback_time": traceback_time,
+                "available_checks": json.dumps(
+                    available_checks,
+                    separators=(",", ":"),
+                ),
             }
         )
 

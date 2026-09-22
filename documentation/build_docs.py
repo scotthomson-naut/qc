@@ -198,15 +198,6 @@ def generate_beta_feedback_checks(
         (PRO_CHECKS, "pro", "pro"),
     ]
 
-    for pack in discover_packs().values():
-        sources.append(
-            (
-                pack["checks_dir"],
-                "pack",
-                pack["id"],
-            )
-        )
-
     categories = {}
 
     for checks_dir, tier, product in sources:

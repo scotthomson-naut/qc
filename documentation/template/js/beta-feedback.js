@@ -1,6 +1,6 @@
 "use strict";
 
-const QC_CHECKS = window.QC_BETA_CHECKS || {};
+let QC_CHECKS = window.QC_BETA_CHECKS || {};
 
 const form = document.getElementById("beta-feedback-form");
 const reportType = document.getElementById("report-type");
@@ -20,6 +20,21 @@ function setSelectValue(select, value) {
         item.value.toLowerCase() === normalized || item.textContent.toLowerCase() === normalized
     );
     if (option) select.value = option.value;
+}
+
+function configureChecksFromBlender() {
+    const query = new URLSearchParams(window.location.hash.slice(1));
+    const availableChecksJson = query.get("available_checks");
+    if (!availableChecksJson) return;
+
+    try {
+        const availableChecks = JSON.parse(availableChecksJson);
+        if (availableChecks && typeof availableChecks === "object" && !Array.isArray(availableChecks)) {
+            QC_CHECKS = availableChecks;
+        }
+    } catch (error) {
+        console.warn("Could not read installed QC checks from Blender.", error);
+    }
 }
 
 function populateCategories() {
@@ -105,6 +120,7 @@ function prefillFromBlender() {
     updateConditionalFields();
 }
 
+configureChecksFromBlender();
 populateCategories();
 categorySelect.addEventListener("change", () => populateChecks());
 reportType.addEventListener("change", updateConditionalFields);

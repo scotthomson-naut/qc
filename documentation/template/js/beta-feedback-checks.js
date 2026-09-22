@@ -50,14 +50,6 @@ window.QC_BETA_CHECKS = {
         "Triangle Budget",
         "View Layer Rendering Enabled"
     ],
-    "rigging": [
-        "Driver Validation",
-        "Duplicate Constraints",
-        "IK Validation",
-        "Missing Deform Bones",
-        "Rig Name Validation",
-        "Weight Validation"
-    ],
     "scene": [
         "Auto Save Enabled",
         "Objects in Collections",
