@@ -58,10 +58,25 @@ function populateChecks(preferredCheck = "") {
     setSelectValue(checkSelect, preferredCheck);
 }
 
+function clearCheckContext() {
+    categorySelect.value = "";
+    checkSelect.innerHTML = '<option value="">Choose a check</option>';
+
+    const checkId = document.getElementById("check-id");
+    if (checkId) checkId.value = "";
+}
+
 function updateConditionalFields() {
     const type = reportType.value;
     const isCheckIssue = type === "check_issue";
     const isIssue = isCheckIssue || type === "crash" || type === "installation";
+
+    // Blender may open the form with a specific check pre-filled. If the
+    // tester changes to a non-check report, remove that stale check context
+    // so it cannot be submitted with a general/documentation/crash report.
+    if (!isCheckIssue) {
+        clearCheckContext();
+    }
 
     checkFields.hidden = !isCheckIssue;
     issueFields.hidden = !isIssue;
@@ -168,6 +183,11 @@ if (clearAttachmentsButton && attachmentInput) {
 updateUploadConfirmation();
 
 form.addEventListener("submit", event => {
+    // Final client-side guard: only Check Issue reports may carry check context.
+    if (reportType.value !== "check_issue") {
+        clearCheckContext();
+    }
+
     const files = Array.from(form.querySelector('input[type="file"]').files || []);
     const totalBytes = files.reduce((total, file) => total + file.size, 0);
     const oversized = files.find(file => file.size > 8 * 1024 * 1024);
