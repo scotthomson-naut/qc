@@ -305,7 +305,7 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
 
         beta_box = layout.box()
         beta_box.label(
-            text="Private Beta",
+            text="Beta",
             icon="EXPERIMENTAL",
         )
 

@@ -1,4 +1,4 @@
-"""Small in-memory diagnostic buffer used by private beta feedback."""
+"""Small in-memory diagnostic buffer used by beta feedback."""
 
 from __future__ import annotations
 
