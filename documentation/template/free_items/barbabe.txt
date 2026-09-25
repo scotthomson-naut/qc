@@ -1,0 +1,5 @@
+description:
+Charcater model of Barbabe. Quad mesh ready for rigging.
+
+group:
+assets
