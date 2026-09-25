@@ -1,5 +1,6 @@
 description:
-Charcater model of Scotty. Quad mesh ready for rigging.
+Character rig of Scotty. With 16 poses and 4 animation cycles included.
+Ready for animation.
 
 group:
 assets
