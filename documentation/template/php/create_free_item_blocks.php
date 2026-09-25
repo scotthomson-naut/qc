@@ -118,9 +118,10 @@ function scriptronaut_create_free_item_blocks()
         // Keep all essential filter CSS inline so the feature does not depend on cached docs.css.
         $html[] = '                    <style>';
         $html[] = '                        .free-filter-radio { display: none !important; }';
-        $html[] = '                        .free-filter-button { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 8px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); cursor: pointer; user-select: none; }';
-        $html[] = '                        .free-filter-button img { width: 24px; height: 24px; object-fit: contain; }';
-        $html[] = '                        .free-filter-button:hover { border-color: rgba(252,132,44,.65); background: rgba(252,132,44,.08); }';
+        $html[] = '                        .free-filter-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin: 0 0 26px; }';
+        $html[] = '                        .free-filter-button { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 0; background: transparent; cursor: pointer; user-select: none; }';
+        $html[] = '                        .free-filter-button img { display: block; width: 32px; height: 32px; object-fit: contain; transition: filter .15s ease, opacity .15s ease; }';
+        $html[] = '                        .free-filter-button:hover img { filter: brightness(0) saturate(100%) invert(60%) sepia(72%) saturate(1794%) hue-rotate(340deg) brightness(100%) contrast(98%); }';
         $html[] = '                        .free-filter-button.is-placeholder { display: none; }';
         $html[] = '                    </style>';
         $html[] = '';
@@ -153,9 +154,9 @@ function scriptronaut_create_free_item_blocks()
         foreach ($group_names as $group) {
             $safe_group = htmlspecialchars($group, ENT_QUOTES, 'UTF-8');
             $html[] = '                        #free-filter-' . $safe_group . ':checked ~ .free-items-grid .free-item:not(.group-' . $safe_group . ') { display: none; }';
-            $html[] = '                        #free-filter-' . $safe_group . ':checked ~ .free-filter-bar label[for="free-filter-' . $safe_group . '"] { border-color: var(--orange) !important; background: rgba(252,132,44,.18) !important; box-shadow: 0 0 0 1px rgba(252,132,44,.20) inset; }';
+            $html[] = '                        #free-filter-' . $safe_group . ':checked ~ .free-filter-bar label[for="free-filter-' . $safe_group . '"] img { filter: brightness(0) saturate(100%) invert(60%) sepia(72%) saturate(1794%) hue-rotate(340deg) brightness(100%) contrast(98%); }';
         }
-        $html[] = '                        #free-filter-all:checked ~ .free-filter-bar label[for="free-filter-all"] { border-color: var(--orange) !important; background: rgba(252,132,44,.18) !important; box-shadow: 0 0 0 1px rgba(252,132,44,.20) inset; }';
+        $html[] = '                        #free-filter-all:checked ~ .free-filter-bar label[for="free-filter-all"] img { filter: brightness(0) saturate(100%) invert(60%) sepia(72%) saturate(1794%) hue-rotate(340deg) brightness(100%) contrast(98%); }';
         $html[] = '                    </style>';
         $html[] = '';
     }
