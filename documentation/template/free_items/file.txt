@@ -1,0 +1,5 @@
+description:
+This is a geometry node that scatters debis near an object.
+
+group:
+geo_nodes

@@ -1,3 +1,6 @@
+# Process PHP inside .html and .htm files
+AddType application/x-httpd-php .php .html .htm
+
 RewriteEngine On
 
 # If requested without .html, serve the .html file silently
