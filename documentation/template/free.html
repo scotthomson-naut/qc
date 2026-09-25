@@ -36,139 +36,17 @@
                 <p class="lead">
                     Useful Blender add-ons, scripts, utilities, and other Scriptronaut items available to download for free.
                 </p>
-                <!-- PHP code to display the date -->
-                <p>Today's date is: <?php echo date('Y-m-d'); ?></p>
             </section>
+
+            <!-- Filter images per group -->
 
             <section class="product-section">
                 <div class="grid">
 
-
-                    <!-- Item -->
-                    <article class="detail-card product-benefit">
-                        <!-- Title -->
-                        <h2>
-                            Asset Name
-                            <img class="i-orange" src="svg/group_assets.svg" alt="Scriptronaut geo nodes" />
-                        </h2>
-                        <!-- Image -->
-                        <div class="story-image-col">
-                            <img src="free_items/file.png" alt="Your item name">
-                        </div>
-                        <!-- Description -->
-                        <p>
-                            This page is maintained manually. New free add-ons, 
-                            scripts, utilities, and other items will appear here 
-                            as they are released.
-                        </p>
-                        <!-- Download link -->
-                        <div class="actions">
-                            <a class="button primary" href="free_items/file.zip">
-                                Download
-                            </a>
-                        </div>
-                    </article>
-
-                    <!-- Item -->
-                    <article class="detail-card product-benefit">
-                        <!-- Title -->
-                        <h2>
-                            Geometry Node Name
-                            <img class="i-orange" src="svg/group_geo_nodes.svg" alt="Scriptronaut geo nodes" />
-                        </h2>
-                        <!-- Image -->
-                        <div class="story-image-col">
-                            <img src="free_items/file.png" alt="Your item name">
-                        </div>
-                        <!-- Description -->
-                        <p>
-                            This page is maintained manually. New free add-ons, 
-                            scripts, utilities, and other items will appear here 
-                            as they are released.
-                        </p>
-                        <!-- Download link -->
-                        <div class="actions">
-                            <a class="button primary" href="free_items/file.zip">
-                                Download
-                            </a>
-                        </div>
-                    </article>
-
-                    <!-- Item -->
-                    <article class="detail-card product-benefit">
-                        <!-- Title -->
-                        <h2>
-                            Settings Name
-                            <img class="i-orange" src="svg/group_settings.svg" alt="Scriptronaut geo nodes" />
-                        </h2>
-                        <!-- Image -->
-                        <div class="story-image-col">
-                            <img src="free_items/file.png" alt="Your item name">
-                        </div>
-                        <!-- Description -->
-                        <p>
-                            This page is maintained manually. New free add-ons, 
-                            scripts, utilities, and other items will appear here 
-                            as they are released.
-                        </p>
-                        <!-- Download link -->
-                        <div class="actions">
-                            <a class="button primary" href="free_items/file.zip">
-                                Download
-                            </a>
-                        </div>
-                    </article>
-
-                    <!-- Item -->
-                    <article class="detail-card product-benefit">
-                        <!-- Title -->
-                        <h2>
-                            Tool Name
-                            <img class="i-orange" src="svg/group_tools.svg" alt="Scriptronaut geo nodes" />
-                        </h2>
-                        <!-- Image -->
-                        <div class="story-image-col">
-                            <img src="free_items/file.png" alt="Your item name">
-                        </div>
-                        <!-- Description -->
-                        <p>
-                            This page is maintained manually. New free add-ons, 
-                            scripts, utilities, and other items will appear here 
-                            as they are released.
-                        </p>
-                        <!-- Download link -->
-                        <div class="actions">
-                            <a class="button primary" href="free_items/file.zip">
-                                Download
-                            </a>
-                        </div>
-                    </article>
-
-                    <!-- Item -->
-                    <article class="detail-card product-benefit">
-                        <!-- Title -->
-                        <h2>
-                            Geometry Node Name
-                            <img class="i-orange" src="svg/group_geo_nodes.svg" alt="Scriptronaut geo nodes" />
-                        </h2>
-                        <!-- Image -->
-                        <div class="story-image-col">
-                            <img src="free_items/file.png" alt="Your item name">
-                        </div>
-                        <!-- Description -->
-                        <p>
-                            This page is maintained manually. New free add-ons, 
-                            scripts, utilities, and other items will appear here 
-                            as they are released.
-                        </p>
-                        <!-- Download link -->
-                        <div class="actions">
-                            <a class="button primary" href="free_items/file.zip">
-                                Download
-                            </a>
-                        </div>
-                    </article>
-
+                    <?php
+                    require_once __DIR__ . '/php/create_free_item_blocks.php';
+                    echo scriptronaut_create_free_item_blocks();
+                    ?>
 
                 </div>
             </section>
@@ -184,7 +62,7 @@
 
             <footer class="footer">
                 <b>Scriptronaut</b> | Free add-ons &amp; items
-                <span style="float:right;">&copy; 2026</span>
+                <span style="float:right;">&copy; <?php echo date('Y'); ?></span>
                 <div style="text-align:right;">
                     <a href="privacy-policy.html" class="hilite-legal">Privacy Policy</a>
                     &middot;

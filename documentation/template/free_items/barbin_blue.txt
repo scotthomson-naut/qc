@@ -1,0 +1,5 @@
+description:
+Barbin Blue are a collection of settings to start blender from for quick prodution output presets.
+
+group:
+settings
