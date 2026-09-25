@@ -884,3 +884,25 @@ ul {
     .beta-form-grid-three { grid-template-columns: 1fr; }
     .beta-form-card { padding: 18px; }
 }
+
+
+/* Free items filters */
+.free-items-browser { width: 100%; }
+.free-filter-radio { display: none; }
+.free-filter-bar { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 22px; }
+.free-filter-button {
+    display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px;
+    padding: 8px; border: 1px solid var(--line); border-radius: 12px;
+    background: var(--panel); color: var(--text); font-weight: 700;
+    cursor: pointer; user-select: none;
+    transition: border-color .15s ease, background .15s ease, color .15s ease;
+}
+.free-filter-button:hover { border-color: rgba(252,132,44,.65); background: rgba(252,132,44,.08); }
+.free-filter-button img { width: 24px; height: 24px; object-fit: contain; }
+.free-items-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; }
+.free-item { min-width: 0; }
+.free-item .story-image-col img { width: 100%; display: block; }
+@media (max-width: 760px) {
+    .free-items-grid { grid-template-columns: 1fr; }
+    .free-filter-button { width: 42px; height: 42px; padding: 8px; }
+}

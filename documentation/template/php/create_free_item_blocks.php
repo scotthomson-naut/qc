@@ -1,5 +1,5 @@
 <?php
-/** Scriptronaut Free Item Block Generator */
+/** Scriptronaut Free Item Block + CSS-only Filter Generator */
 
 function scriptronaut_parse_free_item_file($txt_file)
 {
@@ -12,17 +12,21 @@ function scriptronaut_parse_free_item_file($txt_file)
 
     foreach (explode("\n", $contents) as $line) {
         $trimmed = trim($line);
+
         if (preg_match('/^description\s*:\s*(.*)$/i', $line, $m)) {
             $current_key = 'description';
             $data['description'] = trim($m[1]);
             continue;
         }
+
         if (preg_match('/^group\s*:\s*(.*)$/i', $line, $m)) {
             $current_key = 'group';
             $data['group'] = trim($m[1]);
             continue;
         }
+
         if ($trimmed === '') continue;
+
         if ($current_key === 'description') {
             if ($data['description'] !== '') $data['description'] .= "\n";
             $data['description'] .= $trimmed;
@@ -30,6 +34,7 @@ function scriptronaut_parse_free_item_file($txt_file)
             $data['group'] = $trimmed;
         }
     }
+
     return $data;
 }
 
@@ -40,17 +45,33 @@ function scriptronaut_free_item_display_name($filename)
     return ucwords(trim($name));
 }
 
+function scriptronaut_free_group_display_name($group)
+{
+    $name = str_replace(array('_', '-'), ' ', $group);
+    $name = preg_replace('/\s+/', ' ', $name);
+    return ucwords(trim($name));
+}
+
 function scriptronaut_create_free_item_blocks()
 {
     $template_dir = dirname(__DIR__);
     $items_dir = $template_dir . '/free_items';
-    if (!is_dir($items_dir)) return '<!-- free_items folder not found. -->';
+
+    if (!is_dir($items_dir)) {
+        return '<!-- free_items folder not found. -->';
+    }
 
     $txt_files = glob($items_dir . '/*.txt');
-    if (!$txt_files) return '<!-- No free items found. -->';
-    natcasesort($txt_files);
-    $blocks = array();
+    if (!$txt_files) {
+        return '<!-- No free items found. -->';
+    }
 
+    natcasesort($txt_files);
+
+    $items = array();
+    $groups = array();
+
+    // First collect only complete/valid items.
     foreach ($txt_files as $txt_file) {
         $filename = pathinfo($txt_file, PATHINFO_FILENAME);
         if (!preg_match('/^[A-Za-z0-9_-]+$/', $filename)) continue;
@@ -60,15 +81,83 @@ function scriptronaut_create_free_item_blocks()
         $gif_file = $items_dir . '/' . $filename . '.gif';
         $image_extension = is_file($png_file) ? 'png' : (is_file($gif_file) ? 'gif' : '');
 
-        // The .txt is discovered first, but only complete item sets are rendered.
         if (!is_file($zip_file) || $image_extension === '') continue;
 
-        $item = scriptronaut_parse_free_item_file($txt_file);
-        if ($item['description'] === '' || $item['group'] === '') continue;
+        $item_data = scriptronaut_parse_free_item_file($txt_file);
+        if ($item_data['description'] === '' || $item_data['group'] === '') continue;
 
-        $group = strtolower(trim($item['group']));
+        $group = strtolower(trim($item_data['group']));
         $group = preg_replace('/[^a-z0-9_-]/', '', $group);
         if ($group === '') continue;
+
+        $items[] = array(
+            'filename' => $filename,
+            'image_extension' => $image_extension,
+            'description' => $item_data['description'],
+            'group' => $group,
+        );
+
+        $groups[$group] = true;
+    }
+
+    if (!$items) {
+        return '<!-- No complete free items found. Each item needs matching .txt, .zip and .png/.gif files. -->';
+    }
+
+    $group_names = array_keys($groups);
+    natcasesort($group_names);
+    $group_names = array_values($group_names);
+    $show_filters = count($group_names) > 1;
+
+    // Indentation begins at 16 spaces because this output is inserted inside
+    // <section class="product-section free-items-section"> in free.html.
+    $html = array();
+    $html[] = '                <div class="free-items-browser">';
+
+    if ($show_filters) {
+        // Radios drive the CSS-only filtering, but are visually hidden by CSS.
+        $html[] = '                    <input class="free-filter-radio" type="radio" name="free-item-filter" id="free-filter-all" checked>';
+
+        foreach ($group_names as $group) {
+            $safe_id = htmlspecialchars($group, ENT_QUOTES, 'UTF-8');
+            $html[] = '                    <input class="free-filter-radio" type="radio" name="free-item-filter" id="free-filter-' . $safe_id . '">';
+        }
+
+        $html[] = '';
+        $html[] = '                    <div class="free-filter-bar" aria-label="Filter free items">';
+        $html[] = '                        <label class="free-filter-button" for="free-filter-all" title="Show all" aria-label="Show all">';
+        $html[] = '                            <img src="svg/group_all.svg" alt="">';
+        $html[] = '                        </label>';
+
+        foreach ($group_names as $group) {
+            $safe_group = htmlspecialchars($group, ENT_QUOTES, 'UTF-8');
+            $label = htmlspecialchars(scriptronaut_free_group_display_name($group), ENT_QUOTES, 'UTF-8');
+            $group_url = 'svg/group_' . rawurlencode($group) . '.svg';
+
+            $html[] = '                        <label class="free-filter-button" for="free-filter-' . $safe_group . '" title="' . $label . '" aria-label="' . $label . '">';
+            $html[] = '                            <img src="' . $group_url . '" alt="">';
+            $html[] = '                        </label>';
+        }
+
+        $html[] = '                    </div>';
+        $html[] = '';
+        $html[] = '                    <style>';
+        foreach ($group_names as $group) {
+            $safe_group = htmlspecialchars($group, ENT_QUOTES, 'UTF-8');
+            $html[] = '                        #free-filter-' . $safe_group . ':checked ~ .free-items-grid .free-item:not(.group-' . $safe_group . ') { display: none; }';
+            $html[] = '                        #free-filter-' . $safe_group . ':checked ~ .free-filter-bar label[for="free-filter-' . $safe_group . '"] { border-color: var(--orange); background: rgba(252,132,44,.12); }';
+        }
+        $html[] = '                        #free-filter-all:checked ~ .free-filter-bar label[for="free-filter-all"] { border-color: var(--orange); background: rgba(252,132,44,.12); }';
+        $html[] = '                    </style>';
+        $html[] = '';
+    }
+
+    $html[] = '                    <div class="grid free-items-grid">';
+
+    foreach ($items as $item) {
+        $filename = $item['filename'];
+        $group = $item['group'];
+        $image_extension = $item['image_extension'];
 
         $display_name = scriptronaut_free_item_display_name($filename);
         $safe_name = htmlspecialchars($display_name, ENT_QUOTES, 'UTF-8');
@@ -80,27 +169,26 @@ function scriptronaut_create_free_item_blocks()
         $zip_url = 'free_items/' . $safe_filename . '.zip';
         $group_url = 'svg/group_' . rawurlencode($group) . '.svg';
 
-        $blocks[] =
-            '                    <!-- Item: ' . $safe_name . ' -->' . "\n" .
-            '                    <article class="detail-card product-benefit">' . "\n" .
-            '                        <h2>' . "\n" .
-            '                            ' . $safe_name . "\n" .
-            '                            <img class="i-orange" src="' . $group_url . '" alt="Scriptronaut ' . $safe_group . '" />' . "\n" .
-            '                        </h2>' . "\n" .
-            '                        <div class="story-image-col">' . "\n" .
-            '                            <img src="' . $image_url . '" alt="' . $safe_name . '">' . "\n" .
-            '                        </div>' . "\n" .
-            '                        <p>' . "\n" .
-            '                            ' . $safe_description . "\n" .
-            '                        </p>' . "\n" .
-            '                        <div class="actions">' . "\n" .
-            '                            <a class="button primary" href="' . $zip_url . '" download>' . "\n" .
-            '                                Download' . "\n" .
-            '                            </a>' . "\n" .
-            '                        </div>' . "\n" .
-            '                    </article>';
+        $html[] = '';
+        $html[] = '                        <!-- Item: ' . $safe_name . ' -->';
+        $html[] = '                        <article class="detail-card product-benefit free-item group-' . $safe_group . '">';
+        $html[] = '                            <h2>';
+        $html[] = '                                ' . $safe_name;
+        $html[] = '                                <img class="i-orange" src="' . $group_url . '" alt="Scriptronaut ' . $safe_group . '" />';
+        $html[] = '                            </h2>';
+        $html[] = '                            <div class="story-image-col">';
+        $html[] = '                                <img src="' . $image_url . '" alt="' . $safe_name . '">';
+        $html[] = '                            </div>';
+        $html[] = '                            <p>' . $safe_description . '</p>';
+        $html[] = '                            <div class="actions">';
+        $html[] = '                                <a class="button primary" href="' . $zip_url . '" download>Download</a>';
+        $html[] = '                            </div>';
+        $html[] = '                        </article>';
     }
 
-    if (!$blocks) return '<!-- No complete free items found. Each item needs matching .txt, .zip and .png/.gif files. -->';
-    return implode("\n\n", $blocks);
+    $html[] = '';
+    $html[] = '                    </div>';
+    $html[] = '                </div>';
+
+    return implode("\n", $html);
 }

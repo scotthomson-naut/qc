@@ -38,18 +38,11 @@
                 </p>
             </section>
 
-            <!-- Filter images per group -->
-
-            <section class="product-section">
-                <div class="grid">
-
-<?php
-require_once __DIR__ . '/php/create_free_item_blocks.php';
-echo scriptronaut_create_free_item_blocks();
-?>
-
-
-                </div>
+            <section class="product-section free-items-section">
+                <?php
+                require_once __DIR__ . '/php/create_free_item_blocks.php';
+                echo scriptronaut_create_free_item_blocks();
+                ?>
             </section>
 
             <section class="product-final-cta">
