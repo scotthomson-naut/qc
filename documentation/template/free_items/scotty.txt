@@ -1,0 +1,5 @@
+description:
+Charcater model of Scotty. Quad mesh ready for rigging.
+
+group:
+assets

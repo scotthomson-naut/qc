@@ -1,0 +1,5 @@
+description:
+Hulker is a muscle deformation tool that automatically makes muscles for your character rigs.
+
+group:
+tools
