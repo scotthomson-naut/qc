@@ -175,7 +175,15 @@ function scriptronaut_create_free_item_blocks()
         $safe_filename = rawurlencode($filename);
 
         $image_url = 'free_items/' . $safe_filename . '.' . $image_extension;
-        $zip_url = 'free_items/' . $safe_filename . '.zip';
+        // Send the download through the Scriptronaut Flux WordPress plugin.
+        // Flux records the event, then redirects to the matching ZIP in free_items.
+        $flux_endpoint = '/wp/wp-admin/admin-post.php';
+        $zip_url = $flux_endpoint . '?' . http_build_query(array(
+            'action' => 'scriptronaut_flux_download',
+            'item'   => $filename,
+            'name'   => $display_name,
+            'group'  => $group,
+        ));
         $group_url = 'svg/group_' . rawurlencode($group) . '.svg';
 
         $html[] = '';
