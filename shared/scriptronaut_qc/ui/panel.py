@@ -19,7 +19,7 @@ from ..icons import get_icon_id
 QC_PANEL_PROFILE = True
 QC_PANEL_PROFILE_THRESHOLD = 0.020
 
-# Temporary private-beta panel controls.
+# Temporary beta panel controls.
 # Set to False for builds that should omit the Beta section.
 add_beta_feedback = True
 
