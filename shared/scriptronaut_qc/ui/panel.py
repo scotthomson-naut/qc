@@ -19,6 +19,10 @@ from ..icons import get_icon_id
 QC_PANEL_PROFILE = True
 QC_PANEL_PROFILE_THRESHOLD = 0.020
 
+# Temporary private-beta panel controls.
+# Set to False for builds that should omit the Beta section.
+add_beta_feedback = True
+
 
 def _qc_profile_print(
         label,
@@ -303,28 +307,29 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
         # Temporary private-beta links
         # ---------------------------------------------------------
 
-        beta_box = layout.box()
-        beta_box.label(
-            text="Beta",
-            icon="EXPERIMENTAL",
-        )
+        if add_beta_feedback:
+            beta_box = layout.box()
+            beta_box.label(
+                text="Beta",
+                icon="EXPERIMENTAL",
+            )
 
-        beta_row = beta_box.row(
-            align=True
-        )
+            beta_row = beta_box.row(
+                align=True
+            )
 
-        beta_row.operator(
-            "scriptronaut.qc_beta_feedback",
-            text="Send Feedback",
-            icon="URL",
-        )
+            beta_row.operator(
+                "scriptronaut.qc_beta_feedback",
+                text="Send Feedback",
+                icon="URL",
+            )
 
-        docs_button = beta_row.operator(
-            "wm.url_open",
-            text="Core Documentation",
-            icon="HELP",
-        )
-        docs_button.url = BETA_DOCUMENTATION_URL
+            docs_button = beta_row.operator(
+                "wm.url_open",
+                text="Core Documentation",
+                icon="HELP",
+            )
+            docs_button.url = BETA_DOCUMENTATION_URL
 
     # ---------------------------------------------------------------------
     # Progress

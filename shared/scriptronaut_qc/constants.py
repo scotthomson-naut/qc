@@ -20,10 +20,6 @@ VERSION = "1.0.0"
 
 # Temporary private-beta links. Remove these and the feedback operator when
 # the beta feedback workflow is retired.
-'''
-BETA_FEEDBACK_URL = "http://scotdthomson.com/scriptronaut/beta-feedback.html"
-BETA_DOCUMENTATION_URL = "http://scotdthomson.com/scriptronaut/docs/qc_checker/core/index.html"
-'''
 
 BETA_FEEDBACK_URL = "https://scriptronaut.com/beta-feedback.html"
 BETA_DOCUMENTATION_URL = "https://scriptronaut.com/docs/qc_checker/core/index.html"
