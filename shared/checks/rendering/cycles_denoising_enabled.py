@@ -9,13 +9,11 @@ import bpy
 SEVERITY = "warning"
 LABEL = "Cycles Denoising Enabled"
 DESCRIPTION = (
-    "Checks whether Cycles render denoising is enabled."
+    'Checks whether Cycles render denoising is enabled.'
 )
 WHY = (
-    "Denoising lets you use fewer render samples while still getting a "
-    "clean image, cutting down render times. It also cleans up residual "
-    "grain at low sample counts, preventing wasted hours rendering an "
-    "overly noisy image."
+    'Denoising can reduce visible render noise at a given sample count, '
+    'helping achieve cleaner output without relying only on higher sampling.'
 )
 
 
@@ -142,4 +140,3 @@ def fix_cycles_denoise_setting():
         },
         "issues": [],
     }
-

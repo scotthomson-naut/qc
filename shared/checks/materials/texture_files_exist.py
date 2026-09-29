@@ -352,7 +352,6 @@ def get_objects_using_failed_images(
             )
 
             for node in image_nodes:
-
                 image = getattr(
                     node,
                     "image",
@@ -501,7 +500,6 @@ def get_image_texture_nodes_recursive(
         # -----------------------------------------------------
 
         if node.type == "GROUP":
-
             group_tree = getattr(
                 node,
                 "node_tree",
@@ -537,7 +535,6 @@ def deduplicate_missing_image_entries(
     seen = set()
 
     for entry in entries:
-
         key = (
             entry.get(
                 "image_name"

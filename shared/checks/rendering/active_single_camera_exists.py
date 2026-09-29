@@ -9,16 +9,14 @@ import bpy
 SEVERITY = "critical"
 LABEL = "Active Single Camera Exists"
 DESCRIPTION = (
-    "Checks that the scene has at least one Camera object, that a camera "
-    "is assigned as the active render camera, and (when the 'Require "
-    "Single Camera' setting is on) that exactly one Camera object exists. "
-    "Also checks that the active render camera isn't itself disabled from "
-    "render (Camera icon OFF)."
+    'Checks that the scene contains a Camera object, has an active render '
+    'camera assigned, and that the active camera is enabled for rendering. '
+    'When Require Single Camera is enabled, the scene must contain exactly '
+    'one Camera object.'
 )
 WHY = (
-    "Knows exactly which viewpoint to use for rendering and viewport "
-    "framing. Without a designated, enabled active camera, rendering "
-    "fails or captures the wrong angle."
+    'Ensures renders use a deliberate, enabled viewpoint and prevents missing '
+    'or unintended camera output.'
 )
 
 
@@ -274,6 +272,10 @@ def main(preferences=None):
         },
     }
 
+
+# -------------------------------------------------------------------------
+# Fix
+# -------------------------------------------------------------------------
 
 def fix(result_data=None, preferences=None):
     """

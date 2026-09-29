@@ -9,12 +9,12 @@ import bpy
 SEVERITY = "info"
 LABEL = "UV Within Bounds"
 DESCRIPTION = (
-    "Checks all UV maps for UV coordinates outside the 0-1 tile. "
+    'Checks all UV maps for UV coordinates outside the primary 0-1 tile.'
 )
 WHY = (
-    "Out-of-bounds UVs can cause unintended texture repetition and "
-    "baking issues, since most bake and texturing workflows expect "
-    "UV coordinates within the primary 0-1 tile."
+    'Out-of-bounds UVs can cause unintended wrapping or repetition and may be '
+    'incompatible with baking or texturing workflows that require the primary '
+    '0-1 tile.'
 )
 
 # -------------------------------------------------------------------------
@@ -167,7 +167,6 @@ def get_objects_with_uvs_outside_01(
         )
 
     for obj in get_qc_objects(objects):
-
         # Directly linked library objects are read-only and outside
         # the scope of local UV QC.
         if obj.library is not None:
@@ -199,7 +198,6 @@ def get_objects_with_uvs_outside_01(
         # -----------------------------------------------------
 
         for uv_layer in mesh.uv_layers:
-
             uv_data = uv_layer.data
 
             outside_uv_count = 0
@@ -214,11 +212,9 @@ def get_objects_with_uvs_outside_01(
             # -------------------------------------------------
 
             for polygon in mesh.polygons:
-
                 polygon_failed = False
 
                 for loop_index in polygon.loop_indices:
-
                     uv = uv_data[
                         loop_index
                     ].uv

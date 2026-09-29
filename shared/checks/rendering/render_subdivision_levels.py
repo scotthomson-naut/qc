@@ -253,7 +253,6 @@ def get_objects_with_excessive_render_subdivision(
     failed_objects = {}
 
     for obj in get_qc_objects(objects):
-
         if obj.library is not None:
             continue
 
@@ -657,7 +656,6 @@ def reduce_excessive_render_subdivision(
         "fixed_objects": fixed_objects,
         "issues": issues,
     }
-
 
 
 # -------------------------------------------------------------------------

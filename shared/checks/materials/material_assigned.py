@@ -9,13 +9,12 @@ import bpy
 SEVERITY = "critical"
 LABEL = "Material Assigned"
 DESCRIPTION = (
-    "Checks for objects that have missing materials, empty material slots, "
-    "or faces assigned to invalid or empty material slots."
+    'Checks mesh objects for missing materials, empty material slots, and '
+    'polygons assigned to invalid or empty material slots.'
 )
 WHY = (
-    "Prevents visually incorrect renders and materials, export failures, and"
-    " confusing default/placeholder materials in game engines. It cleans up "
-    "your project data before sharing or rendering."
+    'Ensures rendered and exported geometry resolves to valid materials '
+    'instead of producing missing, default, or unintended shading.'
 )
 
 
@@ -122,7 +121,6 @@ def get_objects_with_missing_materials(
                     )
 
             if empty_slots:
-
                 reasons.append(
                     "Empty material slot(s): {}".format(
                         ", ".join(
@@ -223,7 +221,6 @@ def assign_placeholder_materials(
     issues = []
 
     for object_name, object_data in failed_objects.items():
-
         obj = get_qc_object(
             object_name
         )
@@ -264,13 +261,10 @@ def assign_placeholder_materials(
         for index, material in enumerate(
             materials
         ):
-
             if material is None:
-
                 materials[index] = (
                     placeholder
                 )
-
                 changes.append(
                     "Filled slot {}".format(
                         index
@@ -286,13 +280,11 @@ def assign_placeholder_materials(
         )
 
         for polygon in mesh.polygons:
-
             material_index = (
                 polygon.material_index
             )
 
             invalid = False
-
             if (
                 material_index < 0
                 or material_index >= slot_count
@@ -308,11 +300,9 @@ def assign_placeholder_materials(
                 invalid = True
 
             if invalid:
-
                 polygon.material_index = 0
 
         if changes:
-
             fixed_objects[
                 object_name
             ] = {
@@ -331,16 +321,17 @@ def assign_placeholder_materials(
 
 def get_placeholder_material():
 
+    """
+    Return the reusable placeholder material used by the automatic fix.
+    """
     material = bpy.data.materials.get(
         "QC_MissingMaterial"
     )
 
     if material is None:
-
         material = bpy.data.materials.new(
             "QC_MissingMaterial"
         )
-
         material.use_nodes = True
 
     return material

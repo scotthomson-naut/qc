@@ -9,12 +9,14 @@ import bpy
 SEVERITY = "critical"
 LABEL = "ASCII Names"
 DESCRIPTION = (
-    "Checks that Object and Datablock names contain only ASCII characters. "
-    "Names such as 'Café', '椅子', or emoji."
+    'Checks that object and datablock names contain only ASCII characters; '
+    'names containing accented characters, non-Latin scripts, or emoji are '
+    'reported.'
 )
 WHY = (
-    "Causes export, scripting, game-engine, and pipeline compatibility "
-    "problems."
+    'ASCII-only names improve compatibility with scripts, exporters, game '
+    'engines, file systems, and production tools that may not handle Unicode '
+    'names consistently.'
 )
 
 
@@ -40,7 +42,6 @@ def main():
     issues = []
 
     for object_name, data in failed_objects.items():
-
         # -----------------------------------------------------
         # Object name
         # -----------------------------------------------------
@@ -172,7 +173,6 @@ def get_objects_with_unicode_characters(
     failed_objects = {}
 
     for obj in get_qc_objects(objects):
-
         # Directly linked library objects are read-only and are
         # outside the scope of local naming QC.
         if obj.library is not None:

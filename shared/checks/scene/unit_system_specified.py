@@ -8,13 +8,13 @@ import bpy
 SEVERITY = "warning"
 LABEL = "Unit System Specified"
 DESCRIPTION = (
-    "Checks if a metric or imperial system has been specified. "
+    'Checks whether the scene unit system is explicitly set to Metric or '
+    'Imperial.'
 )
 WHY = (
-    "Ensures your file's scale is interpreted correctly by other "
-    "applications, producing correctly-scaled exports for 3D printing "
-    "or game engines. Leaving the unit system unspecified can lead "
-    "to ambiguous or incorrect scale interpretation downstream. "
+    'An explicit unit system makes scene scale less ambiguous and helps '
+    'downstream tools, exports, simulation, fabrication, and interchange '
+    'workflows interpret dimensions consistently.'
 )
 
 

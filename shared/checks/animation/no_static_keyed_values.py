@@ -539,7 +539,7 @@ def reduce_constant_fcurves(
 
 
 # -------------------------------------------------------------------------
-# Helpers 
+# Helpers
 # -------------------------------------------------------------------------
 
 def get_object_action(obj):
@@ -593,6 +593,7 @@ def get_action_fcurves(action):
     seen_pointers = set()
 
     def add_fcurve(fcurve):
+        """Add an F-curve to the current analysis when it has not already been recorded."""
         if fcurve is None:
             return
 
@@ -707,6 +708,7 @@ def is_transform_fcurve(fcurve):
         "data_path",
         "",
     ) in transform_data_paths
+
 
 def values_are_constant(
         values,

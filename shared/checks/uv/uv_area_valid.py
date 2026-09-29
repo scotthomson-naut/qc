@@ -8,11 +8,12 @@ import bpy
 SEVERITY = "critical"
 LABEL = "UV Area Valid"
 DESCRIPTION = (
-    "Checks if Object has Zero Area UV Faces. "
+    'Checks for UV faces with zero or collapsed UV area.'
 )
 WHY = (
-    "Helps find unmapped or collapsed UV coordinates that cause severe "
-    "texture stretching, baking errors, or game engine import warnings."
+    'Collapsed UV faces cannot represent meaningful texture area and can '
+    'cause severe stretching, painting or baking errors, and invalid texture '
+    'mapping.'
 )
 
 
@@ -33,7 +34,6 @@ def main():
     for object_name, data in (
         failed_objects.items()
     ):
-
         for uv_map_name, uv_data in (
             data["failed_uv_maps"].items()
         ):
@@ -109,7 +109,6 @@ def get_objects_with_zero_area_uv_faces(
         bpy.ops.object.mode_set(mode='OBJECT')
 
     for obj in get_qc_objects(objects):
-
         # Directly linked library objects are read-only and outside
         # the scope of local UV QC.
         if obj.library is not None:
@@ -134,12 +133,10 @@ def get_objects_with_zero_area_uv_faces(
         failed_uv_maps = {}
 
         for uv_layer in mesh.uv_layers:
-
             uv_data = uv_layer.data
             zero_area_faces = []
 
             for polygon in mesh.polygons:
-
                 uvs = [
                     uv_data[
                         loop_index
@@ -227,7 +224,6 @@ def get_uv_polygon_area(uvs):
     area = 0.0
 
     for index, uv_a in enumerate(uvs):
-
         uv_b = uvs[
             (index + 1) % len(uvs)
         ]

@@ -9,15 +9,15 @@ import bpy
 SEVERITY = "critical"
 LABEL = "Color Space Valid"
 DESCRIPTION = (
-    "Checks image textures used as normal, roughness, metallic, height, "
-    "displacement, masks, or other non-color data and verifies that their "
-    "image color space is set to Non-Color. Images used for both color and "
-    "non-color purposes are skipped by default, since no single color space "
-    "setting is correct for both."
+    'Checks image textures used as normal, roughness, metallic, height, '
+    'displacement, masks, or other non-color data and verifies that their '
+    'image color space is set to the required non-color space. Images used '
+    'for both color and non-color purposes are skipped by default because one '
+    'global image color-space setting cannot be correct for both uses.'
 )
 WHY = (
-    "Stops the software from applying gamma correction (sRGB) to "
-    "mathematical values."
+    'Prevents color-management transforms such as sRGB gamma from altering '
+    'numeric texture data used by shader calculations.'
 )
 
 
@@ -1062,6 +1062,7 @@ def classify_destination_socket(
 def is_roughness_socket(
         socket_name,
     ):
+    """Return True when the socket represents roughness data."""
     return socket_name in {
         "roughness",
         "coat roughness",
@@ -1075,6 +1076,7 @@ def is_roughness_socket(
 def is_metallic_socket(
         socket_name,
     ):
+    """Return True when the socket represents metallic data."""
     return socket_name in {
         "metallic",
         "metalness",
@@ -1084,6 +1086,7 @@ def is_metallic_socket(
 def is_normal_socket(
         socket_name,
     ):
+    """Return True when the socket represents normal-map data."""
     return socket_name in {
         "normal",
         "tangent",
@@ -1095,6 +1098,7 @@ def is_normal_socket(
 def is_height_socket(
         socket_name,
     ):
+    """Return True when the socket represents height or displacement data."""
     return socket_name in {
         "height",
         "distance",
@@ -1108,6 +1112,7 @@ def is_mask_or_data_socket(
         node,
         socket_name,
     ):
+    """Return True when the socket represents mask or other non-color data."""
     non_color_names = {
         "alpha",
         "fac",
@@ -1159,6 +1164,7 @@ def is_color_socket(
         node,
         socket_name,
     ):
+    """Return True when the socket represents color data."""
     color_names = {
         "base color",
         "color",
@@ -1203,6 +1209,7 @@ def is_color_socket(
 def get_data_usage_label(
         socket_name,
     ):
+    """Return a readable label describing the detected non-color data usage."""
     labels = {
         "alpha":
             "Alpha",
@@ -1244,6 +1251,7 @@ def get_data_usage_label(
 def get_color_usage_label(
         socket_name,
     ):
+    """Return a readable label describing the detected color usage."""
     labels = {
         "base color":
             "Base Color",
@@ -1425,6 +1433,9 @@ def get_scene_materials(
 def get_image_colorspace(
         image,
     ):
+    """
+    Return the image color-space name, or an empty value when unavailable.
+    """
     try:
         return (
             image.colorspace_settings.name
@@ -1463,6 +1474,9 @@ def colorspace_matches(
 def normalize_name(
         value,
     ):
+    """
+    Normalize a name for case-insensitive usage comparisons.
+    """
     return " ".join(
         str(
             value
@@ -1480,6 +1494,9 @@ def normalize_name(
 def get_datablock_key(
         datablock,
     ):
+    """
+    Return a stable key for identifying a Blender datablock during analysis.
+    """
     try:
         return (
             datablock.as_pointer()

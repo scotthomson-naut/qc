@@ -9,11 +9,12 @@ import bpy
 SEVERITY = "info"
 LABEL = "Keyframes in Range"
 DESCRIPTION = (
-    "Checks for objects with keyframes before scene start frame "
-    "or after the scene end frame."
+    'Checks for object animation keyframes that fall before the scene start '
+    'frame or after the scene end frame.'
 )
 WHY = (
-    "Prevents unexpected object snapping and broken render loops."
+    'Keeps animation inside the intended scene range so out-of-range keys do '
+    'not create unexpected motion, offsets, or extra animation data.'
 )
 
 

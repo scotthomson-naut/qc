@@ -14,13 +14,14 @@ import bmesh
 SEVERITY = "warning"
 LABEL = "Connected Geometry"
 DESCRIPTION = (
-    "Checks mesh objects for vertices, edges, or faces that are not "
-    "connected to the object's main mesh body."
+    'Checks mesh objects for disconnected geometry components and stray '
+    "vertices, edges, or faces that are separate from the object's primary "
+    'mesh body.'
 )
 WHY = (
-    "Disconnected face islands can cause unexpected render glitches. "
-    "Stray elements can also break physics simulations, ruin rigging "
-    "deformations, and cause problems with 3D printing or game export."
+    'Unintended disconnected geometry can cause shading, deformation, '
+    'simulation, Boolean, export, and fabrication problems, while also making '
+    'meshes harder to edit and validate.'
 )
 
 
@@ -702,6 +703,7 @@ def analyze_mesh_components_fast(
     def find(
             vertex_index,
         ):
+        """Return the representative index for a disjoint-set component."""
         root = vertex_index
 
         while parent[
@@ -733,6 +735,7 @@ def analyze_mesh_components_fast(
             vertex_a,
             vertex_b,
         ):
+        """Merge two disjoint-set components and return their representative."""
         root_a = find(
             vertex_a
         )
@@ -1221,6 +1224,7 @@ def get_main_serialized_component_index(
             index_and_component,
         ):
 
+        """Return the score used to choose the mesh component treated as the primary body."""
         index, component = (
             index_and_component
         )
@@ -1438,6 +1442,7 @@ def get_main_component_index(components):
         return -1
 
     def component_score(index_and_component):
+        """Return the score used to choose the mesh component treated as the primary body."""
         index, component = index_and_component
 
         vertices = component["vertices"]

@@ -10,13 +10,13 @@ import bpy
 SEVERITY = "warning"
 LABEL = "Objects in Collections"
 DESCRIPTION = (
-    "Checks if objects are linked directly to the Scene Collection "
-    "root, bypassing every named collection."
+    'Checks for objects linked directly to the Scene Collection root instead '
+    'of being organized inside a named collection.'
 )
 WHY = (
-    "Helps you keep your scene organized. It lets you manage large projects, "
-    "hide or show groups of items at once, and apply changes to "
-    "many objects easily."
+    'Keeping objects in named collections improves scene organization and '
+    'makes groups easier to select, manage, hide, link, and process in '
+    'production tools.'
 )
 
 
@@ -102,7 +102,6 @@ def get_objects_in_scene_root(scene=None):
     failed_objects = {}
 
     for obj in scene.collection.objects:
-
         # Ignore externally linked/library objects. These are read-only
         # from the current file and should not fail local organization QC.
         if is_linked_object(

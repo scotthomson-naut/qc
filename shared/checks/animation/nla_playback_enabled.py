@@ -9,12 +9,12 @@ import bpy
 SEVERITY = "warning"
 LABEL = "NLA Playback Enabled"
 DESCRIPTION = (
-    "Checks for objects that contain muted NLA tracks "
-    "or muted NLA strips."
+    'Checks for muted NLA tracks or muted NLA strips on animated objects.'
 )
 WHY = (
-    "They can secretly disable parts of an animation, cause omitted motion "
-    "in game engine exports, or cause confusion when stacking and blending motions."
+    'Muted NLA content does not contribute to playback or export, so '
+    'accidental muting can silently remove expected motion or make layered '
+    'animation difficult to diagnose.'
 )
 
 

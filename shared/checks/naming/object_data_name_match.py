@@ -8,18 +8,15 @@ import bpy
 SEVERITY = "warning"
 LABEL = "Object/Data Name Match"
 DESCRIPTION = (
-    "Checks that single-user datablock names match their object names, across "
-    "every object type (Mesh, Camera, Curve, Armature, Light, etc). "
-    "Like BoxRed -> Cube.001. Shared datablocks are allowed and ignored. "
-    "If an object's target name is already owned by another live datablock "
-    "outside this check's current scope, the mismatch is treated as unfixable "
-    "and is not reported, since renaming would only produce a Blender-generated "
-    ".001 suffix rather than a true match."
+    'Checks that single-user datablock names match their object names across '
+    'supported object types such as Mesh, Camera, Curve, Armature, and Light. '
+    'Shared datablocks are ignored. Name collisions that would only produce a '
+    'Blender-generated numeric suffix are treated as unfixable and are not '
+    'reported.'
 )
 WHY = (
-    "An object holds position and rotation data, while its internal datablock "
-    "holds the actual geometry or properties. When they mismatch, "
-    "identifying assets becomes difficult."
+    'Matching object and datablock names makes scene data easier to identify '
+    'in scripts, exports, debugging, and production tools.'
 )
 
 # -------------------------------------------------------------------------
@@ -173,7 +170,6 @@ def get_objects_with_mismatched_data_names(
     failed_objects = {}
 
     for item in candidates:
-
         obj = item[
             "object"
         ]
@@ -187,7 +183,6 @@ def get_objects_with_mismatched_data_names(
         ]
 
         if collection is not None:
-
             blocker = collection.get(
                 obj.name
             )
@@ -331,6 +326,7 @@ def datablock_has_live_object_users(
 def describe_datablock_object_users(
         datablock,
     ):
+    """Return a readable description of the objects using a datablock."""
     users = get_datablock_object_users(
         datablock
     )

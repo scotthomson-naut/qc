@@ -319,7 +319,6 @@ def fix_objects_preserve_pivot(
     ]
 
     for object_name in target_names:
-
         obj = get_qc_object(
             object_name
         )
@@ -564,6 +563,10 @@ def fix_objects_with_native_apply_location(
     def add_candidate(
             obj,
         ):
+        """
+        Add an object to the fix-candidate collection when it is eligible and 
+        not already present.
+        """
         if obj is None:
             return
 
@@ -881,7 +884,6 @@ def get_object_descendants(
     visited = set()
 
     while stack:
-
         child = stack.pop(
             0
         )
@@ -1093,6 +1095,7 @@ def get_matrix_max_difference(
             )
 
     return difference
+
 
 def get_mode_set_name(context_mode):
     """

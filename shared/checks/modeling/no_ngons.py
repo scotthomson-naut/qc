@@ -10,13 +10,12 @@ import bmesh
 SEVERITY = "critical"
 LABEL = "No N-Gons"
 DESCRIPTION = (
-    "Checks if Object's mesh have N-Gons (polygons with 5 or more sides)."
-
+    'Checks mesh objects for N-gons: polygons with five or more sides.'
 )
 WHY = (
-    "Helps prevent rendering glitches, deformation failures during animation, "
-    "and unpredictable results when exporting models to game engines "
-    "or other software."
+    'N-gons can triangulate unpredictably during deformation, rendering, '
+    'subdivision, or export, so identifying them helps maintain controlled '
+    'production topology.'
 )
 
 
@@ -156,16 +155,13 @@ def get_objects_with_ngons(
 
                 ngon_faces = [
                     face.index
-
                     for face in bm.faces
-
                     if len(
                         face.verts
                     ) > 4
                 ]
 
                 if ngon_faces:
-
                     results[obj.name] = {
                         "ngon_faces": ngon_faces,
                         "ngon_count": len(ngon_faces),
@@ -273,7 +269,6 @@ def get_validated_mesh_copy(obj):
 
     except Exception:
         if temp_mesh is not None:
-
             try:
                 bpy.data.meshes.remove(
                     temp_mesh

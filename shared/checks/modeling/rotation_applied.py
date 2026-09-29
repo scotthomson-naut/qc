@@ -278,6 +278,10 @@ def fix_objects_rotation(
     def add_candidate(
             obj,
         ):
+        """
+        Add an object to the fix-candidate collection when it is eligible and 
+        not already present.
+        """
         if obj is None:
             return
 
@@ -307,7 +311,6 @@ def fix_objects_rotation(
         )
 
     for object_name in failed_objects:
-
         obj = get_qc_object(
             object_name
         )
@@ -358,7 +361,6 @@ def fix_objects_rotation(
     }
 
     try:
-
         # -----------------------------------------------------
         # Apply + verify.
         #
@@ -369,7 +371,6 @@ def fix_objects_rotation(
         # rotation-compensation cascade internally as part of that one
         # call, regardless of how many hierarchy levels are involved.
         # -----------------------------------------------------
-
         for attempt in range(
             max(
                 1,
@@ -378,7 +379,6 @@ def fix_objects_rotation(
                 ),
             )
         ):
-
             # Only used to decide whether ANOTHER attempt is needed at
             # all - NOT used to build the selection below. Narrowing the
             # selection down to only currently-bad objects would only ever
@@ -499,7 +499,6 @@ def fix_objects_rotation(
                     )
 
             if selected_objects:
-
                 view_layer.objects.active = (
                     selected_objects[0]
                 )
@@ -565,7 +564,6 @@ def fix_objects_rotation(
         }
 
         for obj in candidate_objects:
-
             if obj.name not in bpy.data.objects:
                 continue
 
@@ -642,7 +640,6 @@ def fix_objects_rotation(
         # -----------------------------------------------------
         # Restore original selection
         # -----------------------------------------------------
-
         for selected_obj in list(
             context.selected_objects
         ):
@@ -654,7 +651,6 @@ def fix_objects_rotation(
                 pass
 
         for selected_obj in original_selected:
-
             if selected_obj.name not in bpy.data.objects:
                 continue
 
@@ -730,7 +726,6 @@ def get_object_descendants(
     visited = set()
 
     while stack:
-
         child = stack.pop(
             0
         )
@@ -776,7 +771,6 @@ def get_object_parent_depth(
     visited = set()
 
     while parent is not None:
-
         pointer = parent.as_pointer()
 
         if pointer in visited:
@@ -843,7 +837,6 @@ def rotation_tuple_has_rotation(
         )
 
     if obj.rotation_mode == "AXIS_ANGLE":
-
         return not isclose(
             rotation[0],
             0.0,
@@ -873,7 +866,6 @@ def object_has_rotation(
         - Axis Angle
     """
     if obj.rotation_mode == "QUATERNION":
-
         rotation = obj.rotation_quaternion
 
         return (
@@ -900,7 +892,6 @@ def object_has_rotation(
         )
 
     if obj.rotation_mode == "AXIS_ANGLE":
-
         return not isclose(
             obj.rotation_axis_angle[0],
             0.0,

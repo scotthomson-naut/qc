@@ -202,7 +202,6 @@ def get_objects_with_default_names(
     failed_objects = {}
 
     for obj in get_qc_objects(objects):
-
         # Directly linked library objects are read-only and are
         # outside the scope of local naming QC.
         if obj.library is not None:

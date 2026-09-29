@@ -12,13 +12,12 @@ import bpy
 SEVERITY = "critical"
 LABEL = "Active UV Map Present"
 DESCRIPTION = (
-    "Checks that a mesh object has at least one UV map, that map is set "
-    "as the active UV map, and the mesh actually has polygons to UV-map."
+    'Checks that mesh objects with polygons have at least one UV map and that '
+    'a valid UV map is active.'
 )
 WHY = (
-    "Without a valid, active UV layer, texture nodes look for coordinates "
-    "that do not exist, causing external engines or exporters to fail "
-    "on import."
+    'A valid active UV map provides the coordinates expected by many '
+    'texturing, baking, export, and game-engine workflows.'
 )
 
 
@@ -76,7 +75,6 @@ def get_meshes_without_valid_uv_maps(
     failed_objects = {}
 
     for obj in get_qc_objects(objects):
-
         # Directly linked library objects are read-only and outside
         # the scope of local UV QC.
         if obj.library is not None:
@@ -89,7 +87,6 @@ def get_meshes_without_valid_uv_maps(
 
         # No UV layers.
         if not mesh.uv_layers:
-
             failed_objects[obj.name] = {
                 "mesh_name": mesh.name,
                 "uv_map_count": 0,
@@ -100,7 +97,6 @@ def get_meshes_without_valid_uv_maps(
 
         # A mesh with no polygons does not have meaningful UVs.
         if not mesh.polygons:
-
             failed_objects[obj.name] = {
                 "mesh_name": mesh.name,
                 "uv_map_count": len(mesh.uv_layers),
@@ -112,7 +108,6 @@ def get_meshes_without_valid_uv_maps(
         uv_layer = mesh.uv_layers.active
 
         if uv_layer is None:
-
             failed_objects[obj.name] = {
                 "mesh_name": mesh.name,
                 "uv_map_count": len(mesh.uv_layers),

@@ -8,16 +8,13 @@ import bpy
 SEVERITY = "critical"
 LABEL = "World Assigned"
 DESCRIPTION = (
-    "Checks that a World datablock exists in the file and is assigned "
-    "to the current scene — these are checked and reported independently, "
-    "since a file can have World datablocks that simply aren't assigned "
-    "to the active scene."
+    'Checks independently that a World datablock exists in the file and that '
+    'a World is assigned to the current scene.'
 )
 WHY = (
-    "Provides the global background lighting, ambient environment color, "
-    "and image-based HDRI data used to realistically illuminate your 3D "
-    "scene. Without a World assigned, a scene typically loses ambient "
-    "fill light and renders against a black or empty background."
+    'A scene World defines environment/background settings and can provide '
+    'ambient or HDRI lighting; an unassigned or missing World can therefore '
+    'change expected render appearance.'
 )
 
 # -------------------------------------------------------------------------
@@ -108,7 +105,6 @@ def check_world_exists_and_assigned(scene=None):
     # ---------------------------------------------------------
 
     if scene.world is None:
-
         issues.append(
             "No World is assigned to scene '{}'.".format(
                 scene.name
@@ -155,7 +151,6 @@ def fix_world_exists_and_assigned(result_data):
     # ---------------------------------------------------------
 
     if scene.world is not None:
-
         return {
             "issues": [],
             "fixed": [],
@@ -167,7 +162,6 @@ def fix_world_exists_and_assigned(result_data):
     # ---------------------------------------------------------
 
     if len(bpy.data.worlds) > 0:
-
         # Prefer a World actually named "World".
         world = bpy.data.worlds.get("World")
 
@@ -175,13 +169,10 @@ def fix_world_exists_and_assigned(result_data):
             world = bpy.data.worlds[0]
 
     else:
-
         world = bpy.data.worlds.new(
             name="World"
         )
-
         world.use_nodes = True
-
         fixed.append(
             "Created World datablock: {}".format(
                 world.name

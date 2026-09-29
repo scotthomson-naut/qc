@@ -314,7 +314,6 @@ def get_scene_animation_range(
     animated_objects = {}
 
     for obj in get_qc_objects(scene.objects):
-
         if obj.library is not None:
             continue
 
@@ -721,6 +720,7 @@ def get_action_fcurves(action):
     seen_pointers = set()
 
     def add_fcurve(fcurve):
+        """Add an F-curve to the current analysis when it has not already been recorded."""
         if fcurve is None:
             return
 

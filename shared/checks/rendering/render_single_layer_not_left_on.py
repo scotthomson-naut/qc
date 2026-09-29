@@ -8,16 +8,13 @@ import bpy
 SEVERITY = "warning"
 LABEL = "Render Single Layer Not Left On"
 DESCRIPTION = (
-    "Checks if 'Render Single Layer' is enabled while more than one "
-    "view layer exists."
+    'Checks whether Render Single Layer is enabled while the scene contains '
+    'more than one view layer.'
 )
 WHY = (
-    "Render Single Layer' silently skips every OTHER view layer at render "
-    "time, with no error or warning — it only renders whichever layer "
-    "happens to be active. Left on by accident (usually a leftover from "
-    "fast iteration on one layer), a batch render or farm submission "
-    "can quietly produce incomplete output, missing layers everyone "
-    "assumed would render."
+    'When Render Single Layer is left enabled, Blender renders only the '
+    'active view layer and silently skips the others, which can produce '
+    'incomplete final or farm renders.'
 )
 
 

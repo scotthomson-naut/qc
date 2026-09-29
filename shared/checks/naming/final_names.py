@@ -58,7 +58,6 @@ def main():
     issues = []
 
     for object_name, data in failed_objects.items():
-
         datablock_name_data = data.get(
             "datablock_name"
         )
@@ -155,7 +154,6 @@ def get_objects_with_invalid_prefixes(
     for obj in get_qc_objects(
         objects
     ):
-
         if obj.library is not None:
             continue
 
@@ -249,7 +247,6 @@ def get_invalid_prefix_data(
     )
 
     for prefix in prefixes:
-
         compare_prefix = (
             prefix
             if CASE_SENSITIVE
@@ -453,7 +450,6 @@ def fix_invalid_prefixes(
     issues = []
 
     for object_name in target_names:
-
         obj = get_qc_object(
             object_name
         )

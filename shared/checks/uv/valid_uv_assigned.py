@@ -9,12 +9,12 @@ import bpy
 SEVERITY = "critical"
 LABEL = "Valid UV Assigned"
 DESCRIPTION = (
-    "Checks that every polygon has meaningful UV coordinates across all "
-    "UV maps."
+    'Checks that every polygon has meaningful UV coordinates across all UV '
+    'maps.'
 )
 WHY = (
-    "Missing or collapsed UVs can cause stretched textures, painting and "
-    "baking errors, and invalid texture mapping."
+    'Missing or collapsed polygon UVs can cause stretched textures, painting '
+    'and baking errors, and invalid texture mapping.'
 )
 
 
@@ -42,7 +42,6 @@ def main():
     for object_name, object_data in (
         failed_objects.items()
     ):
-
         reason = object_data.get(
             "reason"
         )
@@ -150,7 +149,6 @@ def get_meshes_with_unmapped_polygons(
         )
 
     for obj in get_qc_objects(objects):
-
         # Directly linked library objects are read-only and outside
         # the scope of local UV QC.
         if obj.library is not None:
@@ -176,7 +174,6 @@ def get_meshes_with_unmapped_polygons(
         # -----------------------------------------------------
 
         if not mesh.uv_layers:
-
             polygon_indices = [
                 polygon.index
                 for polygon in mesh.polygons
@@ -220,19 +217,16 @@ def get_meshes_with_unmapped_polygons(
         total_unmapped_count = 0
 
         for uv_layer in mesh.uv_layers:
-
             uv_data = uv_layer.data
 
             unmapped_polygons = []
 
             for polygon in mesh.polygons:
-
                 polygon_uvs = []
 
                 for loop_index in (
                     polygon.loop_indices
                 ):
-
                     if loop_index >= len(
                         uv_data
                     ):
@@ -275,7 +269,6 @@ def get_meshes_with_unmapped_polygons(
                 has_uv_spread = False
 
                 for u, v in polygon_uvs[1:]:
-
                     if (
                         abs(
                             u - first_u

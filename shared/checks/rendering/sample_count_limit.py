@@ -165,6 +165,7 @@ def fix(result_data, preferences=None):
 # -------------------------------------------------------------------------
 
 def get_render_sample_issue(settings):
+    """Return the render-sample issue description for the current settings, or None when valid."""
     scene = bpy.context.scene
 
     if scene.render.engine != "CYCLES":

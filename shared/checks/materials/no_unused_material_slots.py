@@ -9,14 +9,15 @@ import bpy
 SEVERITY = "info"
 LABEL = "No Unused Material Slots"
 DESCRIPTION = (
-    "Checks for unused material slots. Empty unused slots are reported and "
-    "can be fixed automatically. Populated unused slots are ignored by "
-    "default because they may be intentional, but can optionally be reported "
-    "for manual review."
+    'Checks for unused material slots. Empty unused slots are reported and '
+    'can be fixed automatically. Populated unused slots are ignored by '
+    'default because they may be intentional, but can optionally be reported '
+    'for manual review.'
 )
 WHY = (
-    "Helps you keep your project clean and avoid confusion from stale material "
-    "references. Unused slots add extra data that you do not need."
+    'Removes stale material-slot references and keeps material assignments '
+    'easier to understand without automatically deleting potentially '
+    'intentional populated slots.'
 )
 
 

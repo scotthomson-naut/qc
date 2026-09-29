@@ -17,7 +17,7 @@ WHY = (
     " or NLA strip. It doesn't do anything on its own, but its presence can mislead"
     " tools, scripts, or artists who check for animation_data as a shortcut for 'this"
     " object is animated' — flagging a false positive where nothing is actually animated."
-    
+
 )
 
 

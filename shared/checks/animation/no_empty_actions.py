@@ -369,6 +369,7 @@ def get_action_fcurves(action):
     seen_pointers = set()
 
     def add_fcurve(fcurve):
+        """Add an F-curve to the current analysis when it has not already been recorded."""
         if fcurve is None:
             return
 

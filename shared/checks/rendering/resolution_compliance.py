@@ -8,12 +8,12 @@ import bpy
 SEVERITY = "warning"
 LABEL = "Resolution Compliance"
 DESCRIPTION = (
-    "Checks that the scene render resolution percentage matches the "
-    "required percentage (100% by default, configurable via settings)."
+    'Checks that the scene render resolution percentage matches the '
+    'configured required percentage (100% by default).'
 )
 WHY = (
-    "Leaving it unadjusted means your final output will render at "
-    "a different size instead of your target size."
+    'Prevents final output from being rendered at an unintended percentage of '
+    'the configured pixel dimensions.'
 )
 
 
@@ -78,7 +78,7 @@ def main(preferences=None):
         issues.append(
             (
                 "Render resolution percentage is set to {}%. "
-                "It must be set to {}%."
+                "It should be set to {}%."
             ).format(
                 current_percentage,
                 required_percentage,

@@ -243,6 +243,9 @@ def find_duplicate_vertex_indices(mesh, distance_tolerance):
     ]
 
     def cell_key(position):
+        """
+        Return the spatial-hash cell key for a vertex position.
+        """
         return (
             math.floor(position[0] / safe_tolerance),
             math.floor(position[1] / safe_tolerance),
@@ -273,8 +276,7 @@ def find_duplicate_vertex_indices(mesh, distance_tolerance):
                 continue
 
             for other_index in candidates:
-                # Only compare each pair once, and never against
-                # itself.
+                # Only compare each pair once, and never against itself.
                 if other_index <= index:
                     continue
 

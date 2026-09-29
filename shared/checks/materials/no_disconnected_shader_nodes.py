@@ -9,14 +9,13 @@ import bpy
 SEVERITY = "warning"
 LABEL = "No Disconnected Shader Nodes"
 DESCRIPTION = (
-    "Checks materials for shader nodes that are not connected, directly "
-    "or indirectly, to an active Material Output node."
+    'Checks materials for shader nodes that are not connected, directly or '
+    'indirectly, to an active Material Output node.'
 )
 WHY = (
-    "Unconnected shader nodes help you clean up unused data and prevent "
-    "clutter in your node trees. Unlinked nodes do not affect how your "
-    "object looks, but they can confuse you later or lead to mistakes when "
-    "you export your 3D model."
+    'Removes unused node-tree clutter and makes the material graph easier to '
+    'understand and maintain; disconnected nodes do not affect the active '
+    'material output.'
 )
 
 
@@ -121,7 +120,6 @@ def main(preferences=None):
         )
 
         node_labels = []
-
         for node_data in disconnected_nodes:
             node_name = node_data.get(
                 "node_name",

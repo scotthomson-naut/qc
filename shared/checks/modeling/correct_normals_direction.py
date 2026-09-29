@@ -9,16 +9,13 @@ import bmesh
 SEVERITY = "critical"
 LABEL = "Correct Normals Direction"
 DESCRIPTION = (
-    "Checks mesh objects for faces whose normals are flipped "
-    "relative to Blender's recalculated face orientation."
+    "Checks mesh objects for faces whose normals disagree with Blender's "
+    'recalculated face orientation.'
 )
 WHY = (
-    "Face normals determine which direction a polygon faces. "
-    "Inward-facing or inconsistent normals break lighting "
-    "calculations, cause black patches or weird shading artifacts, "
-    "hide faces in game engines via backface culling, and can disrupt "
-    "modifiers like Solidify and physics simulations that depend "
-    "on consistent normal direction."
+    'Inconsistent or inward-facing normals can produce incorrect shading, '
+    'backface-culling problems, and unreliable results from modifiers, '
+    'simulations, and exports that depend on face direction.'
 )
 
 
@@ -399,4 +396,3 @@ def has_non_manifold_edges(bm):
         len(edge.link_faces) != 2
         for edge in bm.edges
     )
-

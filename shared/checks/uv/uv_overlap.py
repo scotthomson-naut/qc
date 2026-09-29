@@ -335,7 +335,6 @@ def get_objects_with_overlapping_uv_faces(
         )
 
         if use_batching:
-
             batch_results, batch_timings = (
                 get_active_uv_overlap_batched(
                     context,
@@ -358,13 +357,11 @@ def get_objects_with_overlapping_uv_faces(
             )
 
         else:
-
             # -----------------------------------------------------
             # Proven per-object fallback
             # -----------------------------------------------------
 
             for obj in get_qc_objects(objects):
-
                 object_start_time = (
                     time.perf_counter()
                 )
@@ -486,7 +483,6 @@ def get_active_uv_overlap_batched(
     mesh_groups = {}
 
     for obj in get_qc_objects(objects):
-
         mesh_groups.setdefault(
             obj.data,
             [],
@@ -510,7 +506,6 @@ def get_active_uv_overlap_batched(
     view_layer_groups = {}
 
     for obj in representatives:
-
         view_layer = None
 
         if object_in_view_layer(
@@ -742,7 +737,6 @@ def get_active_uv_overlap_batched(
     for mesh, linked_objects in (
         mesh_groups.items()
     ):
-
         mesh_result = (
             failed_by_mesh.get(
                 mesh
@@ -761,7 +755,6 @@ def get_active_uv_overlap_batched(
         for linked_index, obj in enumerate(
             linked_objects
         ):
-
             object_timings.append({
                 "name":
                     obj.name,
@@ -974,7 +967,6 @@ def run_active_uv_overlap_batch(
         selectable_objects = []
 
         for obj in get_qc_objects(objects):
-
             if not object_in_view_layer(
                 obj,
                 context.view_layer,
@@ -1076,7 +1068,6 @@ def run_active_uv_overlap_batch(
         # Anything Blender leaves out of multi-object Edit Mode is
         # explicitly sent through the proven single-object fallback.
         for obj in selectable_objects:
-
             if obj.data in edit_meshes:
                 continue
 
@@ -1107,7 +1098,6 @@ def run_active_uv_overlap_batch(
         maximum_width = 0.0
 
         for obj in selectable_objects:
-
             mesh = obj.data
 
             uv_layer = (
@@ -1152,7 +1142,6 @@ def run_active_uv_overlap_batch(
 
             for face in bm.faces:
                 for loop in face.loops:
-
                     uv = loop[
                         bm_uv_layer
                     ].uv
@@ -1206,7 +1195,6 @@ def run_active_uv_overlap_batch(
         for object_index, obj in enumerate(
             selectable_objects
         ):
-
             mesh = obj.data
 
             bm_uv_layer = (
@@ -1288,7 +1276,6 @@ def run_active_uv_overlap_batch(
         # ---------------------------------------------------------
 
         for obj in selectable_objects:
-
             mesh = obj.data
 
             bm_uv_layer = (
@@ -1352,9 +1339,7 @@ def run_active_uv_overlap_batch(
         # ---------------------------------------------------------
 
         if entered_edit_mode:
-
             for obj in get_qc_objects(objects):
-
                 mesh = obj.data
 
                 offset = (
@@ -1559,7 +1544,6 @@ def print_uv_overlap_profile(
         )
 
         for item in slow_timings:
-
             print(
                 "{:<40} {:>12} {:>12,} {:>12,} {:>8}".format(
                     item[
@@ -1745,7 +1729,6 @@ def check_object_uv_maps_native(
         )
 
         for uv_index in uv_indices:
-
             uv_layer = mesh.uv_layers[
                 uv_index
             ]
@@ -2017,9 +2000,7 @@ def clear_bmesh_uv_selection(
     )
 
     if blender_5_or_newer:
-
         for face in bm.faces:
-
             # Face-level UV selection.
             try:
                 face.uv_select = False
@@ -2027,7 +2008,6 @@ def clear_bmesh_uv_selection(
                 pass
 
             for loop in face.loops:
-
                 # Blender 5.0+ UV vertex selection.
                 try:
                     loop.uv_select_vert = False
@@ -2053,9 +2033,7 @@ def clear_bmesh_uv_selection(
     # ---------------------------------------------------------
 
     for face in bm.faces:
-
         for loop in face.loops:
-
             uv_loop = loop[
                 bm_uv_layer
             ]
@@ -2095,9 +2073,7 @@ def get_selected_uv_polygon_indices(
     polygon_indices = []
 
     if blender_5_or_newer:
-
         for face in bm.faces:
-
             selected = False
 
             # In UV FACE mode Blender 5.x exposes face-level UV
@@ -2136,11 +2112,8 @@ def get_selected_uv_polygon_indices(
     # ---------------------------------------------------------
 
     for face in bm.faces:
-
         selected = False
-
         for loop in face.loops:
-
             uv_loop = loop[
                 bm_uv_layer
             ]
@@ -2203,9 +2176,7 @@ def run_native_select_overlap(
     screen = context.screen
 
     if screen is not None:
-
         for area in screen.areas:
-
             if area.type != "IMAGE_EDITOR":
                 continue
 
@@ -2368,7 +2339,6 @@ def find_view_layer_for_object(
         return None
 
     for view_layer in scene.view_layers:
-
         if object_in_view_layer(
             obj,
             view_layer,

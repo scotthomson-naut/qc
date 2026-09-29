@@ -12,11 +12,11 @@ import bpy
 SEVERITY = "critical"
 LABEL = "UV Orientation"
 DESCRIPTION = (
-    "Checks all UV maps for flipped or mirrored UV faces."
+    'Checks all UV maps for flipped or mirrored UV faces.'
 )
 WHY = (
-    "Incorrect UV orientation can cause mirrored textures, baking and "
-    "normal-mapping issues, and export problems."
+    'Unexpected UV mirroring can reverse texture details and create problems '
+    'for asymmetric textures, baking, tangent-space normal maps, and exports.'
 )
 
 
@@ -129,7 +129,6 @@ def get_objects_with_flipped_uv_faces(
         )
 
     for obj in get_qc_objects(objects):
-
         # Directly linked library objects are read-only and outside
         # the scope of local UV QC.
         if obj.library is not None:
@@ -158,13 +157,11 @@ def get_objects_with_flipped_uv_faces(
         # -----------------------------------------------------
 
         for uv_layer in mesh.uv_layers:
-
             uv_data = uv_layer.data
 
             flipped_faces = []
 
             for polygon in mesh.polygons:
-
                 loop_indices = list(
                     polygon.loop_indices
                 )

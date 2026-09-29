@@ -10,20 +10,13 @@ import bmesh
 SEVERITY = "critical"
 LABEL = "Manifold Mesh"
 DESCRIPTION = (
-    "Ensures a 3D model is 'watertight', meaning every edge connects to "
-    "exactly two faces, and there are no holes or impossible geometry "
-    "(loose vertices are covered separately by the Connected Geometry "
-    "check). A manifold mesh is required for successful 3D printing, "
-    "accurate physics and fluid simulations, and reliable Boolean "
-    "operations."
+    'Checks whether mesh topology is manifold: each surface edge should '
+    'belong to exactly two faces, with no boundary or non-manifold edges. '
+    'Loose geometry is handled separately by the Connected Geometry check.'
 )
 WHY = (
-    "Ensures a 3D model is 'watertight', meaning every edge connects "
-    "to a maximum of two faces, and there are no holes, loose vertices, "
-    "or impossible geometry. "
-    "A manifold mesh is required for successful 3D printing, "
-    "accurate Physics and Fluid simulations, Proper UV unwrapping, "
-    "and reliable Boolean operation."
+    'Manifold topology is important for reliable Boolean operations, physics '
+    'and fluid simulations, solid geometry workflows, and 3D printing.'
 )
 
 
@@ -132,7 +125,6 @@ def get_objects_with_non_manifold_geometry(
         if obj.library is not None:
             continue
 
-
         if obj.type != "MESH":
             continue
 
@@ -146,7 +138,6 @@ def get_objects_with_non_manifold_geometry(
         # -----------------------------------------------------
 
         if mesh not in mesh_cache:
-
             bm = bmesh.new()
 
             try:
@@ -161,7 +152,6 @@ def get_objects_with_non_manifold_geometry(
                 multi_face_edges = []
 
                 for edge in bm.edges:
-
                     face_count = len(
                         edge.link_faces
                     )
@@ -197,7 +187,6 @@ def get_objects_with_non_manifold_geometry(
                 )
 
                 if non_manifold_edges:
-
                     mesh_cache[
                         mesh
                     ] = {
@@ -220,7 +209,6 @@ def get_objects_with_non_manifold_geometry(
                     }
 
                 else:
-
                     mesh_cache[
                         mesh
                     ] = None

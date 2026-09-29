@@ -695,7 +695,6 @@ def get_object_descendants(
     visited = set()
 
     while stack:
-
         child = stack.pop(
             0
         )
@@ -745,7 +744,6 @@ def get_object_parent_depth(
     visited = set()
 
     while parent is not None:
-
         pointer = parent.as_pointer()
 
         # Defensive protection against malformed/cyclic parenting.
