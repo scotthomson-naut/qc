@@ -48,7 +48,7 @@ PRODUCT_PAGE_CONTENT: dict[str, dict[str, Any]] = {
             "that want repeatable scene-quality checks without building an "
             "internal QC system from scratch."
         ),
-        "requirements": "Blender. Exact supported versions should be kept in the product release notes.",
+        "requirements": "Blender 4.3 and up.",
         "buy_url": "https://superhivemarket.com/categories/addons",
     },
 
