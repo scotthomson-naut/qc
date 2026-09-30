@@ -5,18 +5,18 @@ import bpy
 # Metadata
 # -------------------------------------------------------------------------
 
-SEVERITY = "warning"
+SEVERITY = "critical"
 LABEL = "Render Single Layer Not Left On"
 DESCRIPTION = (
-    'Checks whether Render Single Layer is enabled while the scene contains '
-    'more than one view layer.'
+    'Checks if Render Single Layer is enabled while more than one view layer exists.'
 )
 WHY = (
-    'When Render Single Layer is left enabled, Blender renders only the '
-    'active view layer and silently skips the others, which can produce '
-    'incomplete final or farm renders.'
+    'Render Single Layer silently skips every OTHER view layer at render time, with'
+    ' no error or warning — it only renders whichever layer happens to be active.'
+    ' Left on by accident (usually a leftover from fast iteration on one layer), '
+    'a batch render or farm submission can quietly produce incomplete output, '
+    'missing layers everyone assumed would render.'
 )
-
 
 # -------------------------------------------------------------------------
 # Main
@@ -27,39 +27,51 @@ def main():
     Run for issue.
 
     Note:
-        Uses scene.render.use_single_layer, based on the "Render
-        Single Layer" checkbox found just under "Use for Rendering"
+        Uses ViewLayer.use, based on the "Use for Rendering" checkbox
         in the View Layer Properties tab. This property name has not
         been confirmed against a live Blender console check - verify
-        with bpy.context.scene.render.use_single_layer before
-        trusting this in production.
+        with bpy.context.view_layer.use before trusting this in
+        production.
 
-        This is a scene-level setting, not tied to any selectable
-        object - like aov_denoising.py, this only ever returns
-        "failed_settings", never "failed_objects". A placeholder key
-        in failed_objects (e.g. "Render Single Layer", which isn't a
-        real Blender object) was previously enough to make the panel
-        show a "Select Failed Objects" button that had nothing valid
-        to select.
+        View layers aren't objects and aren't selectable in the
+        viewport - like aov_denoising.py and
+        view_layer_render_single_disabled.py, this only ever returns
+        "failed_settings", never "failed_objects". A per-name entry
+        in failed_objects was previously enough to make the panel
+        show a "Select Failed Objects" button with nothing valid to
+        select.
 
     Returns:
         dict: {issues (list(str)), failed_settings(dict)}
     """
-    status = get_render_single_layer_status()
+    scene = bpy.context.scene
+
+    disabled_view_layers = get_view_layers_not_used_for_rendering(
+        scene=scene,
+    )
+
+    total_count = len(scene.view_layers)
+    disabled_count = len(disabled_view_layers)
 
     issues = []
     failed_settings = {}
 
-    if status["applies"]:
+    if disabled_view_layers:
+        disabled_names = sorted(disabled_view_layers.keys())
+
         issues.append(
-            "Failed: 'Render Single Layer' is enabled with {} view "
-            "layers in the scene".format(status["view_layer_count"])
+            "Failed: {}/{} view layers have 'Use for Rendering' "
+            "disabled ({})".format(
+                disabled_count,
+                total_count,
+                ", ".join(disabled_names),
+            )
         )
 
-        failed_settings["use_single_layer"] = {
-            "current": True,
-            "expected": False,
-            "view_layer_count": status["view_layer_count"],
+        failed_settings["use_for_rendering"] = {
+            "disabled_count": disabled_count,
+            "total_count": total_count,
+            "disabled_view_layers": disabled_names,
         }
 
     return {
@@ -73,73 +85,26 @@ def fix(result_data=None):
     Fix for issue.
 
     Note:
-        Same reasoning as the reversal on
-        view_layer_use_for_rendering.py's fix() - this button is only
+        This reverses an earlier "manual-only, period" decision on
+        this same check - that's fine, since the Fix button is only
         ever triggered by an artist choosing to click it, not run
-        automatically. This setting is usually a leftover from fast
-        iteration rather than a deliberate final choice, and clicking
-        Fix is itself the artist's confirmation that this instance
-        was unintentional.
+        automatically. If a disabled view layer was intentional, the
+        artist simply doesn't click Fix.
 
     Args:
         result_data (dict | None): Result returned by main().
     Returns:
         dict: Fix result.
     """
-    return fix_render_single_layer(result_data)
-
-# -------------------------------------------------------------------------
-# Fix
-# -------------------------------------------------------------------------
-
-def fix_render_single_layer(result_data=None):
-    """
-    Disables 'Render Single Layer'.
-
-    Args:
-        result_data (dict | None):
-            Result returned by main().
-
-    Returns:
-        dict:
-            Fix result.
-    """
-    if not isinstance(result_data, dict):
-        result_data = {}
-
-    failed_settings = result_data.get(
-        "failed_settings",
-        {},
-    )
-
-    if "use_single_layer" not in failed_settings:
-        return {
-            "issues": [],
-            "fixed_settings": {},
-        }
-
-    scene = bpy.context.scene
-    previous = scene.render.use_single_layer
-    scene.render.use_single_layer = False
-
-    return {
-        "issues": [],
-        "fixed_settings": {
-            "use_single_layer": {
-                "previous": previous,
-                "current": False,
-            },
-        },
-    }
+    return fix_view_layers_not_used_for_rendering(result_data)
 
 # -------------------------------------------------------------------------
 # Find
 # -------------------------------------------------------------------------
 
-def get_render_single_layer_status(scene=None):
+def get_view_layers_not_used_for_rendering(scene=None):
     """
-    Checks whether 'Render Single Layer' is enabled while more than
-    one view layer exists in the scene.
+    Finds view layers that have 'Use for Rendering' disabled.
 
     Args:
         scene (bpy.types.Scene | None):
@@ -148,19 +113,87 @@ def get_render_single_layer_status(scene=None):
     Returns:
         dict:
         {
-            "single_layer_enabled": bool,
-            "view_layer_count": int,
-            "applies": bool,
+            "ViewLayer_001": {
+                "issue": "'Use for Rendering' is disabled.",
+            },
+            ...
         }
     """
     if scene is None:
         scene = bpy.context.scene
 
-    single_layer_enabled = scene.render.use_single_layer
-    view_layer_count = len(scene.view_layers)
+    failed_objects = {}
+
+    for view_layer in scene.view_layers:
+        if not view_layer.use:
+            failed_objects[view_layer.name] = {
+                "issue": "'Use for Rendering' is disabled.",
+            }
+
+    return failed_objects
+
+
+# -------------------------------------------------------------------------
+# Fix
+# -------------------------------------------------------------------------
+
+def fix_view_layers_not_used_for_rendering(result_data=None, scene=None):
+    """
+    Enables 'Use for Rendering' on every currently-disabled view
+    layer.
+
+    Note:
+        Rechecks the scene fresh rather than trusting result_data's
+        recorded list, in case the scene changed between when the
+        check last ran and when Fix was clicked.
+
+    Args:
+        result_data (dict | None):
+            Result returned by main(). Not relied on for the actual
+            fix - see note above.
+
+        scene (bpy.types.Scene | None):
+            Defaults to bpy.context.scene.
+
+    Returns:
+        dict:
+            Fix result.
+    """
+    if scene is None:
+        scene = bpy.context.scene
+
+    disabled_view_layers = get_view_layers_not_used_for_rendering(
+        scene=scene,
+    )
+
+    issues = []
+    fixed_names = []
+
+    for view_layer_name in disabled_view_layers:
+        view_layer = scene.view_layers.get(view_layer_name)
+
+        if view_layer is None:
+            issues.append(
+                "View layer no longer exists: {}".format(
+                    view_layer_name
+                )
+            )
+            continue
+
+        view_layer.use = True
+        fixed_names.append(view_layer_name)
+
+    if not fixed_names:
+        return {
+            "issues": issues,
+            "fixed_settings": {},
+        }
 
     return {
-        "single_layer_enabled": single_layer_enabled,
-        "view_layer_count": view_layer_count,
-        "applies": single_layer_enabled and view_layer_count > 1,
+        "issues": issues,
+        "fixed_settings": {
+            "use_for_rendering": {
+                "enabled_view_layers": fixed_names,
+            },
+        },
     }
