@@ -49,7 +49,7 @@ PRODUCT_PAGE_CONTENT: dict[str, dict[str, Any]] = {
             "internal QC system from scratch."
         ),
         "requirements": "Blender 4.3 and up.",
-        "buy_url": "https://superhivemarket.com/categories/addons",
+        "buy_url": "",
     },
 
     "pro": {
