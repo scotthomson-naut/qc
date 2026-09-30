@@ -37,6 +37,47 @@ def product_banner_html(site_prefix: str) -> str:
     ).format(site_prefix)
 
 
+def _testimonials_html(testimonials: list[dict[str, Any]], css_class: str) -> str:
+    """Build the optional Testimonials section for a product page."""
+    if not testimonials:
+        return ""
+
+    cards = []
+    for testimonial in testimonials:
+        quote = str(testimonial.get("quote") or "").strip()
+        name = str(testimonial.get("name") or "").strip()
+        role = str(testimonial.get("role") or "").strip()
+        if not quote:
+            continue
+
+        attribution = ""
+        if name or role:
+            attribution = '<footer class="testimonial-author">'
+            if name:
+                attribution += '<strong>{}</strong>'.format(esc(name))
+            if role:
+                attribution += '<span>{}</span>'.format(esc(role))
+            attribution += '</footer>'
+
+        cards.append(
+            '<blockquote class="testimonial-card">'
+            '<p>&ldquo;{}&rdquo;</p>{}</blockquote>'.format(
+                esc(quote),
+                attribution,
+            )
+        )
+
+    if not cards:
+        return ""
+
+    return (
+        '<section class="product-section product-testimonials">'
+        '<h2 class="{}">Testimonials</h2>'
+        '<div class="testimonial-grid">{}</div>'
+        '</section>'
+    ).format(css_class, "".join(cards))
+
+
 def product_output_path(product_id: str, tier: str) -> Path:
     if tier == "pack":
         return Path("products") / "qc_checker" / "packs" / product_id
@@ -204,6 +245,7 @@ def generate_product_page(
         _benefits_html(content.get("benefits") or [], css_class),
         '<section class="product-section"><h2 class="{}">Who it is for</h2><p>{}</p></section>'.format(css_class, esc(content.get("who_for"))),
         '<section class="product-section"><h2 class="{}">Requirements / compatibility</h2><p>{}</p></section>'.format(css_class, esc(content.get("requirements"))),
+        _testimonials_html(content.get("testimonials") or [], css_class),
         '<section class="product-final-cta"><h2 class="{}">Ready to inspect the details?</h2>'.format(css_class),
         '<div class="actions">{}<a class="button" href="{}">Open Documentation</a></div></section>'.format(buy_button, docs_href),
         '<footer class="footer"><b>Scriptronaut</b> | <b class="{}">{}</b><span style="float:right;">&copy; {}</span>'

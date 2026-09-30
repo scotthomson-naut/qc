@@ -49,6 +49,14 @@ PRODUCT_PAGE_CONTENT: dict[str, dict[str, Any]] = {
             "internal QC system from scratch."
         ),
         "requirements": "Blender 4.3 and up.",
+        "testimonials": [
+            # Example:
+            # {
+            #     "quote": "Add customer testimonial here.",
+            #     "name": "Customer Name",
+            #     "role": "Blender Artist / Studio",
+            # },
+        ],
         "buy_url": "",
     },
 
@@ -91,6 +99,7 @@ PRODUCT_PAGE_CONTENT: dict[str, dict[str, Any]] = {
             "need project-specific QC configuration beyond the standard Core workflow."
         ),
         "requirements": "Blender. Exact supported versions should be kept in the product release notes.",
+        "testimonials": [],
         "buy_url": "",
     },
 }
@@ -115,6 +124,7 @@ DEFAULT_PACK_CONTENT: dict[str, Any] = {
     "benefits": [],
     "who_for": "Artists and teams working in this specialist Blender workflow.",
     "requirements": "Requires QC Checker Core or Pro.",
+    "testimonials": [],
     "buy_url": "",
 }
 
