@@ -6,14 +6,16 @@ import bpy
 # -------------------------------------------------------------------------
 
 SEVERITY = "critical"
-LABEL = "View Layer Rendering Enabled"
+LABEL = "Render Single Layer Not Left On"
 DESCRIPTION = (
-    'Checks whether every view layer has Use for Rendering enabled.'
+    'Checks if Render Single Layer is enabled while more than one view layer exists.'
 )
 WHY = (
-    'A view layer with rendering disabled is silently omitted from render '
-    'output, which can leave expected passes or layers missing from final '
-    'renders and downstream compositing.'
+    'Render Single Layer silently skips every OTHER view layer at render time, with'
+    ' no error or warning — it only renders whichever layer happens to be active.'
+    ' Left on by accident (usually a leftover from fast iteration on one layer), '
+    'a batch render or farm submission can quietly produce incomplete output, '
+    'missing layers everyone assumed would render.'
 )
 
 # -------------------------------------------------------------------------
