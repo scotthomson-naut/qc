@@ -20,6 +20,23 @@ def hilite_class(tier: str, product_id: str) -> str:
     return "hilite-{}".format(tier)
 
 
+def product_banner_html(site_prefix: str) -> str:
+    """Build the dismissible product-page beta banner without JavaScript."""
+    return (
+        '<input class="product-banner-toggle" type="checkbox" id="product-banner-toggle" '
+        'aria-label="Hide beta announcement">'
+        '<aside class="product-banner" aria-label="Beta announcement">'
+        '<div class="product-banner-content">'
+        '<span class="product-banner-tag">Private Beta</span>'
+        '<span class="product-banner-text">QC Checker is currently in private beta.</span>'
+        '<a class="product-banner-link" href="{}betas.html">Request early access</a>'
+        '</div>'
+        '<label class="product-banner-close" for="product-banner-toggle" '
+        'title="Dismiss announcement" aria-label="Dismiss announcement">&times;</label>'
+        '</aside>'
+    ).format(site_prefix)
+
+
 def product_output_path(product_id: str, tier: str) -> Path:
     if tier == "pack":
         return Path("products") / "qc_checker" / "packs" / product_id
@@ -163,6 +180,7 @@ def generate_product_page(
         '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">',
         '<link rel="stylesheet" href="{}css/docs.css">'.format(site_prefix),
         '</head><body>',
+        product_banner_html(site_prefix),
         '<div class="stars"></div><div class="stars stars-medium"></div><div class="stars stars-faint"></div>',
         '<header class="topbar">',
         '<a class="brand" href="{}"><img src="{}svg/scriptronaut_name.svg" alt="Scriptronaut"></a>'.format(home_href, site_prefix),
@@ -266,6 +284,7 @@ def generate_qc_checker_product_index(
         '    <link rel="stylesheet" href="{}css/docs.css">'.format(site_prefix),
         '</head>',
         '<body>',
+        product_banner_html(site_prefix),
         '    <div class="stars"></div>',
         '    <div class="stars stars-medium"></div>',
         '    <div class="stars stars-faint"></div>',
