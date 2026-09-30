@@ -7,7 +7,7 @@ import bpy
 from bpy.app.handlers import persistent
 
 from .. import constants
-from .categories import load_qc_category
+from .categories import load_qc_category, schedule_qc_metadata_prewarm
 from .features import is_feature_enabled
 from .discovery import get_categories
 
@@ -577,5 +577,16 @@ def initialize_qc_checks_after_load(_dummy=None):
             load_qc_category(
                 bpy.context
             )
+
+    # Do not make startup wait for every category. Warm the remaining static
+    # metadata incrementally once the visible category is ready.
+    with bpy.context.temp_override(
+        window=window,
+        screen=screen,
+        scene=window.scene,
+    ):
+        schedule_qc_metadata_prewarm(
+            bpy.context
+        )
 
     return True
