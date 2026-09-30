@@ -3,6 +3,7 @@
 import os
 import traceback
 from typing import Any
+from types import SimpleNamespace
 
 import bpy
 
@@ -21,6 +22,166 @@ from ..utils.json_io import (
 from ..utils.module_loader import load_module_from_path
 from ..utils.diagnostics import capture_current_traceback
 
+
+# UI metadata cache. Category switching happens on Blender's main UI thread,
+# so re-executing every check module here creates a visible pause. Cache only
+# presentation/availability metadata; actual checks are still freshly loaded
+# when they run or fix. The file signature automatically invalidates edited
+# check scripts during development.
+_QC_METADATA_CACHE = {}
+
+# Incremental background pre-warm queue. Each timer tick loads only a small
+# number of static check modules so Blender's UI remains responsive.
+_QC_METADATA_PREWARM_QUEUE = []
+_QC_METADATA_PREWARM_KEYS = set()
+_QC_METADATA_PREWARM_BATCH_SIZE = 2
+
+
+def clear_qc_metadata_cache():
+    """Clears cached check metadata and any pending background pre-warm work."""
+    _QC_METADATA_CACHE.clear()
+    _QC_METADATA_PREWARM_QUEUE.clear()
+    _QC_METADATA_PREWARM_KEYS.clear()
+
+
+def _metadata_file_signature(script_path):
+    """Returns a lightweight signature that changes when a check file changes."""
+    stat = os.stat(script_path)
+    return (
+        os.path.abspath(script_path),
+        stat.st_mtime_ns,
+        stat.st_size,
+    )
+
+
+def _get_check_metadata(script_data):
+    """Returns cached UI metadata for one QC script, loading it only when needed."""
+    script_path = script_data["script_path"]
+    signature = _metadata_file_signature(script_path)
+    cached = _QC_METADATA_CACHE.get(script_path)
+
+    if cached is not None and cached["signature"] == signature:
+        return cached["metadata"]
+
+    module = load_module_from_path(
+        "qc_info_{}".format(script_data["name"]),
+        script_path,
+    )
+
+    severity = getattr(module, "SEVERITY", "warning").lower()
+    if severity not in {"critical", "warning", "info"}:
+        severity = "warning"
+
+    metadata = {
+        "display_name": getattr(module, "LABEL", script_data["name"]),
+        "description": getattr(module, "DESCRIPTION", ""),
+        "severity": severity,
+        "has_fix": callable(getattr(module, "fix", None)),
+        "has_settings": module_has_settings(module),
+        "max_scene_triangles": getattr(module, "MAX_SCENE_TRIANGLES", None),
+    }
+    _QC_METADATA_CACHE[script_path] = {
+        "signature": signature,
+        "metadata": metadata,
+    }
+    return metadata
+
+
+
+def queue_qc_metadata_prewarm(context):
+    """Queues uncached check metadata for all categories without blocking the UI."""
+    if context is None or context.scene is None:
+        return
+
+    scene = context.scene
+    if not hasattr(scene, "scriptronaut_qc_settings"):
+        return
+
+    settings = scene.scriptronaut_qc_settings
+    use_json = is_feature_enabled("check_settings", context)
+
+    categories = get_categories(
+        settings.folder_path,
+        use_json=use_json,
+    )
+
+    # Current category has already been populated synchronously. Queue the
+    # remaining categories first, while de-duplicating common checks.
+    ordered_categories = [
+        category for category in categories
+        if category != settings.category
+    ]
+
+    for category in ordered_categories:
+        for script_data in get_scripts(
+            settings.folder_path,
+            category,
+            use_json=use_json,
+        ):
+            script_path = script_data["script_path"]
+
+            try:
+                signature = _metadata_file_signature(script_path)
+            except OSError:
+                continue
+
+            cached = _QC_METADATA_CACHE.get(script_path)
+            if cached is not None and cached["signature"] == signature:
+                continue
+
+            queue_key = signature
+            if queue_key in _QC_METADATA_PREWARM_KEYS:
+                continue
+
+            _QC_METADATA_PREWARM_KEYS.add(queue_key)
+            _QC_METADATA_PREWARM_QUEUE.append(
+                (queue_key, dict(script_data))
+            )
+
+
+def prewarm_qc_metadata_timer():
+    """Loads a small batch of queued check metadata, then yields back to Blender."""
+    processed = 0
+
+    while (
+        _QC_METADATA_PREWARM_QUEUE
+        and processed < _QC_METADATA_PREWARM_BATCH_SIZE
+    ):
+        queue_key, script_data = _QC_METADATA_PREWARM_QUEUE.pop(0)
+        _QC_METADATA_PREWARM_KEYS.discard(queue_key)
+
+        try:
+            _get_check_metadata(script_data)
+        except Exception:
+            print(
+                "Could not pre-warm QC metadata for '{}':".format(
+                    script_data.get("name", "unknown")
+                )
+            )
+            print(capture_current_traceback())
+
+        processed += 1
+
+    if _QC_METADATA_PREWARM_QUEUE:
+        # Short idle gap keeps category preloading responsive rather than
+        # importing every module in one long main-thread operation.
+        return 0.05
+
+    return None
+
+
+def schedule_qc_metadata_prewarm(context):
+    """Builds the pre-warm queue and starts its Blender timer when needed."""
+    queue_qc_metadata_prewarm(context)
+
+    if (
+        _QC_METADATA_PREWARM_QUEUE
+        and not bpy.app.timers.is_registered(prewarm_qc_metadata_timer)
+    ):
+        bpy.app.timers.register(
+            prewarm_qc_metadata_timer,
+            first_interval=0.15,
+        )
 
 def refresh_issues_display(context):
     """
@@ -117,64 +278,24 @@ def load_qc_category(context):
         item.unavailable_reason = ""
 
         # -----------------------------------------------------
-        # Load optional module metadata
+        # Load optional module metadata (cached)
         # -----------------------------------------------------
 
         try:
-            module = load_module_from_path(
-                "qc_info_{}".format(
-                    item.name
-                ),
-                item.script_path,
+            metadata = _get_check_metadata(script_data)
+            item.display_name = metadata["display_name"]
+            item.description = metadata["description"]
+            item.severity = metadata["severity"]
+            item.has_fix = metadata["has_fix"]
+            item.has_settings = metadata["has_settings"]
+
+            # Availability can depend on the current scene, so keep this
+            # live even though the module's static metadata is cached.
+            availability_source = SimpleNamespace(
+                MAX_SCENE_TRIANGLES=metadata["max_scene_triangles"]
             )
-
-            # Optional friendly UI name.
-            item.display_name = getattr(
-                module,
-                "LABEL",
-                item.name,
-            )
-
-            # Optional tooltip.
-            item.description = getattr(
-                module,
-                "DESCRIPTION",
-                "",
-            )
-
-            # Severity.
-            severity = getattr(
-                module,
-                "SEVERITY",
-                "warning",
-            ).lower()
-
-            if severity not in {
-                "critical",
-                "warning",
-                "info",
-            }:
-                severity = "warning"
-
-            item.severity = severity
-
-            # Determine whether automatic fix exists.
-            item.has_fix = callable(
-                getattr(
-                    module,
-                    "fix",
-                    None,
-                )
-            )
-
-            item.has_settings = module_has_settings(
-                module
-            )
-
             item.is_available, item.unavailable_reason = (
-                evaluate_check_availability(
-                    module
-                )
+                evaluate_check_availability(availability_source)
             )
 
             if not item.is_available:

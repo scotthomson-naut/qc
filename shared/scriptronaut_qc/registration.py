@@ -9,6 +9,11 @@ from .core.packs import (
     unregister_check_pack,
 )
 
+from .core.categories import (
+    clear_qc_metadata_cache,
+    prewarm_qc_metadata_timer,
+)
+
 from .core.runtime import (
     initialize_new_scene_qc,
     initialize_qc_checks_after_load,
@@ -87,6 +92,10 @@ def register():
 
 
 def unregister():
+    if bpy.app.timers.is_registered(prewarm_qc_metadata_timer):
+        bpy.app.timers.unregister(prewarm_qc_metadata_timer)
+    clear_qc_metadata_cache()
+
     unregister_check_pack(
         "scriptronaut_core"
     )

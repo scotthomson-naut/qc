@@ -12,10 +12,14 @@ def _notify_registry_changed():
     Requests a QC category refresh without creating an import cycle.
     """
     try:
+        from .discovery import clear_discovery_cache
+        from .categories import clear_qc_metadata_cache
         from .runtime import (
             notify_check_pack_registry_changed,
         )
 
+        clear_discovery_cache()
+        clear_qc_metadata_cache()
         notify_check_pack_registry_changed()
 
     except Exception as error:
@@ -266,3 +270,13 @@ def clear_registered_check_packs():
     Intended for addon shutdown/reload.
     """
     _PACKS.clear()
+
+    # Shutdown/reload should never leave stale discovery or UI metadata.
+    try:
+        from .discovery import clear_discovery_cache
+        from .categories import clear_qc_metadata_cache
+
+        clear_discovery_cache()
+        clear_qc_metadata_cache()
+    except Exception:
+        pass

@@ -8,6 +8,29 @@ from ..utils.json_io import load_check_list
 from .packs import get_registered_check_packs
 
 
+_DISCOVERY_CACHE = {}
+
+
+def clear_discovery_cache():
+    """Clears cached QC script discovery results."""
+    _DISCOVERY_CACHE.clear()
+
+
+def _discovery_cache_key(folder_path, registered):
+    """Builds a stable key for the current registered-pack configuration."""
+    packs = _get_discovery_packs(folder_path, registered=registered)
+    pack_signature = tuple(
+        (
+            pack["pack_id"],
+            pack["checks_path"],
+            pack["version"],
+            pack["priority"],
+        )
+        for pack in packs
+    )
+    return (bool(registered), os.path.abspath(folder_path) if folder_path else "", pack_signature)
+
+
 def _legacy_pack(
         folder_path,
     ):
@@ -322,6 +345,15 @@ def discover_check_scripts(
         tuple:
             registry, duplicate_names
     """
+    cache_key = _discovery_cache_key(folder_path, registered)
+    cached = _DISCOVERY_CACHE.get(cache_key)
+    if cached is not None:
+        cached_registry, cached_duplicates = cached
+        return (
+            {name: dict(data) for name, data in cached_registry.items()},
+            {name: list(paths) for name, paths in cached_duplicates.items()},
+        )
+
     registry = {}
     duplicate_names = {}
 
@@ -386,6 +418,11 @@ def discover_check_scripts(
         )
         for name, paths in duplicate_names.items()
     }
+
+    _DISCOVERY_CACHE[cache_key] = (
+        {name: dict(data) for name, data in registry.items()},
+        {name: list(paths) for name, paths in duplicate_names.items()},
+    )
 
     return (
         registry,
