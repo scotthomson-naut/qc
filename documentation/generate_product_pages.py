@@ -173,7 +173,7 @@ def generate_product_page(
         '<section class="product-hero">',
         '<div class="eyebrow">{}</div>'.format(esc(content.get("eyebrow"))),
         '<h1 class="{}">{}</h1>'.format(css_class, esc(product_label).title()),
-        '<p class="lead"><b>Primary outcome:</b> {}</p>'.format(esc(content.get("primary_outcome"))),
+        '<p class="lead"><b>{}</b></p>'.format(esc(content.get("primary_outcome"))),
         count_line,
         product_hero_html(
             content
