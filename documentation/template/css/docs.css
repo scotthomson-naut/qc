@@ -802,6 +802,28 @@ ul {
     border: 0;
 }
 
+
+/* Product looping preview video */
+
+.product-loop-video {
+    min-height: 0;
+    aspect-ratio: 16 / 9;
+    padding: 0;
+    overflow: hidden;
+    background: #0d0e13;
+}
+
+.product-loop-video video {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+}
+
+.product-demo-video {
+    margin-top: 28px;
+}
+
 /* Private beta feedback */
 
 .beta-brand { padding-top: 22px; }

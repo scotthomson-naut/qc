@@ -113,55 +113,59 @@ def _benefits_html(benefits: list[dict[str, Any]], css_class: str) -> str:
 
 
 
-def product_hero_html(content: dict[str, Any]) -> str:
-    """
-    Build the product hero visual.
+def product_loop_video_html(content: dict[str, Any], site_prefix: str) -> str:
+    """Build the muted autoplay looping video shown at the top of a product page."""
+    webm = str(content.get("loop_video_webm", "") or "").strip()
+    mp4 = str(content.get("loop_video_mp4", "") or "").strip()
 
-    When ``hero_youtube_id`` is defined in product_pages.py, use YouTube's
-    privacy-enhanced embed. Otherwise retain the existing text placeholder.
-    """
-    youtube_id = str(
-        content.get(
-            "hero_youtube_id",
-            "",
-        )
-        or ""
-    ).strip()
-
-    if youtube_id:
-        return (
-            '<div class="product-visual product-video">'
-            '<iframe '
-            'src="https://www.youtube-nocookie.com/embed/{}?rel=0" '
-            'title="{}" '
-            'loading="lazy" '
-            'referrerpolicy="strict-origin-when-cross-origin" '
-            'allow="accelerometer; autoplay; clipboard-write; encrypted-media; '
-            'gyroscope; picture-in-picture; web-share" '
-            'allowfullscreen></iframe>'
-            '</div>'
-        ).format(
-            esc(
-                youtube_id
-            ),
-            esc(
-                content.get(
-                    "hero_video_title",
-                    "Product video",
+    if webm or mp4:
+        sources = []
+        if webm:
+            sources.append(
+                '<source src="{}{}" type="video/webm">'.format(
+                    site_prefix, esc(webm)
                 )
-            ),
+            )
+        if mp4:
+            sources.append(
+                '<source src="{}{}" type="video/mp4">'.format(
+                    site_prefix, esc(mp4)
+                )
+            )
+        return (
+            '<div class="product-visual product-loop-video">'
+            '<video autoplay loop muted playsinline preload="auto" '
+            'aria-label="{}">'
+            '{}Your browser does not support the video tag.'
+            '</video></div>'
+        ).format(
+            esc(content.get("loop_video_title", "Product preview")),
+            "".join(sources),
         )
 
     return (
-        '<div class="product-visual">'
-        '<span>{}</span>'
-        '</div>'
+        '<div class="product-visual"><span>{}</span></div>'
+    ).format(esc(content.get("hero_label")))
+
+
+def product_youtube_html(content: dict[str, Any]) -> str:
+    """Build the longer YouTube product video shown after Who it is for."""
+    youtube_id = str(content.get("hero_youtube_id", "") or "").strip()
+    if not youtube_id:
+        return ""
+
+    return (
+        '<section class="product-section product-demo-video">'
+        '<div class="product-visual product-video">'
+        '<iframe src="https://www.youtube-nocookie.com/embed/{}?rel=0" '
+        'title="{}" loading="lazy" '
+        'referrerpolicy="strict-origin-when-cross-origin" '
+        'allow="accelerometer; autoplay; clipboard-write; encrypted-media; '
+        'gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>'
+        '</div></section>'
     ).format(
-        esc(
-            content.get(
-                "hero_label"
-            )
-        )
+        esc(youtube_id),
+        esc(content.get("hero_video_title", "Product video")),
     )
 
 def generate_product_page(
@@ -234,8 +238,9 @@ def generate_product_page(
         '<h1 class="{}">{}</h1>'.format(css_class, esc(product_label).title()),
         '<p class="lead">{}</p>'.format(esc(content.get("primary_outcome"))),
         count_line,
-        product_hero_html(
-            content
+        product_loop_video_html(
+            content,
+            site_prefix,
         ),
         '<div class="product-cta">',
         '<section class="product-final-cta"><h2 class="{}">Ready?</h2>'.format(css_class),
@@ -244,6 +249,7 @@ def generate_product_page(
         '<section class="product-section"><h2 class="{}">Before / after workflow</h2><p>{}</p></section>'.format(css_class, esc(content.get("before_after"))),
         _benefits_html(content.get("benefits") or [], css_class),
         '<section class="product-section"><h2 class="{}">Who it is for</h2><p>{}</p></section>'.format(css_class, esc(content.get("who_for"))),
+        product_youtube_html(content),
         '<section class="product-section"><h2 class="{}">Requirements / compatibility</h2><p>{}</p></section>'.format(css_class, esc(content.get("requirements"))),
         _testimonials_html(content.get("testimonials") or [], css_class),
         '<section class="product-final-cta"><h2 class="{}">Ready to inspect the details?</h2>'.format(css_class),

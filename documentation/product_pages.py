@@ -18,6 +18,9 @@ PRODUCT_PAGE_CONTENT: dict[str, dict[str, Any]] = {
             "render, export, review, or publishing."
         ),
         "hero_label": "60 second QC Checker Core overview",
+        "loop_video_webm": "video/sn-video.webm",
+        "loop_video_mp4": "video/sn-video.mp4",
+        "loop_video_title": "QC Checker Core preview",
         "hero_youtube_id": "FlJaF2XkR6k",
         "hero_video_title": "NASA 4K Views from Space",
         "problem": (
@@ -68,6 +71,9 @@ PRODUCT_PAGE_CONTENT: dict[str, dict[str, Any]] = {
             "production-control features."
         ),
         "hero_label": "60 second QC Checker Pro overview",
+        "loop_video_webm": "video/sn-video.webm",
+        "loop_video_mp4": "video/sn-video.mp4",
+        "loop_video_title": "QC Checker Pro preview",
         "hero_youtube_id": "FlJaF2XkR6k",
         "hero_video_title": "NASA 4K Views from Space",
         "problem": (
@@ -111,7 +117,10 @@ DEFAULT_PACK_CONTENT: dict[str, Any] = {
         "Add focused production checks to QC Checker for this specialist workflow."
     ),
     "hero_label": "60 second pack overview",
-        "hero_youtube_id": "FlJaF2XkR6k",
+    "loop_video_webm": "video/sn-video.webm",
+    "loop_video_mp4": "video/sn-video.mp4",
+    "loop_video_title": "QC Checker Pack preview",
+    "hero_youtube_id": "FlJaF2XkR6k",
         "hero_video_title": "NASA 4K Views from Space",
     "problem": (
         "Specialist departments have validation needs that go beyond the "
@@ -136,6 +145,9 @@ PACK_PAGE_CONTENT: dict[str, dict[str, Any]] = {
             "problems before animation or export."
         ),
         "hero_label": "60 second Rigging Pack overview",
+        "loop_video_webm": "video/sn-video.webm",
+        "loop_video_mp4": "video/sn-video.mp4",
+        "loop_video_title": "Rigging Pack preview",
         "hero_youtube_id": "FlJaF2XkR6k",
         "hero_video_title": "NASA 4K Views from Space",
         "problem": (
