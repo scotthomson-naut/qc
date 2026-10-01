@@ -1,5 +1,0 @@
-description:
-Pink gloss shader for lips, finger or toe nails, bottles or plastics.
-
-group:
-shaders
