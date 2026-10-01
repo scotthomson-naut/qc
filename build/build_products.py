@@ -799,6 +799,34 @@ def package_product(
 
     return output_path
 
+
+def cleanup_packaged_dev_builds(
+        product_roots,
+) -> None:
+    """Removes temporary build/dev products after successful ZIP packaging."""
+    for product_root in product_roots:
+        if product_root.exists():
+            shutil.rmtree(
+                product_root
+            )
+            print(
+                "  Removed temporary dev build: {}".format(
+                    product_root
+                )
+            )
+
+    # Remove build/dev itself when the package build left it empty.
+    if DEV_DIR.exists():
+        try:
+            next(DEV_DIR.iterdir())
+        except StopIteration:
+            DEV_DIR.rmdir()
+            print(
+                "  Removed empty temporary folder: {}".format(
+                    DEV_DIR
+                )
+            )
+
 def parse_args() -> argparse.Namespace:
     """
     Parses command-line arguments.
@@ -907,6 +935,11 @@ def main() -> int:
                 "  Installable ZIP: {}".format(
                     package
                 )
+            )
+
+        if args.package is not None:
+            cleanup_packaged_dev_builds(
+                outputs
             )
 
         return 0
