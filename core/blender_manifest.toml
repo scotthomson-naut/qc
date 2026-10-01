@@ -20,4 +20,4 @@ license = ["SPDX:GPL-3.0-or-later"]
 
 
 [permissions]
-files = true
+files = "Read QC configuration and check files from disk"

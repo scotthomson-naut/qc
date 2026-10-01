@@ -36,6 +36,7 @@ import py_compile
 import re
 import shutil
 import sys
+import zipfile
 
 
 SCRIPT_PATH = Path(__file__).resolve()
@@ -47,6 +48,7 @@ CORE_DIR = PROJECT_ROOT / "core"
 PRO_DIR = PROJECT_ROOT / "pro"
 
 DEV_DIR = BUILD_DIR / "dev"
+DIST_DIR = BUILD_DIR / "dist"
 
 PRODUCTS = {
     "core": {
@@ -604,6 +606,199 @@ def build_product(
     return output_root
 
 
+
+def manifest_value(
+        manifest_path: Path,
+        key: str,
+) -> str:
+    """Reads one required quoted string value from a Blender manifest."""
+    text = manifest_path.read_text(
+        encoding="utf-8",
+    )
+    match = re.search(
+        r'^\s*{}\s*=\s*["\']([^"\']+)["\']'.format(
+            re.escape(key)
+        ),
+        text,
+        re.MULTILINE,
+    )
+    if not match:
+        raise RuntimeError(
+            "Manifest is missing a valid {} value: {}".format(
+                key,
+                manifest_path,
+            )
+        )
+    return match.group(1).strip()
+
+
+def validate_blender_manifest(
+        manifest_path: Path,
+) -> None:
+    """Validates manifest fields needed by QC Checker beta packages."""
+    text = manifest_path.read_text(encoding="utf-8")
+
+    required = (
+        "schema_version",
+        "id",
+        "version",
+        "name",
+        "tagline",
+        "maintainer",
+        "type",
+        "blender_version_min",
+        "license",
+    )
+    for key in required:
+        if not re.search(r"^\s*{}\s*=".format(re.escape(key)), text, re.MULTILINE):
+            raise RuntimeError(
+                "Manifest is missing required field '{}': {}".format(
+                    key, manifest_path
+                )
+            )
+
+    permission_block = re.search(
+        r"(?ms)^\[permissions\]\s*(.*?)(?=^\[|\Z)",
+        text,
+    )
+    if permission_block:
+        for line in permission_block.group(1).splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            match = re.match(r"^([A-Za-z_]+)\s*=\s*(.+)$", line)
+            if not match:
+                raise RuntimeError(
+                    "Invalid permission entry in {}: {}".format(
+                        manifest_path, line
+                    )
+                )
+            permission, value = match.groups()
+            if permission not in {
+                "files", "network", "clipboard", "camera", "microphone"
+            }:
+                raise RuntimeError(
+                    "Unsupported Blender permission '{}': {}".format(
+                        permission, manifest_path
+                    )
+                )
+            if not re.fullmatch(r'"[^"]+"|\'[^\']+\'', value.strip()):
+                raise RuntimeError(
+                    "Permission '{}' must contain a short explanation string, "
+                    "not a boolean: {}".format(permission, manifest_path)
+                )
+
+
+def package_product(
+        tier_key: str,
+        product_root: Path,
+) -> Path:
+    """Creates a Blender-installable Extension ZIP from an assembled product."""
+    manifest_path = product_root / "blender_manifest.toml"
+    validate_blender_manifest(
+        manifest_path
+    )
+    extension_id = manifest_value(
+        manifest_path,
+        "id",
+    )
+    version = manifest_value(
+        manifest_path,
+        "version",
+    )
+
+    DIST_DIR.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    output_path = (
+        DIST_DIR
+        / "{}-{}-beta.zip".format(
+            extension_id,
+            version,
+        )
+    )
+
+    if output_path.exists():
+        output_path.unlink()
+
+    source_files = [
+        path
+        for path in sorted(product_root.rglob("*"))
+        if path.is_file()
+        and not should_ignore(path)
+    ]
+
+    with zipfile.ZipFile(
+        output_path,
+        "w",
+        compression=zipfile.ZIP_DEFLATED,
+        compresslevel=9,
+    ) as archive:
+        for source_path in source_files:
+            # Blender Extensions require __init__.py and
+            # blender_manifest.toml directly at the ZIP root.
+            archive.write(
+                source_path,
+                source_path.relative_to(product_root).as_posix(),
+            )
+
+    with zipfile.ZipFile(
+        output_path,
+        "r",
+    ) as archive:
+        bad_file = archive.testzip()
+        names = set(
+            archive.namelist()
+        )
+
+    if bad_file:
+        raise RuntimeError(
+            "ZIP integrity failed at: {}".format(
+                bad_file
+            )
+        )
+
+    required_root_files = {
+        "__init__.py",
+        "blender_manifest.toml",
+    }
+
+    if not required_root_files.issubset(
+        names
+    ):
+        raise RuntimeError(
+            "Installable ZIP root layout validation failed."
+        )
+
+    # A wrapper folder would make Blender see paths such as
+    # qc_checker_core/__init__.py instead of root-level extension files.
+    if any(
+        name.count("/") == 0
+        and name not in required_root_files
+        for name in names
+    ):
+        pass
+
+    print(
+        "  Installable ZIP: {}".format(
+            output_path
+        )
+    )
+    print(
+        "  Extension ID: {}".format(
+            extension_id
+        )
+    )
+    print(
+        "  Version: {}".format(
+            version
+        )
+    )
+
+    return output_path
+
 def parse_args() -> argparse.Namespace:
     """
     Parses command-line arguments.
@@ -612,6 +807,9 @@ def parse_args() -> argparse.Namespace:
         python build_products.py --dev core
         python build_products.py --dev pro
         python build_products.py --dev all
+        python build_products.py --package core
+        python build_products.py --package pro
+        python build_products.py --package all
     """
     parser = argparse.ArgumentParser(
         description=(
@@ -619,16 +817,31 @@ def parse_args() -> argparse.Namespace:
         )
     )
 
-    parser.add_argument(
+    selection = parser.add_mutually_exclusive_group(
+        required=True,
+    )
+
+    selection.add_argument(
         "--dev",
         choices=(
             "core",
             "pro",
             "all",
         ),
-        required=True,
         help=(
             "Development product to assemble."
+        ),
+    )
+
+    selection.add_argument(
+        "--package",
+        choices=(
+            "core",
+            "pro",
+            "all",
+        ),
+        help=(
+            "Assemble and create Blender-installable Extension ZIP file(s)."
         ),
     )
 
@@ -644,22 +857,38 @@ def main() -> int:
     try:
         validate_source_layout()
 
+        selection = (
+            args.package
+            if args.package is not None
+            else args.dev
+        )
+
         tiers = (
             ("core", "pro")
-            if args.dev == "all"
+            if selection == "all"
             else (
-                args.dev,
+                selection,
             )
         )
 
         outputs = []
+        packages = []
 
         for tier_key in tiers:
-            outputs.append(
-                build_product(
-                    tier_key
-                )
+            product_root = build_product(
+                tier_key
             )
+            outputs.append(
+                product_root
+            )
+
+            if args.package is not None:
+                packages.append(
+                    package_product(
+                        tier_key,
+                        product_root,
+                    )
+                )
 
         print("")
         print(
@@ -668,8 +897,15 @@ def main() -> int:
 
         for output in outputs:
             print(
-                "  {}".format(
+                "  Product: {}".format(
                     output
+                )
+            )
+
+        for package in packages:
+            print(
+                "  Installable ZIP: {}".format(
+                    package
                 )
             )
 

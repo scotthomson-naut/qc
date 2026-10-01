@@ -12,11 +12,30 @@ set "build_script=%bat_path%build_products.py"
 
 
 rem ------------------------------------------------------------
+rem Build Mode
+rem ------------------------------------------------------------
+
+echo.
+echo Build Mode:
+echo 1. Development Build + Blender Junction
+echo 2. Installable Beta ZIP
+echo.
+
+choice /c 12 /n /m "Select 1 or 2: "
+
+if errorlevel 2 (
+    set "build_mode=package"
+) else (
+    set "build_mode=dev"
+)
+
+
+rem ------------------------------------------------------------
 rem Build Tier
 rem ------------------------------------------------------------
 
 echo.
-echo Scriptronaut QC Checker Development Build
+echo Scriptronaut QC Checker Build
 echo ==========================================
 echo.
 echo Build Tier:
@@ -31,6 +50,9 @@ if errorlevel 2 (
 ) else (
     set "tier=core"
 )
+
+
+if /I "%build_mode%"=="package" goto :package_build
 
 
 rem ------------------------------------------------------------
@@ -274,6 +296,45 @@ echo Restart Blender or reload the addon before testing.
 echo ============================================================
 echo.
 
+goto :end
+
+
+
+:package_build
+echo.
+echo ------------------------------------------------------------
+echo Installable Beta Package
+echo ------------------------------------------------------------
+echo Tier:
+echo   %tier%
+echo.
+echo Output Folder:
+echo   %bat_path%dist
+echo ------------------------------------------------------------
+echo.
+
+python "%build_script%" --package %tier%
+
+if errorlevel 1 (
+    echo.
+    echo Error: Installable package build failed.
+    goto :error
+)
+
+echo.
+echo ============================================================
+echo Installable Beta ZIP Ready
+echo ============================================================
+echo.
+echo The ZIP in:
+echo   %bat_path%dist
+echo.
+echo is ready for Blender:
+echo   Preferences ^> Get Extensions ^> menu ^> Install from Disk
+echo.
+echo Do NOT zip the dev folder manually.
+echo ============================================================
+echo.
 goto :end
 
 
