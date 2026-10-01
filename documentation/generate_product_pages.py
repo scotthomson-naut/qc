@@ -21,7 +21,9 @@ def hilite_class(tier: str, product_id: str) -> str:
 
 
 def product_banner_html(site_prefix: str) -> str:
-    """Build the dismissible product-page beta banner without JavaScript."""
+    """
+    Build the dismissible product-page beta banner without JavaScript.
+    """
     return (
         '<input class="product-banner-toggle" type="checkbox" id="product-banner-toggle" '
         'aria-label="Hide beta announcement">'
@@ -38,7 +40,9 @@ def product_banner_html(site_prefix: str) -> str:
 
 
 def _testimonials_html(testimonials: list[dict[str, Any]], css_class: str) -> str:
-    """Build the optional Testimonials section for a product page."""
+    """
+    Build the optional Testimonials section for a product page.
+    """
     if not testimonials:
         return ""
 
@@ -114,7 +118,9 @@ def _benefits_html(benefits: list[dict[str, Any]], css_class: str) -> str:
 
 
 def product_loop_video_html(content: dict[str, Any], site_prefix: str) -> str:
-    """Build the muted autoplay looping video shown at the top of a product page."""
+    """
+    Build the muted autoplay looping video shown at the top of a product page.
+    """
     webm = str(content.get("loop_video_webm", "") or "").strip()
     mp4 = str(content.get("loop_video_mp4", "") or "").strip()
 
@@ -149,7 +155,9 @@ def product_loop_video_html(content: dict[str, Any], site_prefix: str) -> str:
 
 
 def product_youtube_html(content: dict[str, Any]) -> str:
-    """Build the longer YouTube product video shown after Who it is for."""
+    """
+    Build the longer YouTube product video shown after Who it is for.
+    """
     youtube_id = str(content.get("hero_youtube_id", "") or "").strip()
     if not youtube_id:
         return ""
