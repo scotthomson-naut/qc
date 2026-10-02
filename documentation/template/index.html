@@ -194,37 +194,46 @@
 
             <!-- Newsletter -->
             <section class="newsletter">
-
                 <section class="beta-signup-section newsletter-signup" aria-labelledby="newsletter-heading">
-                    <h2 class="hilite-orange newsletter-signup" id="newsletter-heading">Stay in the loop</h2>
-                    <p>Get Scriptronaut news, product updates, and future beta announcements.</p>
+                    <button class="newsletter-toggle" id="newsletter-toggle" type="button"
+                            aria-expanded="false" aria-controls="newsletter-form-panel">
+                        <span class="newsletter-toggle-copy">
+                            <span class="hilite-orange newsletter-title" id="newsletter-heading">Stay in the loop</span>
+                            <span class="newsletter-summary">Get Scriptronaut news, product updates, and future beta announcements.</span>
+                        </span>
+                        <span class="newsletter-toggle-action">
+                            <span>Subscribe</span>
+                            <span class="newsletter-chevron" aria-hidden="true">⌄</span>
+                        </span>
+                    </button>
 
-                    <form class="beta-feedback-form" action="{{WORDPRESS_URL}}/wp-admin/admin-post.php?action=scriptronaut_relay_subscribe" method="post">
-                        <div class="beta-honeypot" aria-hidden="true">
-                            <label>
-                                Website
-                                <input type="text" name="website" tabindex="-1" autocomplete="off">
-                            </label>
-                        </div>
+                    <div class="newsletter-form-panel" id="newsletter-form-panel" hidden>
+                        <form class="beta-feedback-form" action="{{WORDPRESS_URL}}/wp-admin/admin-post.php?action=scriptronaut_relay_subscribe" method="post">
+                            <div class="beta-honeypot" aria-hidden="true">
+                                <label>
+                                    Website
+                                    <input type="text" name="website" tabindex="-1" autocomplete="off">
+                                </label>
+                            </div>
 
-                        <div class="beta-form-grid">
-                            <label>
-                                Name <span>*</span>
-                                <input type="text" name="name" maxlength="120" autocomplete="name" required>
-                            </label>
+                            <div class="beta-form-grid">
+                                <label>
+                                    Name <span>*</span>
+                                    <input type="text" name="name" maxlength="120" autocomplete="name" required>
+                                </label>
 
-                            <label>
-                                Email <span>*</span>
-                                <input type="email" name="email" maxlength="190" autocomplete="email" required>
-                            </label>
-                        </div>
+                                <label>
+                                    Email <span>*</span>
+                                    <input type="email" name="email" maxlength="190" autocomplete="email" required>
+                                </label>
+                            </div>
 
-                        <div class="beta-submit-row" style="display:block;">
-                            <p class="beta-field-help">You can unsubscribe at any time.</p>
-                            <button class="button primary beta-submit" type="submit">Subscribe</button>
-                        </div>
-                    </form>
-
+                            <div class="beta-submit-row" style="display:block;">
+                                <p class="beta-field-help">You can unsubscribe at any time.</p>
+                                <button class="button primary beta-submit" type="submit">Subscribe</button>
+                            </div>
+                        </form>
+                    </div>
                 </section>
             </section>
 
@@ -291,6 +300,7 @@
             </footer>
 
         </main>
+        <script src="js/newsletter-toggle.js"></script>
         <script src="js/contact-modal.js"></script>
     </body>
 </html>

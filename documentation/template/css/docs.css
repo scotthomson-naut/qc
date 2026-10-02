@@ -1143,3 +1143,98 @@ ul {
 .contact-status.is-error{border-color:rgba(255,90,90,.55)}
 body.contact-modal-open{overflow:hidden}
 @media(max-width:640px){.contact-modal{padding:14px}.contact-dialog{padding:24px 18px;max-height:calc(100vh - 28px)}.contact-form-grid{grid-template-columns:1fr}.contact-submit-row{align-items:stretch;flex-direction:column}.contact-submit{width:100%}}
+
+
+/* Collapsible homepage newsletter */
+.newsletter-signup {
+    padding: 0;
+}
+
+.newsletter-toggle {
+    appearance: none;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 20px 22px;
+    border: 0;
+    background: transparent;
+    color: var(--text);
+    text-align: left;
+    cursor: pointer;
+    font: inherit;
+}
+
+.newsletter-toggle-copy {
+    min-width: 0;
+    display: grid;
+    gap: 7px;
+}
+
+.newsletter-title {
+    font-family: "Space Grotesk", Inter, sans-serif;
+    font-size: 1.55rem;
+    font-weight: 700;
+    line-height: 1.15;
+}
+
+.newsletter-summary {
+    color: var(--muted);
+    font-size: .95rem;
+    line-height: 1.45;
+}
+
+.newsletter-toggle-action {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border: 1px solid rgba(252,132,44,.48);
+    border-radius: 10px;
+    color: var(--orange);
+    font-size: .9rem;
+    font-weight: 700;
+    transition: background .2s ease, border-color .2s ease;
+}
+
+.newsletter-toggle:hover .newsletter-toggle-action {
+    background: rgba(252,132,44,.08);
+    border-color: var(--orange);
+}
+
+.newsletter-chevron {
+    display: inline-block;
+    font-size: 1.2rem;
+    line-height: 1;
+    transform: translateY(-2px);
+    transition: transform .2s ease;
+}
+
+.newsletter-toggle[aria-expanded="true"] .newsletter-chevron {
+    transform: rotate(180deg) translateY(2px);
+}
+
+.newsletter-form-panel {
+    padding: 0 22px 22px;
+    border-top: 1px solid transparent;
+}
+
+.newsletter-form-panel.is-open {
+    padding-top: 20px;
+    border-top-color: var(--line);
+}
+
+@media (max-width: 640px) {
+    .newsletter-toggle {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .newsletter-toggle-action {
+        align-self: stretch;
+        justify-content: center;
+    }
+}
