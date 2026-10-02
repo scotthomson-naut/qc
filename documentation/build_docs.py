@@ -843,6 +843,14 @@ def main() -> int:
             version=args.version,
         )
 
+    # Final production pass: resolve any WordPress URL tokens introduced by
+    # generated pages after the initial template copy. This also makes the
+    # build fail rather than shipping a literal {{WORDPRESS_URL}} URL.
+    configure_wordpress_forms(
+        OUTPUT,
+        args.wordpress_url,
+    )
+
     print(
         "Documentation site: {}".format(
             OUTPUT

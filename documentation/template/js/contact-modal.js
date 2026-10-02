@@ -34,7 +34,7 @@
         status.className = result === "sent" ? "contact-status is-success" : "contact-status is-error";
         status.textContent = result === "sent"
             ? "Thanks — your message has been sent."
-            : "We could not send your message. Please try again or email info@scriptronaut.com.";
+            : "We could not send your message. Please try again or email contact@scriptronaut.com.";
         openModal();
         params.delete("contact");
         const query = params.toString();
