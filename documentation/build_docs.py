@@ -32,7 +32,7 @@ VERSION = "1.0"
 # WordPress installation used by the static beta forms.
 # Production: https://www.scriptronaut.com
 # Scot development: http://scotdthomson.com/wp
-DEFAULT_WORDPRESS_URL = "http://scotdthomson.com/wp"
+DEFAULT_WORDPRESS_URL = "https://scriptronaut.com/wp"
 WORDPRESS_URL_TOKEN = "{{WORDPRESS_URL}}"
 
 SHARED_CHECKS = PROJECT_ROOT / "shared" / "checks"
@@ -133,14 +133,7 @@ def configure_wordpress_forms(
         output_dir: Path,
         wordpress_url: str,
 ) -> None:
-    """
-    Replace the WordPress URL token in static beta forms after the template
-    has been copied to the generated site.
-
-    This keeps the source templates environment-neutral while allowing the
-    same documentation build to target production or a development WordPress
-    installation.
-    """
+    """Replace WordPress URL tokens in every generated HTML page."""
     wordpress_url = str(
         wordpress_url
         or DEFAULT_WORDPRESS_URL
@@ -153,26 +146,15 @@ def configure_wordpress_forms(
             "WordPress URL cannot be empty."
         )
 
-    pages = (
-        output_dir / "index.html",
-        output_dir / "betas.html",
-        output_dir / "beta-feedback.html",
-    )
+    replaced_pages = []
 
-    for page_path in pages:
-        if not page_path.is_file():
-            continue
-
+    for page_path in output_dir.rglob("*.html"):
         text = page_path.read_text(
             encoding="utf-8"
         )
 
         if WORDPRESS_URL_TOKEN not in text:
-            raise ValueError(
-                "WordPress URL token not found in {}.".format(
-                    page_path
-                )
-            )
+            continue
 
         page_path.write_text(
             text.replace(
@@ -181,10 +163,27 @@ def configure_wordpress_forms(
             ),
             encoding="utf-8",
         )
+        replaced_pages.append(page_path)
+
+    # Production safety check: a generated page must never ship with the
+    # placeholder still embedded in a URL.
+    unresolved = []
+    for page_path in output_dir.rglob("*.html"):
+        if WORDPRESS_URL_TOKEN in page_path.read_text(encoding="utf-8"):
+            unresolved.append(str(page_path.relative_to(output_dir)))
+
+    if unresolved:
+        raise ValueError(
+            "Unresolved WordPress URL token in: {}".format(
+                ", ".join(unresolved)
+            )
+        )
 
     print(
-        "WordPress forms: {}".format(
-            wordpress_url
+        "WordPress URLs: {} ({} page{})".format(
+            wordpress_url,
+            len(replaced_pages),
+            "" if len(replaced_pages) == 1 else "s",
         )
     )
 
@@ -742,8 +741,8 @@ def main() -> int:
         default=DEFAULT_WORDPRESS_URL,
         help=(
             "Base URL of the WordPress installation used by the static "
-            "beta forms. Example: https://www.scriptronaut.com or "
-            "http://scotdthomson.com/wp."
+            "beta forms and protected download pages. Example: "
+            "https://scriptronaut.com/wp."
         ),
     )
 

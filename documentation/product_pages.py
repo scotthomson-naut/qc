@@ -18,8 +18,8 @@ PRODUCT_PAGE_CONTENT: dict[str, dict[str, Any]] = {
             "render, export, review, or publishing."
         ),
         "hero_label": "60 second QC Checker Core overview",
-        "loop_video_webm": "video/sn-video.webm",
-        "loop_video_mp4": "video/sn-video.mp4",
+        "loop_video_webm": "video/qc_checker-core_loop.webm",
+        "loop_video_mp4": "video/qc_checker-core_loop.mp4",
         "loop_video_title": "QC Checker Core preview",
         "hero_youtube_id": "FlJaF2XkR6k",
         "hero_video_title": "NASA 4K Views from Space",
@@ -71,8 +71,8 @@ PRODUCT_PAGE_CONTENT: dict[str, dict[str, Any]] = {
             "production-control features."
         ),
         "hero_label": "60 second QC Checker Pro overview",
-        "loop_video_webm": "video/sn-video.webm",
-        "loop_video_mp4": "video/sn-video.mp4",
+        "loop_video_webm": "video/qc_checker-pro_loop.webm",
+        "loop_video_mp4": "video/qc_checker-pro_loop.mp4",
         "loop_video_title": "QC Checker Pro preview",
         "hero_youtube_id": "FlJaF2XkR6k",
         "hero_video_title": "NASA 4K Views from Space",

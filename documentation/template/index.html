@@ -39,12 +39,12 @@
             </a>
 
             <!-- Contact -->
-            <a href="mailto:info@scriptronaut.com">
+            <button class="contact-icon-button" id="contact-open" type="button" aria-haspopup="dialog" aria-controls="contact-modal">
                 <div class="tooltip-container">
                     <span><img class="i-contact" src="svg/i_contact.svg" alt="Contact" /></span>
                     <span class="tooltip-text">Contact</span>
                 </div>
-            </a>
+            </button>
 
             <!-- Betas -->
             <a href="betas.html">
@@ -228,6 +228,56 @@
             </section>
 
 
+
+            <!-- Contact Modal -->
+            <div class="contact-modal" id="contact-modal" aria-hidden="true">
+                <div class="contact-modal-backdrop" data-contact-close></div>
+                <section class="contact-dialog" role="dialog" aria-modal="true" aria-labelledby="contact-title">
+                    <button class="contact-close" type="button" aria-label="Close contact form" data-contact-close>&times;</button>
+                    <div class="contact-dialog-header">
+                        <span class="contact-kicker">CONTACT</span>
+                        <h2 id="contact-title">Contact Scriptronaut</h2>
+                        <p>Questions, ideas, or something we can help with? Send us a message.</p>
+                    </div>
+
+                    <div class="contact-status" id="contact-status" hidden></div>
+
+                    <form class="contact-form" action="{{WORDPRESS_URL}}/wp-admin/admin-post.php?action=scriptronaut_contact" method="post">
+                        <div class="contact-honeypot" aria-hidden="true">
+                            <label>Website <input type="text" name="website" tabindex="-1" autocomplete="off"></label>
+                        </div>
+
+                        <div class="contact-form-grid">
+                            <label>Name <span>*</span>
+                                <input type="text" name="name" maxlength="120" autocomplete="name" required>
+                            </label>
+                            <label>Email <span>*</span>
+                                <input type="email" name="email" maxlength="190" autocomplete="email" required>
+                            </label>
+                        </div>
+
+                        <label>Subject <span>*</span>
+                            <select name="subject" required>
+                                <option value="General question">General question</option>
+                                <option value="QC Checker">QC Checker</option>
+                                <option value="Free tools">Free tools</option>
+                                <option value="Website">Website</option>
+                                <option value="Business / other">Business / other</option>
+                            </select>
+                        </label>
+
+                        <label>Message <span>*</span>
+                            <textarea name="message" rows="7" maxlength="5000" required></textarea>
+                        </label>
+
+                        <div class="contact-submit-row">
+                            <p>Prefer email? <a href="mailto:info@scriptronaut.com">info@scriptronaut.com</a></p>
+                            <button class="button primary contact-submit" type="submit">Send Message</button>
+                        </div>
+                    </form>
+                </section>
+            </div>
+
             <!-- Footer -->
             <footer class="footer">
                 <b>Scriptronaut</b> | Code that takes ideas <span class="hilite-orange">beyond</span>.
@@ -240,5 +290,6 @@
             </footer>
 
         </main>
+        <script src="js/contact-modal.js"></script>
     </body>
 </html>
