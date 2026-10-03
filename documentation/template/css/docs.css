@@ -230,7 +230,7 @@ img { max-width: 100%; margin-right: 4px;}
 
 
 /* Groups About */
-.i-orange, .i-contact:hover, .i-about:hover, .i-terms:hover, .i-privacy:hover {
+.i-orange, .i-contact:hover, .i-about:hover, .i-free:hover, i-terms:hover, .i-privacy:hover {
     filter: brightness(0) saturate(100%) invert(60%) sepia(72%) saturate(1794%) hue-rotate(340deg) brightness(100%) contrast(98%);
 }
 
