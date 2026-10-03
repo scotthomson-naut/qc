@@ -213,12 +213,9 @@ img { max-width: 100%; margin-right: 4px;}
 
 
 /* Links */
-
-
 .i-beta:hover {
     filter: brightness(0) saturate(100%) invert(49%) sepia(46%) saturate(1051%) hue-rotate(214deg) brightness(100%) contrast(98%);
 }
-
 
 .i-facebook:hover {
     filter: brightness(0) saturate(100%) invert(43%) sepia(97%) saturate(468%) hue-rotate(180deg) brightness(97%) contrast(81%);
@@ -228,11 +225,33 @@ img { max-width: 100%; margin-right: 4px;}
     filter: brightness(0) saturate(100%) invert(16%) sepia(82%) saturate(4210%) hue-rotate(354deg) brightness(95%) contrast(93%);
 }
 
-
-/* Groups About */
+/* Groups */
 .i-orange, .i-contact:hover, .i-about:hover, .i-free:hover, i-terms:hover, .i-privacy:hover {
     filter: brightness(0) saturate(100%) invert(60%) sepia(72%) saturate(1794%) hue-rotate(340deg) brightness(100%) contrast(98%);
 }
+
+
+/* Product color filters */
+.i-qc_core {
+    filter: brightness(0) saturate(100%) invert(67%) sepia(63%) saturate(3858%) hue-rotate(182deg) brightness(94%) contrast(93%);
+}
+
+.i-qc_pro {
+    filter: brightness(0) saturate(100%) invert(73%) sepia(68%) saturate(527%) hue-rotate(61deg) brightness(103%) contrast(85%);
+}
+
+.i-qc_pack_animation {
+    filter: brightness(0) saturate(100%) invert(22%) sepia(66%) saturate(2400%) hue-rotate(324deg) brightness(85%) contrast(87%);
+}
+
+.i-qc_pack_rigging {
+    filter: brightness(0) saturate(100%) invert(87%) sepia(37%) saturate(5463%) hue-rotate(211deg) brightness(84%) contrast(90%);
+}
+
+.i-qc_pack_lighting {
+    filter: brightness(0) saturate(100%) invert(59%) sepia(76%) saturate(368%) hue-rotate(20deg) brightness(94%) contrast(94%);
+}
+
 
 /* Tooltip */
 
