@@ -48,6 +48,7 @@ CORE_DIR = PROJECT_ROOT / "core"
 PRO_DIR = PROJECT_ROOT / "pro"
 
 DEV_DIR = BUILD_DIR / "dev"
+PACKAGE_STAGE_DIR = BUILD_DIR / ".package_build"
 DIST_DIR = BUILD_DIR / "dist"
 VERSION_FILE = PROJECT_ROOT / "VERSION"
 
@@ -518,6 +519,7 @@ def validate_product(
 
 def build_product(
         tier_key: str,
+        output_root: Path | None = None,
     ) -> Path:
     """
     Assembles one development product.
@@ -533,9 +535,10 @@ def build_product(
         tier_key
     ]
 
-    output_root = product[
-        "output"
-    ]
+    if output_root is None:
+        output_root = product[
+            "output"
+        ]
 
     product_source = product[
         "source"
@@ -877,32 +880,15 @@ def package_product(
     return output_path
 
 
-def cleanup_packaged_dev_builds(
-        product_roots,
-) -> None:
-    """Removes temporary build/dev products after successful ZIP packaging."""
-    for product_root in product_roots:
-        if product_root.exists():
-            shutil.rmtree(
-                product_root
+def cleanup_package_stage() -> None:
+    """Removes temporary package staging without touching persistent dev builds."""
+    if PACKAGE_STAGE_DIR.exists():
+        shutil.rmtree(PACKAGE_STAGE_DIR)
+        print(
+            "  Removed temporary package staging: {}".format(
+                PACKAGE_STAGE_DIR
             )
-            print(
-                "  Removed temporary dev build: {}".format(
-                    product_root
-                )
-            )
-
-    # Remove build/dev itself when the package build left it empty.
-    if DEV_DIR.exists():
-        try:
-            next(DEV_DIR.iterdir())
-        except StopIteration:
-            DEV_DIR.rmdir()
-            print(
-                "  Removed empty temporary folder: {}".format(
-                    DEV_DIR
-                )
-            )
+        )
 
 def parse_args() -> argparse.Namespace:
     """
@@ -990,10 +976,20 @@ def main() -> int:
         outputs = []
         packages = []
 
+        if args.package is not None:
+            cleanup_package_stage()
+
         for tier_key in tiers:
-            product_root = build_product(
-                tier_key
-            )
+            if args.package is not None:
+                product_root = build_product(
+                    tier_key,
+                    PACKAGE_STAGE_DIR / "qc_checker_{}".format(tier_key),
+                )
+            else:
+                product_root = build_product(
+                    tier_key
+                )
+
             outputs.append(
                 product_root
             )
@@ -1026,9 +1022,7 @@ def main() -> int:
             )
 
         if args.package is not None:
-            cleanup_packaged_dev_builds(
-                outputs
-            )
+            cleanup_package_stage()
 
         return 0
 
