@@ -283,6 +283,29 @@ def patch_product_version(
     manifest_path.write_text(text, encoding="utf-8")
 
 
+
+def patch_runtime_version(
+        product_root: Path,
+        version: str,
+    ) -> None:
+    """Sets the generated runtime version used by feedback and UI metadata."""
+    constants_path = product_root / "scriptronaut_qc" / "constants.py"
+    text = constants_path.read_text(encoding="utf-8")
+    pattern = re.compile(
+        r'^VERSION\s*=\s*["\'][^"\']*["\']\s*$',
+        re.MULTILINE,
+    )
+    text, replacement_count = pattern.subn(
+        'VERSION = "{}"'.format(version),
+        text,
+        count=1,
+    )
+    if replacement_count != 1:
+        raise RuntimeError(
+            "Could not set VERSION in generated scriptronaut_qc/constants.py."
+        )
+    constants_path.write_text(text, encoding="utf-8")
+
 def patch_product_tier(
         product_root: Path,
         tier: str,
@@ -640,6 +663,11 @@ def build_product(
 
     product_version = read_product_version()
     patch_product_version(
+        output_root,
+        product_version,
+    )
+
+    patch_runtime_version(
         output_root,
         product_version,
     )
