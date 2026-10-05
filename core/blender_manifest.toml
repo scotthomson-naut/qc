@@ -1,7 +1,7 @@
 schema_version = "1.0.0"
 
 id = "scriptronaut_qc_checker_core"
-version = "1.0.0"
+version = "0.1.0"
 name = "Scriptronaut QC Checker Core"
 tagline = "Run categorized quality-control sanity checks in Blender"
 

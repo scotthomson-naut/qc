@@ -49,6 +49,7 @@ PRO_DIR = PROJECT_ROOT / "pro"
 
 DEV_DIR = BUILD_DIR / "dev"
 DIST_DIR = BUILD_DIR / "dist"
+VERSION_FILE = PROJECT_ROOT / "VERSION"
 
 PRODUCTS = {
     "core": {
@@ -215,6 +216,70 @@ def copy_file(
         source,
         destination,
     )
+
+
+def read_product_version() -> str:
+    """Reads and validates the single project version from VERSION."""
+    if not VERSION_FILE.is_file():
+        raise RuntimeError(
+            "Project VERSION file was not found: {}".format(VERSION_FILE)
+        )
+
+    version = VERSION_FILE.read_text(encoding="utf-8").strip()
+
+    if not re.fullmatch(r"(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)", version):
+        raise RuntimeError(
+            "VERSION must use X.Y.Z semantic version format, for example 0.1.0. "
+            "Found: {!r}".format(version)
+        )
+
+    return version
+
+
+def validate_version_string(version: str) -> str:
+    """Validates and returns an X.Y.Z semantic version string."""
+    version = version.strip()
+    if not re.fullmatch(r"(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)", version):
+        raise RuntimeError(
+            "Version must use X.Y.Z semantic version format, for example 0.1.0. "
+            "Found: {!r}".format(version)
+        )
+    return version
+
+
+def set_product_version(version: str) -> str:
+    """Validates and writes the project VERSION file when it changed."""
+    version = validate_version_string(version)
+    current = read_product_version()
+    if version != current:
+        VERSION_FILE.write_text(version + "\n", encoding="utf-8")
+        print("Project VERSION updated: {} -> {}".format(current, version))
+    else:
+        print("Project VERSION unchanged: {}".format(version))
+    return version
+
+
+def patch_product_version(
+        product_root: Path,
+        version: str,
+    ) -> None:
+    """Sets the generated Blender manifest version from the root VERSION file."""
+    manifest_path = product_root / "blender_manifest.toml"
+    text = manifest_path.read_text(encoding="utf-8")
+    pattern = re.compile(
+        r'^version\s*=\s*["\'][^"\']*["\']\s*$',
+        re.MULTILINE,
+    )
+    text, replacement_count = pattern.subn(
+        'version = "{}"'.format(version),
+        text,
+        count=1,
+    )
+    if replacement_count != 1:
+        raise RuntimeError(
+            "Could not set version in generated blender_manifest.toml."
+        )
+    manifest_path.write_text(text, encoding="utf-8")
 
 
 def patch_product_tier(
@@ -570,6 +635,12 @@ def build_product(
         ],
     )
 
+    product_version = read_product_version()
+    patch_product_version(
+        output_root,
+        product_version,
+    )
+
     # ---------------------------------------------------------
     # Validation
     # ---------------------------------------------------------
@@ -600,6 +671,12 @@ def build_product(
             product[
                 "tier"
             ]
+        )
+    )
+
+    print(
+        "  Version: {}".format(
+            product_version
         )
     )
 
@@ -873,6 +950,14 @@ def parse_args() -> argparse.Namespace:
         ),
     )
 
+    parser.add_argument(
+        "--version",
+        help=(
+            "Optional X.Y.Z project version. When supplied, VERSION is updated "
+            "before the build."
+        ),
+    )
+
     return parser.parse_args()
 
 
@@ -883,6 +968,9 @@ def main() -> int:
     args = parse_args()
 
     try:
+        if args.version is not None:
+            set_product_version(args.version)
+
         validate_source_layout()
 
         selection = (

@@ -9,6 +9,55 @@ rem ------------------------------------------------------------
 
 set "bat_path=%~dp0"
 set "build_script=%bat_path%build_products.py"
+set "version_file=%bat_path%..\VERSION"
+set "product_version="
+
+if not exist "%version_file%" (
+    echo.
+    echo Error: VERSION file was not found.
+    echo Expected: %version_file%
+    goto :error
+)
+
+set /p product_version=<"%version_file%"
+
+
+rem ------------------------------------------------------------
+rem Product Version
+rem ------------------------------------------------------------
+
+:version_prompt
+echo.
+echo Scriptronaut QC Checker Build
+echo ==========================================
+echo Current version: %product_version%
+echo.
+set "requested_version="
+set /p "requested_version=Version to build [%product_version%]: "
+
+if not defined requested_version set "requested_version=%product_version%"
+
+rem Python owns semantic-version validation and writes VERSION.  We validate
+rem here before showing the remaining build menus so an invalid value can be
+rem corrected immediately.
+python -c "import re,sys; sys.exit(0 if re.fullmatch(r'(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)', sys.argv[1]) else 1)" "%requested_version%"
+if errorlevel 1 (
+    echo.
+    echo Error: Invalid version "%requested_version%".
+    echo Please enter a semantic version such as 0.1.0 or 1.2.3.
+    goto :version_prompt
+)
+
+if /I not "%requested_version%"=="%product_version%" (
+    echo.
+    echo Update project version:
+    echo   %product_version% ^-^> %requested_version%
+    echo.
+    choice /c YN /n /m "Continue? [Y/N]: "
+    if errorlevel 2 goto :end
+)
+
+set "product_version=%requested_version%"
 
 
 rem ------------------------------------------------------------
@@ -37,6 +86,7 @@ rem ------------------------------------------------------------
 echo.
 echo Scriptronaut QC Checker Build
 echo ==========================================
+echo Version: %product_version%
 echo.
 echo Build Tier:
 echo 1. Core
@@ -177,7 +227,7 @@ rem ------------------------------------------------------------
 rem Build Product
 rem ------------------------------------------------------------
 
-python "%build_script%" --dev %tier%
+python "%build_script%" --dev %tier% --version "%product_version%"
 
 if errorlevel 1 (
     echo.
@@ -308,12 +358,15 @@ echo ------------------------------------------------------------
 echo Tier:
 echo   %tier%
 echo.
+echo Version:
+echo   %product_version%
+echo.
 echo Output Folder:
 echo   %bat_path%dist
 echo ------------------------------------------------------------
 echo.
 
-python "%build_script%" --package %tier%
+python "%build_script%" --package %tier% --version "%product_version%"
 
 if errorlevel 1 (
     echo.
