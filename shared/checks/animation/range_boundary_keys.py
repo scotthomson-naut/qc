@@ -278,17 +278,34 @@ def fix_objects_missing_start_end_keys(result_data=None):
 
 def get_fcurve_channel_name(fcurve):
     """
-    Returns a unique readable identifier for an F-Curve.
+    Returns a user-friendly identifier for an F-Curve.
 
     Examples:
-        location[0]
-        rotation_euler[2]
-        pose.bones["Hand.L"].rotation_quaternion[1]
+        location[0] -> X Location
+        rotation_euler[2] -> Z Rotation
+        scale[1] -> Y Scale
+
+    More complex data paths keep their technical identifier so the
+    channel remains unique and useful for troubleshooting.
     """
-    return "{}[{}]".format(
-        fcurve.data_path,
-        fcurve.array_index,
-    )
+    data_path = fcurve.data_path
+    array_index = fcurve.array_index
+
+    axis_names = ("X", "Y", "Z", "W")
+    readable_properties = {
+        "location": "Location",
+        "rotation_euler": "Rotation",
+        "rotation_quaternion": "Quaternion Rotation",
+        "rotation_axis_angle": "Axis Angle Rotation",
+        "scale": "Scale",
+    }
+
+    property_name = readable_properties.get(data_path)
+
+    if property_name is not None and 0 <= array_index < len(axis_names):
+        return "{} {}".format(axis_names[array_index], property_name)
+
+    return "{}[{}]".format(data_path, array_index)
 
 
 def insert_fcurve_key(fcurve, frame):
