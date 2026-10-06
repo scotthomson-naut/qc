@@ -313,13 +313,14 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
 
         if INCLUDE_BETA_TOOLS:
             beta_box = layout.box()
+            build_label = "Beta" if BUILD_CHANNEL == "beta" else "Dev"
             beta_box.label(
-                text="Beta",
+                text="{} | Build: {}-{}".format(
+                    build_label,
+                    VERSION,
+                    BUILD_CHANNEL,
+                ),
                 icon="EXPERIMENTAL",
-            )
-
-            beta_box.label(
-                text="Build: {}-{}".format(VERSION, BUILD_CHANNEL),
             )
 
             beta_row = beta_box.row(
