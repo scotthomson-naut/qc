@@ -68,12 +68,10 @@ echo.
 echo Build Mode:
 echo 1. Development Build + Persistent Blender Junction
 echo 2. Installable Beta ZIP
-echo 3. Remove Development Junction
 echo.
 
-choice /c 123 /n /m "Select 1, 2 or 3: "
+choice /c 12 /n /m "Select 1 or 2: "
 
-if errorlevel 3 goto :remove_dev_link
 if errorlevel 2 (
     set "build_mode=package"
 ) else (
@@ -373,51 +371,6 @@ goto :end
 
 
 
-
-:remove_dev_link
-echo.
-echo ------------------------------------------------------------
-echo Remove Development Junction
-echo ------------------------------------------------------------
-echo.
-echo IMPORTANT:
-echo Before removing the junction, disable QC Checker in Blender's
-echo Add-ons preferences and close Blender.
-echo Otherwise Blender can report qc_checker under Missing Add-ons.
-echo.
-choice /c YN /n /m "Have you disabled QC Checker and closed Blender? [Y/N]: "
-if errorlevel 2 goto :end
-
-echo.
-set /p "blender_version=Your Blender Version? "
-if not defined blender_version goto :error
-
-set "blender_addon_path=%APPDATA%\Blender Foundation\Blender\%blender_version%\scripts\addons\qc_checker"
-
-if not exist "%blender_addon_path%\" (
-    echo.
-    echo No qc_checker development junction was found:
-    echo   %blender_addon_path%
-    goto :end
-)
-
-echo.
-echo Removing development junction:
-echo   %blender_addon_path%
-rmdir "%blender_addon_path%" >nul 2>&1
-
-if exist "%blender_addon_path%\" (
-    echo.
-    echo Error: The path could not be removed safely.
-    echo It may be a real addon folder rather than a development junction.
-    goto :error
-)
-
-echo.
-echo Development junction removed.
-echo The persistent build\dev product was kept for future development builds.
-echo.
-goto :end
 
 :package_build
 echo.
