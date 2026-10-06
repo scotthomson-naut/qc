@@ -306,6 +306,40 @@ def patch_runtime_version(
         )
     constants_path.write_text(text, encoding="utf-8")
 
+def patch_build_metadata(
+        product_root: Path,
+        channel: str,
+        include_beta_tools: bool,
+    ) -> None:
+    """Sets generated build channel and optional Beta UI visibility."""
+    constants_path = product_root / "scriptronaut_qc" / "constants.py"
+    text = constants_path.read_text(encoding="utf-8")
+
+    replacements = (
+        (
+            r'^BUILD_CHANNEL\s*=\s*["\'][^"\']*["\']\s*$',
+            'BUILD_CHANNEL = "{}"'.format(channel),
+            "BUILD_CHANNEL",
+        ),
+        (
+            r'^INCLUDE_BETA_TOOLS\s*=\s*(?:True|False)\s*$',
+            'INCLUDE_BETA_TOOLS = {}'.format(
+                "True" if include_beta_tools else "False"
+            ),
+            "INCLUDE_BETA_TOOLS",
+        ),
+    )
+
+    for pattern, replacement, label in replacements:
+        text, count = re.subn(pattern, replacement, text, count=1, flags=re.MULTILINE)
+        if count != 1:
+            raise RuntimeError(
+                "Could not set {} in generated constants.py.".format(label)
+            )
+
+    constants_path.write_text(text, encoding="utf-8")
+
+
 def patch_product_tier(
         product_root: Path,
         tier: str,
@@ -543,6 +577,9 @@ def validate_product(
 def build_product(
         tier_key: str,
         output_root: Path | None = None,
+        *,
+        channel: str,
+        include_beta_tools: bool,
     ) -> Path:
     """
     Assembles one development product.
@@ -670,6 +707,12 @@ def build_product(
     patch_runtime_version(
         output_root,
         product_version,
+    )
+
+    patch_build_metadata(
+        output_root,
+        channel,
+        include_beta_tools,
     )
 
     # ---------------------------------------------------------
@@ -972,6 +1015,13 @@ def parse_args() -> argparse.Namespace:
         ),
     )
 
+    parser.add_argument(
+        "--beta-tools",
+        choices=("yes", "no"),
+        default="yes",
+        help="Include the Beta panel tools in the generated product.",
+    )
+
     return parser.parse_args()
 
 
@@ -1012,10 +1062,14 @@ def main() -> int:
                 product_root = build_product(
                     tier_key,
                     PACKAGE_STAGE_DIR / "qc_checker_{}".format(tier_key),
+                    channel="beta",
+                    include_beta_tools=(args.beta_tools == "yes"),
                 )
             else:
                 product_root = build_product(
-                    tier_key
+                    tier_key,
+                    channel="dev",
+                    include_beta_tools=(args.beta_tools == "yes"),
                 )
 
             outputs.append(

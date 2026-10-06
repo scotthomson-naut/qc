@@ -17,6 +17,8 @@ CHECK_PREFERENCES_FILE = str(
 )
 TIER = "Core"
 VERSION = "1.0.0"
+BUILD_CHANNEL = "dev"
+INCLUDE_BETA_TOOLS = True
 
 # Website forms
 BETA_FEEDBACK_URL = "https://scriptronaut.com/beta-feedback.html"

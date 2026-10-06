@@ -4,7 +4,14 @@ import time
 
 from bpy.types import Panel, UIList
 
-from ..constants import BETA_DOCUMENTATION_URL, COMMON_CATEGORY, TIER
+from ..constants import (
+    BETA_DOCUMENTATION_URL,
+    BUILD_CHANNEL,
+    COMMON_CATEGORY,
+    INCLUDE_BETA_TOOLS,
+    TIER,
+    VERSION,
+)
 from ..core import (
     draw_feature,
     get_qc_elapsed_text,
@@ -19,9 +26,6 @@ from ..icons import get_icon_id
 QC_PANEL_PROFILE = True
 QC_PANEL_PROFILE_THRESHOLD = 0.020
 
-# Temporary beta panel controls.
-# Set to False for builds that should omit the Beta section.
-add_beta_feedback = True
 
 
 def _qc_profile_print(
@@ -307,11 +311,15 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
         # Temporary private-beta links
         # ---------------------------------------------------------
 
-        if add_beta_feedback:
+        if INCLUDE_BETA_TOOLS:
             beta_box = layout.box()
             beta_box.label(
                 text="Beta",
                 icon="EXPERIMENTAL",
+            )
+
+            beta_box.label(
+                text="Build: {}-{}".format(VERSION, BUILD_CHANNEL),
             )
 
             beta_row = beta_box.row(

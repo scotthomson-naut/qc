@@ -104,6 +104,21 @@ if errorlevel 2 (
 )
 
 
+rem ------------------------------------------------------------
+rem Beta Tools
+rem ------------------------------------------------------------
+
+echo.
+echo Beta Tools:
+echo Include the Beta panel, build label, Send Feedback, and documentation link?
+choice /c YN /n /m "Include Beta tools? [Y/N]: "
+if errorlevel 2 (
+    set "beta_tools=no"
+) else (
+    set "beta_tools=yes"
+)
+
+
 if /I "%build_mode%"=="package" goto :package_build
 
 rem ------------------------------------------------------------
@@ -212,6 +227,9 @@ echo ------------------------------------------------------------
 echo Tier:
 echo   %tier%
 echo.
+echo Beta Tools:
+echo   %beta_tools%
+echo.
 echo Blender:
 echo   %blender_version%
 echo.
@@ -228,7 +246,7 @@ rem ------------------------------------------------------------
 rem Build Product
 rem ------------------------------------------------------------
 
-python "%build_script%" --dev %tier% --version "%product_version%"
+python "%build_script%" --dev %tier% --version "%product_version%" --beta-tools %beta_tools%
 
 if errorlevel 1 (
     echo.
@@ -412,12 +430,15 @@ echo.
 echo Version:
 echo   %product_version%
 echo.
+echo Beta Tools:
+echo   %beta_tools%
+echo.
 echo Output Folder:
 echo   %bat_path%dist
 echo ------------------------------------------------------------
 echo.
 
-python "%build_script%" --package %tier% --version "%product_version%"
+python "%build_script%" --package %tier% --version "%product_version%" --beta-tools %beta_tools%
 
 if errorlevel 1 (
     echo.
