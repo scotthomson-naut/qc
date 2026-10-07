@@ -11,13 +11,15 @@ LABEL = "Color Space Valid"
 DESCRIPTION = (
     'Checks image textures used as normal, roughness, metallic, height, '
     'displacement, masks, or other non-color data and verifies that their '
-    'image color space is set to the required non-color space. Images used '
-    'for both color and non-color purposes are skipped by default because one '
-    'global image color-space setting cannot be correct for both uses.'
+    'image color space is set to non-color data. Also checks image textures '
+    'used purely as color (Base Color, Emission Color, etc.) and verifies '
+    'they are not set to Non-Color.'
 )
 WHY = (
     'Prevents color-management transforms such as sRGB gamma from altering '
-    'numeric texture data used by shader calculations.'
+    'numeric texture data used by shader calculations. It also prevents color '
+    'textures set to Non-Color from rendering with incorrect colors '
+    '(typically washed out).'
 )
 
 
@@ -26,15 +28,6 @@ WHY = (
 # -------------------------------------------------------------------------
 
 SETTINGS = {
-    "required_colorspace": {
-        "type": "string",
-        "label": "Required Colorspace",
-        "description": (
-            "Required image color space for textures used as non-color data."
-        ),
-        "default": "Non-Color",
-    },
-
     "check_normal": {
         "type": "bool",
         "label": "Check Normal Textures",
@@ -87,6 +80,16 @@ SETTINGS = {
     },
 }
 
+# Shown in results as the expected state. The check itself relies on
+# Blender's "is_data" flag, so it works with any OCIO config regardless of
+# what that config names its non-color / data space.
+REQUIRED_COLORSPACE_LABEL = "Non-Color (data)"
+
+# Color space expected for images used purely as color. A color texture only
+# fails when it is marked as data (Non-Color); other color spaces such as
+# Linear Rec.709 are left alone because they can be legitimate for HDR color.
+COLOR_COLORSPACE_NAME = "sRGB"
+
 
 # -------------------------------------------------------------------------
 # Main
@@ -94,8 +97,9 @@ SETTINGS = {
 
 def main(preferences=None):
     """
-    Finds image textures used exclusively as non-color data that are not
-    configured with the required color space.
+    Finds image textures used as non-color data that are not configured as
+    data, and image textures used exclusively as color that are configured
+    as non-color data.
 
     Images used for both color and non-color purposes are ignored by default
     because there is no single globally correct image color space for both
@@ -152,10 +156,18 @@ def main(preferences=None):
     for image_name, image_data in sorted(
         failed_images.items()
     ):
+        usage_key = (
+            "color_usages"
+            if image_data.get(
+                "failure_kind"
+            ) == "color"
+            else "non_color_usages"
+        )
+
         usages = sorted(
             set(
                 image_data.get(
-                    "non_color_usages",
+                    usage_key,
                     [],
                 )
             )
@@ -378,10 +390,6 @@ def fix_color_space(
     skipped_images = {}
     issues = []
 
-    required_colorspace = settings[
-        "required_colorspace"
-    ]
-
     for image_name, image_data in (
         failed_images.items()
     ):
@@ -428,7 +436,7 @@ def fix_color_space(
                     ),
 
                 "required_colorspace":
-                    required_colorspace,
+                    REQUIRED_COLORSPACE_LABEL,
             }
 
             continue
@@ -443,9 +451,17 @@ def fix_color_space(
             )
         )
 
+        set_color_space = (
+            set_image_as_color
+            if image_data.get(
+                "failure_kind"
+            ) == "color"
+            else set_image_as_data
+        )
+
         try:
-            image.colorspace_settings.name = (
-                required_colorspace
+            success = set_color_space(
+                image
             )
 
         except Exception as error:
@@ -455,6 +471,20 @@ def fix_color_space(
                 ).format(
                     image_name,
                     error,
+                )
+            )
+            continue
+
+        if not success:
+            issues.append(
+                (
+                    'Could not set the color space of image "{}" to "{}".'
+                ).format(
+                    image_name,
+                    image_data.get(
+                        "required_colorspace",
+                        REQUIRED_COLORSPACE_LABEL,
+                    ),
                 )
             )
             continue
@@ -545,9 +575,14 @@ def analyze_scene_texture_usage(
                 )
             )
 
-            if not node_usage[
-                "non_color_usages"
-            ]:
+            if not (
+                node_usage[
+                    "non_color_usages"
+                ]
+                or node_usage[
+                    "color_usages"
+                ]
+            ):
                 continue
 
             image_key = (
@@ -576,9 +611,7 @@ def analyze_scene_texture_usage(
                         ),
 
                     "required_colorspace":
-                        settings[
-                            "required_colorspace"
-                        ],
+                        REQUIRED_COLORSPACE_LABEL,
 
                     "non_color_usages":
                         set(),
@@ -639,10 +672,6 @@ def analyze_scene_texture_usage(
 
     failed_images = {}
 
-    required_colorspace = settings[
-        "required_colorspace"
-    ]
-
     for record in image_usage.values():
 
         image = record.pop(
@@ -655,11 +684,33 @@ def analyze_scene_texture_usage(
             )
         )
 
-        if colorspace_matches(
-            current=current_colorspace,
-            required=required_colorspace,
-        ):
-            continue
+        if record[
+            "non_color_usages"
+        ]:
+            # Used as non-color data (alone, or mixed with color use).
+            if is_image_data(
+                image
+            ):
+                continue
+
+            record[
+                "failure_kind"
+            ] = "non_color"
+
+        else:
+            # Used purely as color.
+            if not is_image_data(
+                image
+            ):
+                continue
+
+            record[
+                "failure_kind"
+            ] = "color"
+
+            record[
+                "required_colorspace"
+            ] = COLOR_COLORSPACE_NAME
 
         record[
             "current_colorspace"
@@ -889,6 +940,24 @@ def classify_destination_socket(
     )
 
     # ------------------------------------------------------------------
+    # Intermediate processing nodes
+    # ------------------------------------------------------------------
+    #
+    # Color Ramp, Math, Map Range, Mix (color inputs), etc. only transform
+    # a value on its way to somewhere else. Their input sockets (Fac, Value,
+    # Color...) do NOT describe what the image is used for, so classifying
+    # by socket name here wrongly labeled color textures as masks (for
+    # example a Base Color texture routed through a Color Ramp "Fac" input).
+    # Return None so the trace keeps following the links and the final
+    # destination decides the usage.
+
+    if is_passthrough_input(
+        node=node,
+        socket_name=socket_name,
+    ):
+        return None
+
+    # ------------------------------------------------------------------
     # Dedicated normal and bump nodes
     # ------------------------------------------------------------------
 
@@ -1059,6 +1128,62 @@ def classify_destination_socket(
 # Socket rules
 # -------------------------------------------------------------------------
 
+# Node types that only process a value and hand it on. Every input socket on
+# these nodes is "in transit"; the real usage is decided by wherever the
+# chain finally ends.
+PASSTHROUGH_NODE_TYPES = {
+    "VALTORGB",         # Color Ramp
+    "MATH",
+    "VECT_MATH",
+    "MAP_RANGE",
+    "CLAMP",
+    "INVERT",
+    "HUE_SAT",
+    "BRIGHTCONTRAST",
+    "GAMMA",
+    "CURVE_RGB",
+    "RGBTOBW",
+    "SEPRGB",
+    "COMBRGB",
+    "SEPARATE_COLOR",
+    "COMBINE_COLOR",
+    "SEPARATE_XYZ",
+    "COMBINE_XYZ",
+    "REROUTE",
+}
+
+# Mix nodes: the color inputs (A / B) are in transit, but the Factor input
+# is a real mask usage (a texture driving the blend amount is data).
+MIX_NODE_TYPES = {
+    "MIX",
+    "MIX_RGB",
+}
+
+
+def is_passthrough_input(
+        node,
+        socket_name,
+    ):
+    """
+    Return True when this input socket belongs to an intermediate
+    processing node, so tracing should continue past it instead of
+    classifying the image by this socket's name.
+    """
+    node_type = getattr(
+        node,
+        "type",
+        "",
+    )
+
+    if node_type in MIX_NODE_TYPES:
+        return socket_name not in {
+            "fac",
+            "factor",
+        }
+
+    return node_type in PASSTHROUGH_NODE_TYPES
+
+
 def is_roughness_socket(
         socket_name,
     ):
@@ -1137,6 +1262,7 @@ def is_mask_or_data_socket(
         "coat weight",
         "sheen weight",
         "emission strength",
+        "subsurface radius",
     }
 
     if socket_name in non_color_names:
@@ -1147,12 +1273,6 @@ def is_mask_or_data_socket(
         "type",
         "",
     )
-
-    if node_type == "MATH":
-        return True
-
-    if node_type == "VECT_MATH":
-        return True
 
     if node_type == "DISPLACEMENT":
         return True
@@ -1170,7 +1290,6 @@ def is_color_socket(
         "color",
         "emission color",
         "emission",
-        "subsurface radius",
         "subsurface color",
         "coat tint",
         "sheen tint",
@@ -1186,24 +1305,14 @@ def is_color_socket(
         "",
     )
 
-    # These nodes can process either color or data. Do not finalize their
-    # classification here; traversal should continue to their destination.
-    passthrough_types = {
-        "MIX",
-        "MIX_RGB",
-        "VALTORGB",
-        "SEPRGB",
-        "COMBRGB",
-        "SEPARATE_COLOR",
-        "COMBINE_COLOR",
-        "REROUTE",
-        "GROUP",
-    }
-
-    return (
-        node_type
-        not in passthrough_types
-    )
+    # Node Groups can expose sockets with color-like names while processing
+    # either color or data internally. Do not finalize their classification
+    # here; traversal should continue to their destination.
+    #
+    # Other processing nodes (Mix, Color Ramp, Separate/Combine Color,
+    # Reroute...) are already handled by is_passthrough_input() before this
+    # function is ever reached.
+    return node_type != "GROUP"
 
 
 def get_data_usage_label(
@@ -1240,6 +1349,9 @@ def get_data_usage_label(
 
         "value":
             "Scalar Data",
+
+        "subsurface radius":
+            "Subsurface Radius",
     }
 
     return labels.get(
@@ -1445,29 +1557,81 @@ def get_image_colorspace(
         return "Unknown"
 
 
-def colorspace_matches(
-        current,
-        required,
+def is_image_data(
+        image,
     ):
     """
-    Handles minor naming variations such as Non-Color and Non-Colour.
+    Return True when Blender treats the image as non-color data.
+
+    Uses Blender's own "is_data" flag so the result does not depend on how
+    a given OCIO config names its non-color space. If the flag is
+    unavailable, falls back to comparing against the default "Non-Color"
+    name.
     """
-    current = normalize_name(
-        current
-    ).replace(
-        "colour",
-        "color",
+    try:
+        return bool(
+            image.colorspace_settings.is_data
+        )
+
+    except Exception:
+        return (
+            normalize_name(
+                get_image_colorspace(
+                    image
+                )
+            ).replace(
+                "colour",
+                "color",
+            )
+            == "non-color"
+        )
+
+
+def set_image_as_data(
+        image,
+    ):
+    """
+    Marks an image as non-color data. Returns True when the image ends up
+    treated as data.
+
+    Tries the "is_data" flag first. If that has no effect on this Blender
+    build, falls back to the default "Non-Color" color space name.
+    """
+    colorspace_settings = (
+        image.colorspace_settings
     )
 
-    required = normalize_name(
-        required
-    ).replace(
-        "colour",
-        "color",
+    try:
+        colorspace_settings.is_data = True
+
+    except Exception:
+        pass
+
+    if is_image_data(
+        image
+    ):
+        return True
+
+    colorspace_settings.name = "Non-Color"
+
+    return is_image_data(
+        image
     )
 
-    return (
-        current == required
+
+def set_image_as_color(
+        image,
+    ):
+    """
+    Sets an image used as color to the expected color space. Returns True
+    when the image is no longer treated as data.
+    """
+    image.colorspace_settings.name = (
+        COLOR_COLORSPACE_NAME
+    )
+
+    return not is_image_data(
+        image
     )
 
 
