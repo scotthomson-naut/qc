@@ -31,6 +31,7 @@ match the shape of the Blender package we will eventually distribute.
 from __future__ import annotations
 
 import argparse
+from datetime import datetime
 from pathlib import Path
 import py_compile
 import re
@@ -931,6 +932,35 @@ def package_product(
         for name in names
     ):
         pass
+
+    # Create an editable changelog beside the successful ZIP build.
+    # Never overwrite notes already written for this version.
+    changelog_path = output_path.with_suffix(".log")
+    if not changelog_path.exists():
+        timestamp = datetime.now().strftime("%Y-%m-%d @ %H:%M:%S")
+        template = (
+            "# Changelog\n\n"
+            f"## {version}-beta - {timestamp}\n\n"
+            "### Fixed\n"
+            "* In **CATEGORY** check **NAME**:\n"
+            "  * Setting X.\n"
+            "  * Setting Y.\n\n"
+            "* In **CATEGORY** check **NAME**:\n"
+            "  * Setting X.\n"
+            "  * Setting Y.\n\n"
+            "### Added\n"
+            "* In **CATEGORY** check **NAME**:\n"
+            "  * Setting X.\n"
+            "  * Setting Y.\n\n"
+            "### Removed\n"
+            "* In **CATEGORY** check **NAME**:\n"
+            "  * Setting X.\n"
+            "  * Setting Y.\n"
+        )
+        changelog_path.write_text(template, encoding="utf-8")
+        print(f"  Changelog created: {changelog_path}")
+    else:
+        print(f"  Changelog preserved (already exists): {changelog_path}")
 
     print(
         "  Installable ZIP: {}".format(
