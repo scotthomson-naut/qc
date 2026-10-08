@@ -75,7 +75,7 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
             Fix only the selected check on the selected object.
     """
 
-    bl_label = f"QC Checker | {TIER}"
+    bl_label = f"QC Checker | {TIER} {VERSION}-{BUILD_CHANNEL}"
     bl_idname = "SCRIPTRONAUT_PT_QC_Checks"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
@@ -313,16 +313,6 @@ class SCRIPTRONAUT_PT_QC_Checks(Panel):
 
         if INCLUDE_BETA_TOOLS:
             beta_box = layout.box()
-            build_label = "Beta" if BUILD_CHANNEL == "beta" else "Dev"
-            beta_box.label(
-                text="{} | Build: {}-{}".format(
-                    build_label,
-                    VERSION,
-                    BUILD_CHANNEL,
-                ),
-                icon="EXPERIMENTAL",
-            )
-
             beta_row = beta_box.row(
                 align=True
             )

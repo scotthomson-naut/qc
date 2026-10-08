@@ -127,7 +127,7 @@ def get_objects_with_keyframes_outside_timeline(
 
         for fcurve in get_action_fcurves(action):
             for keyframe_point in fcurve.keyframe_points:
-                frame = float(
+                frame = normalize_frame(
                     keyframe_point.co.x
                 )
 
@@ -274,6 +274,12 @@ def get_action_fcurves(action):
                         )
 
     return found_fcurves
+
+
+def normalize_frame(frame):
+    """Keep subframes precise, but store whole-number frames as integers."""
+    frame = float(frame)
+    return int(frame) if frame.is_integer() else frame
 
 
 def format_frame(frame):
