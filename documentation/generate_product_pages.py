@@ -121,32 +121,19 @@ def product_loop_video_html(content: dict[str, Any], site_prefix: str) -> str:
     """
     Build the muted autoplay looping video shown at the top of a product page.
     """
-    webm = str(content.get("loop_video_webm", "") or "").strip()
     mp4 = str(content.get("loop_video_mp4", "") or "").strip()
 
-    if webm or mp4:
-        sources = []
-        if webm:
-            sources.append(
-                '<source src="{}{}" type="video/webm">'.format(
-                    site_prefix, esc(webm)
-                )
-            )
-        if mp4:
-            sources.append(
-                '<source src="{}{}" type="video/mp4">'.format(
-                    site_prefix, esc(mp4)
-                )
-            )
+    if mp4:
         return (
             '<div class="product-visual product-loop-video">'
             '<video autoplay loop muted playsinline preload="auto" '
             'aria-label="{}">'
-            '{}Your browser does not support the video tag.'
+            '<source src="{}{}" type="video/mp4">'
+            'Your browser does not support the video tag.'
             '</video></div>'
         ).format(
             esc(content.get("loop_video_title", "Product preview")),
-            "".join(sources),
+            site_prefix, esc(mp4),
         )
 
     return (
