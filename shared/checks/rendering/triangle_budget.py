@@ -33,7 +33,7 @@ SETTINGS = {
         ),
         "default": 500000,
         "min": 1,
-        "max": 5000000,
+        "max": 50000000,
     },
 
     "budget_object": {
@@ -44,7 +44,7 @@ SETTINGS = {
         ),
         "default": 50000,
         "min": 1,
-        "max": 500000,
+        "max": 2000000,
     },
 }
 
