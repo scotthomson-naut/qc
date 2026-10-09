@@ -13,7 +13,9 @@ DESCRIPTION = (
     'displacement, masks, or other non-color data and verifies that their '
     'image color space is set to non-color data. Also checks image textures '
     'used purely as color (Base Color, Emission Color, etc.) and verifies '
-    'they are not set to Non-Color.'
+    'they are not set to Non-Color. Images used '
+    'for both color and non-color purposes are skipped by default because one '
+    'global image color-space setting cannot be correct for both uses.'
 )
 WHY = (
     'Prevents color-management transforms such as sRGB gamma from altering '
@@ -209,10 +211,23 @@ def main(preferences=None):
         if image_data.get(
             "mixed_usage"
         ):
+            color_places = get_usage_locations(
+                image_data,
+                color=True,
+            )
+
             message += (
-                " The image is also used as color data. No single global "
+                " The image is also used as color data{}. No single global "
                 "image color-space setting is correct for both uses; manual "
                 "material/node-tree review is required."
+            ).format(
+                " ({})".format(
+                    ", ".join(
+                        color_places
+                    )
+                )
+                if color_places
+                else ""
             )
 
         issues.append(
@@ -1470,6 +1485,43 @@ def build_failed_materials(
                     image_data[
                         "mixed_usage"
                     ],
+
+                # Image-wide view. The two usage lists above only describe
+                # this node, while an image can be used by many nodes and
+                # materials. These fields show the whole picture.
+                "image_non_color_usages":
+                    image_data[
+                        "non_color_usages"
+                    ],
+
+                "image_color_usages":
+                    image_data[
+                        "color_usages"
+                    ],
+
+                "used_as_color_in":
+                    get_usage_locations(
+                        image_data,
+                        color=True,
+                        exclude=(
+                            material_name,
+                            usage[
+                                "node_name"
+                            ],
+                        ),
+                    ),
+
+                "used_as_data_in":
+                    get_usage_locations(
+                        image_data,
+                        color=False,
+                        exclude=(
+                            material_name,
+                            usage[
+                                "node_name"
+                            ],
+                        ),
+                    ),
             })
 
     for material_data in (
@@ -1484,6 +1536,83 @@ def build_failed_materials(
         )
 
     return failed_materials
+
+
+def get_usage_locations(
+        image_data,
+        color,
+        exclude=None,
+        limit=5,
+    ):
+    """
+    Lists where an image is used, as readable "Material / Node: Usage"
+    strings.
+
+    Args:
+        image_data (dict):
+            Image record containing the per-node "usages" list.
+
+        color (bool):
+            True to list nodes where the image is used as color,
+            False to list nodes where it is used as non-color data.
+
+        exclude (tuple[str, str] | None):
+            (material_name, node_name) of a node to leave out, so an
+            entry can list only the OTHER places the image is used.
+
+        limit (int):
+            Maximum number of locations returned before the rest are
+            summarised as "+N more".
+
+    Returns:
+        list[str]
+    """
+    usage_key = (
+        "color_usages"
+        if color
+        else "non_color_usages"
+    )
+
+    locations = []
+
+    for usage in image_data.get(
+        "usages",
+        [],
+    ):
+        if exclude is not None and (
+            usage["material_name"],
+            usage["node_name"],
+        ) == exclude:
+            continue
+
+        usage_names = usage.get(
+            usage_key,
+            [],
+        )
+
+        if not usage_names:
+            continue
+
+        locations.append(
+            "{} / {}: {}".format(
+                usage["material_name"],
+                usage["node_name"],
+                ", ".join(
+                    usage_names
+                ),
+            )
+        )
+
+    if len(locations) > limit:
+        extra = len(locations) - limit
+
+        locations = locations[:limit] + [
+            "+{} more".format(
+                extra
+            )
+        ]
+
+    return locations
 
 
 def get_scene_materials(
