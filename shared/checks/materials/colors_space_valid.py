@@ -15,7 +15,9 @@ DESCRIPTION = (
     'used purely as color (Base Color, Emission Color, etc.) and verifies '
     'they are not set to Non-Color. Images used '
     'for both color and non-color purposes are skipped by default because one '
-    'global image color-space setting cannot be correct for both uses.'
+    'global image color-space setting cannot be correct for both uses. '
+    'An image\'s Alpha output is ignored because color space does not '
+    'affect alpha.'
 )
 WHY = (
     'Prevents color-management transforms such as sRGB gamma from altering '
@@ -798,6 +800,10 @@ def classify_image_texture_usage(
     Therefore a texture genuinely used both as Base Color and as a mask/data
     input is still classified as mixed usage.
 
+    The Alpha output is ignored: color space does not affect alpha, so
+    wiring it (for example to a Principled Alpha input) is not a usage that
+    constrains the image color space.
+
     Returns:
         dict:
         {
@@ -821,6 +827,15 @@ def classify_image_texture_usage(
     visited = set()
 
     for output_socket in node.outputs:
+
+        # The image's Alpha output is not affected by the image color space
+        # (alpha is always linear), so it says nothing about whether the
+        # image should be sRGB or Non-Color. Only the Color output counts.
+        if is_alpha_output(
+            output_socket
+        ):
+            continue
+
         for link in output_socket.links:
             trace_socket_usage(
                 node=link.to_node,
@@ -1173,6 +1188,25 @@ MIX_NODE_TYPES = {
     "MIX",
     "MIX_RGB",
 }
+
+
+def is_alpha_output(
+        socket,
+    ):
+    """
+    Return True when the socket is an Image Texture node's Alpha output.
+    """
+    return normalize_name(
+        getattr(
+            socket,
+            "identifier",
+            getattr(
+                socket,
+                "name",
+                "",
+            ),
+        )
+    ) == "alpha"
 
 
 def is_passthrough_input(
