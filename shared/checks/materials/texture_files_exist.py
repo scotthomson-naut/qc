@@ -183,9 +183,14 @@ def get_images_with_missing_file_paths(
 
             continue
 
-        absolute_path = bpy.path.abspath(
-            filepath,
-            library=image.library,
+        # Blender can leave ".." segments in the resolved path. On Windows,
+        # Python's file checks can fail on such unresolved (and long) paths
+        # even when the file exists, so clean the path before testing it.
+        absolute_path = os.path.normpath(
+            bpy.path.abspath(
+                filepath,
+                library=image.library,
+            )
         )
 
         # -----------------------------------------------------
